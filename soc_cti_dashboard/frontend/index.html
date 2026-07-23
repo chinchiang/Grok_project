@@ -37,6 +37,7 @@
     <button class="tab" data-view="ot" data-i18n="tabOt">⚙️ OT／ICS</button>
     <button class="tab" data-view="dark" data-i18n="tabDark">🌑 暗網／外洩</button>
     <button class="tab" data-view="ems" data-i18n="tabEms">🏭 臺灣電子製造</button>
+    <button class="tab" data-view="finance" data-i18n="tabFinance">💰 金融專區</button>
     <button class="tab" data-view="sources" data-i18n="tabSources">來源與排程</button>
   </nav>
 
@@ -77,7 +78,7 @@
         </article>
       </section>
 
-      <!-- 五張專區導覽磚 -->
+      <!-- 專區導覽磚 -->
       <h2 class="section-title" data-i18n="navTilesTitle">專區導覽</h2>
       <section class="nav-tiles" id="navTiles">
         <button type="button" class="nav-tile" data-goto="taiwan">
@@ -99,6 +100,11 @@
           <span class="nav-tile-ico">🏭</span>
           <span class="nav-tile-name" data-i18n="tabEms">臺灣電子製造</span>
           <span class="nav-tile-count"><span id="tileEms">0</span> <span data-i18n="unitJian">件</span></span>
+        </button>
+        <button type="button" class="nav-tile" data-goto="finance">
+          <span class="nav-tile-ico">💰</span>
+          <span class="nav-tile-name" data-i18n="tabFinance">金融專區</span>
+          <span class="nav-tile-count"><span id="tileFin">0</span> <span data-i18n="unitJian">件</span></span>
         </button>
         <button type="button" class="nav-tile" data-goto="sources">
           <span class="nav-tile-ico">📡</span>
@@ -195,6 +201,37 @@
       <div class="card-list" id="emsRansomList"></div>
       <h3 class="section-h" data-i18n="emsOtherSection">其他電子製造命中</h3>
       <div class="card-list" id="emsOtherList"></div>
+    </section>
+
+    <!-- ========== 金融專區 ========== -->
+    <section class="view" id="view-finance">
+      <div class="tw-banner finance-banner">
+        <div>
+          <h2 data-i18n="finTitle">💰 金融專區</h2>
+          <p data-i18n="finDesc">銀行／支付／證券／保險與 SWIFT 等金融關鍵字命中；勒索置頂，KEV 獨立列出。監控名單為範圍，非統計數字。</p>
+        </div>
+        <div class="tw-stats">
+          <div><span id="finHitTotal">0</span><small data-i18n="finStatTotal">金融相關</small></div>
+          <div class="hot"><span id="finHitRansom">0</span><small data-i18n="finStatRansom">勒索</small></div>
+          <div><span id="finHitKev">0</span><small data-i18n="finStatKev">KEV</small></div>
+        </div>
+      </div>
+
+      <section class="watch-lists fin-watch">
+        <div class="watch-card">
+          <h3 data-i18n="finWatchTitle">金融監控範圍（關鍵字／實體）</h3>
+          <p class="watch-note" data-i18n="watchNotStats">非統計數字 · 名單導向</p>
+          <div class="watch-chips" id="watchFinance"></div>
+        </div>
+      </section>
+
+      <div class="entity-chips" id="finEntityChips"></div>
+      <h3 class="section-h ransom-h" data-i18n="finRansomSection">🔐 金融＋勒索（優先關注）</h3>
+      <div class="card-list" id="finRansomList"></div>
+      <h3 class="section-h" data-i18n="finKevSection">KEV 金融相關</h3>
+      <div class="card-list" id="finKevList"></div>
+      <h3 class="section-h" data-i18n="finOtherSection">其他金融情資</h3>
+      <div class="card-list" id="finOtherList"></div>
     </section>
 
     <!-- ========== 來源與排程 ========== -->

@@ -728,7 +728,7 @@ main { padding: 14px 14px 40px; max-width: 1480px; margin: 0 auto; }
 
 .nav-tiles {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 12px;
   margin-bottom: 20px;
 }
@@ -842,6 +842,13 @@ main { padding: 14px 14px 40px; max-width: 1480px; margin: 0 auto; }
 
 .ems-watch .watch-card {
   border-color: #4a3060;
+}
+
+.fin-watch {
+  grid-template-columns: 1fr;
+}
+.fin-watch .watch-card {
+  border-color: #1b5e20;
 }
 
 @media (max-width: 1100px) {

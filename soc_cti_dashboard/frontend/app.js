@@ -467,6 +467,7 @@ async function loadKpis() {
   if ($("#tileTw")) $("#tileTw").textContent = k.tw_industry_count ?? 0;
   if ($("#tileEms"))
     $("#tileEms").textContent = k.ems_count ?? k.tw_industry_count ?? 0;
+  if ($("#tileFin")) $("#tileFin").textContent = k.finance_count ?? 0;
   if ($("#tileDark"))
     $("#tileDark").textContent =
       k.ransomware_count ?? k.breach_count ?? 0;
@@ -574,6 +575,37 @@ async function loadEms() {
   renderEntityChips($("#entityChips"), data.entity_counts);
   renderList($("#emsRansomList"), data.tw_ransomware, 40);
   renderList($("#emsOtherList"), data.tw_other, 40);
+}
+
+async function loadFinance() {
+  const data = await api("/api/finance-dashboard");
+  if ($("#finHitTotal")) $("#finHitTotal").textContent = data.stats?.total ?? 0;
+  if ($("#finHitRansom")) $("#finHitRansom").textContent = data.stats?.ransomware ?? 0;
+  if ($("#finHitKev")) $("#finHitKev").textContent = data.stats?.kev ?? 0;
+
+  const chips = $("#watchFinance");
+  if (chips) {
+    const wl = data.watchlist || [];
+    chips.innerHTML = wl.length
+      ? wl
+          .map((w) => {
+            const label = typeof w === "string" ? w : w.key || w.name || "";
+            const tier = w && w.tier ? ` · ${w.tier}` : "";
+            return `<span>${escapeHtml(label)}${escapeHtml(tier)}</span>`;
+          })
+          .join("")
+      : `<span>${t("empty")}</span>`;
+  }
+
+  renderEntityChips($("#finEntityChips"), data.entity_counts);
+  renderList($("#finRansomList"), data.ransomware, 40);
+  renderList($("#finKevList"), data.kev_items, 40);
+  // other：排除已在 KEV 區出現的 id，避免重複
+  const kevIds = new Set((data.kev_items || []).map((i) => i.id || i.url || i.title));
+  const other = (data.other || []).filter(
+    (i) => !kevIds.has(i.id) && !kevIds.has(i.url) && !kevIds.has(i.title)
+  );
+  renderList($("#finOtherList"), other, 60);
 }
 
 async function loadOt() {
@@ -931,6 +963,7 @@ async function loadView(view) {
   if (view === "ot") await loadOt();
   if (view === "dark") await loadDark();
   if (view === "ems") await loadEms();
+  if (view === "finance") await loadFinance();
   if (view === "sources") await loadSources();
 }
 

@@ -3,13 +3,14 @@ const I18N = {
     appTitle: "SOC 即時威脅情資中心",
     appSubtitle: "OSINT CTI · CISA KEV · 七層來源 · 臺灣時區",
     manualScan: "立即巡檢",
-    // —— 七分頁 ——
+    // —— 分頁 ——
     tabOverview: "總覽",
     tabHighRisk: "P0／P1 高風險",
     tabTaiwan: "🇹🇼 臺灣專區",
     tabOt: "⚙️ OT／ICS",
     tabDark: "🌑 暗網／外洩",
     tabEms: "🏭 臺灣電子製造",
+    tabFinance: "💰 金融專區",
     tabSources: "來源與排程",
     // 營運概況四卡
     opsP0: "P0 緊急",
@@ -41,6 +42,17 @@ const I18N = {
     watchEmsTitle: "電子製造 · 監控次產業",
     watchNotStats: "非統計數字 · 名單導向",
     twRansomSection: "🔐 勒索相關（置頂強調）",
+    // 金融專區
+    finTitle: "💰 金融專區",
+    finDesc:
+      "銀行／支付／證券／保險與 SWIFT 等金融關鍵字命中；勒索置頂，KEV 獨立列出。監控名單為範圍，非統計數字。",
+    finStatTotal: "金融相關",
+    finStatRansom: "勒索",
+    finStatKev: "KEV",
+    finWatchTitle: "金融監控範圍（關鍵字／實體）",
+    finRansomSection: "🔐 金融＋勒索（優先關注）",
+    finKevSection: "KEV 金融相關",
+    finOtherSection: "其他金融情資",
     // 來源與方法論
     layersHealthTitle: "七層來源健康",
     methodTitle: "方法論",
@@ -88,13 +100,14 @@ const I18N = {
     appTitle: "SOC Live Threat Intel Center",
     appSubtitle: "OSINT CTI · CISA KEV · 7 Layers · Asia/Taipei",
     manualScan: "Scan Now",
-    // —— 7 tabs ——
+    // —— tabs ——
     tabOverview: "Overview",
     tabHighRisk: "P0 / P1 High risk",
     tabTaiwan: "🇹🇼 Taiwan",
     tabOt: "⚙️ OT / ICS",
     tabDark: "🌑 Dark web / Breach",
     tabEms: "🏭 TW electronics mfg",
+    tabFinance: "💰 Finance",
     tabSources: "Sources & schedule",
     // Ops KPIs
     opsP0: "P0 Critical",
@@ -126,6 +139,17 @@ const I18N = {
     watchEmsTitle: "Electronics mfg · sub-sectors",
     watchNotStats: "Not statistics · list-based scope",
     twRansomSection: "🔐 Ransomware (pinned)",
+    // Finance zone
+    finTitle: "💰 Finance zone",
+    finDesc:
+      "Banking / payments / securities / insurance & SWIFT keyword hits; ransomware pinned, KEV listed separately. Watchlist is scope, not statistics.",
+    finStatTotal: "Finance-related",
+    finStatRansom: "Ransomware",
+    finStatKev: "KEV",
+    finWatchTitle: "Finance watch scope (keywords / entities)",
+    finRansomSection: "🔐 Finance + ransomware (priority)",
+    finKevSection: "KEV finance-related",
+    finOtherSection: "Other finance intel",
     // Sources & methodology
     layersHealthTitle: "7-layer source health",
     methodTitle: "Methodology",
