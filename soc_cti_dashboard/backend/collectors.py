@@ -296,7 +296,8 @@ async def collect_rss_layer(
         content = ""
         async with await _client() as client:
             last_err: Exception | None = None
-            for candidate in [url] + ([fallback_url] if fallback_url else []):
+            candidates = [url] + ([fallback_url] if fallback_url else [])
+            for candidate in candidates:
                 if not candidate:
                     continue
                 try:
@@ -309,9 +310,18 @@ async def collect_rss_layer(
                                 "Chrome/128.0.0.0 Safari/537.36"
                             ),
                             "Accept": "application/rss+xml, application/xml, text/xml, */*",
+                            "Accept-Language": "en-US,en;q=0.9",
                         },
+                        timeout=HTTP_TIMEOUT,
                     )
                     r.raise_for_status()
+                    # Skip empty / non-feed HTML bodies and try next candidate
+                    parsed = feedparser.parse(r.content)
+                    if not parsed.entries:
+                        last_err = RuntimeError(
+                            f"no RSS entries from {candidate} (HTTP {r.status_code})"
+                        )
+                        continue
                     content = r.text
                     used_url = candidate
                     last_err = None

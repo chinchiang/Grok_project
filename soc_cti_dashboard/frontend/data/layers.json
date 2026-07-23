@@ -330,12 +330,12 @@
           "source_id": "therecord_rss",
           "layer_id": "L6",
           "name": "The Record",
-          "last_success": "2026-07-23T21:04:35+08:00",
+          "last_success": "2026-07-23T21:41:23+08:00",
           "last_error": null,
-          "last_attempt": "2026-07-23T21:04:35+08:00",
+          "last_attempt": "2026-07-23T21:41:23+08:00",
           "status": "healthy",
           "item_count": 5,
-          "latency_ms": 1247,
+          "latency_ms": 1202,
           "detail": "url=https://therecord.media/feed/"
         },
         {

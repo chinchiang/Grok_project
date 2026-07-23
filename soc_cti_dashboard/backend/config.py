@@ -56,6 +56,12 @@ CYBERSECURITYNEWS_GNEWS_RSS = (
 )
 SECURITYWEEK_RSS = "https://www.securityweek.com/feed/"
 THERECORD_RSS = "https://therecord.media/feed/"
+# Record Media may block datacenter IPs (GitHub Actions) → Google News fallback
+THERECORD_GNEWS_RSS = (
+    "https://news.google.com/rss/search?q=site:therecord.media"
+    "+(cyber+OR+ransomware+OR+breach+OR+hack+OR+malware)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
 # Dragos OT research — site may block bots; Google News fallback
 DRAGOS_RSS_CANDIDATES = (
     "https://www.dragos.com/feed/",
@@ -150,6 +156,7 @@ INTEL_FEEDS: list[dict] = [
         "layer_id": "L6",
         "name": "The Record",
         "url": THERECORD_RSS,
+        "fallback_url": THERECORD_GNEWS_RSS,
         "force_all": True,
         "max_items": 20,
         "darkweb_indirect": False,
