@@ -234,32 +234,44 @@ const WATCH_BIG5 = [
   "緯創 3231 Wistron",
 ];
 const WATCH_SEMI = [
-  "台積電 2330",
-  "聯電 2303",
-  "日月光 3711",
-  "聯發科 2454",
-  "聯詠 3034",
-  "瑞昱 2379",
-  "南亞科 2408",
-  "力積電 6770",
-  "世界先進 5347",
-  "力成 6239",
-  "京元電 2449",
-  "頎邦 6147",
-  "…",
+  "台積電 2330 TSMC",
+  "聯電 2303 UMC",
+  "日月光 3711 ASE",
+  "聯發科 2454 MediaTek",
+  "聯詠 3034 Novatek",
+  "瑞昱 2379 Realtek",
+  "南亞科 2408 Nanya",
+  "力積電 6770 Powerchip",
+  "世界先進 5347 VIS",
+  "力成 6239 PSMC",
+  "京元電 2449 KYEC",
+  "頎邦 6147 Chipbond",
+  "華邦電 2344 Winbond",
+  "旺宏 2337 Macronix",
+  "矽品 2325 SPIL",
+  "金士頓 Kingston",
+  "創意 3443 GlobalUnichip",
+  "祥碩 5269 ASMedia",
 ];
 const WATCH_EMS = [
-  "英業達 2356",
-  "光寶 2301",
-  "台達電 2308",
-  "華碩 2357",
-  "宏碁 2353",
-  "技嘉 2376",
-  "微星 2377",
-  "友達 2409",
-  "群創 3481",
-  "研華 2395",
-  "…",
+  "英業達 2356 Inventec",
+  "光寶 2301 Lite-On",
+  "台達電 2308 Delta",
+  "華碩 2357 ASUS",
+  "宏碁 2353 Acer",
+  "技嘉 2376 Gigabyte",
+  "微星 2377 MSI",
+  "友達 2409 AUO",
+  "群創 3481 Innolux",
+  "研華 2395 Advantech",
+  "可成 2474 Catcher",
+  "鴻準 2354 Foxconn Precision",
+  "正崴 2392 Foxlink",
+  "和勤 1580",
+  "新金寶 2312 Cal-Comp",
+  "緯穎 6669 Wiwynn",
+  "健鼎 3044 Tripod",
+  "欣興 3037 Unimicron",
 ];
 
 function fillWatchLists() {
@@ -271,6 +283,20 @@ function fillWatchLists() {
   fill("#watchBig5", WATCH_BIG5);
   fill("#watchSemi", WATCH_SEMI);
   fill("#watchEms", WATCH_EMS);
+}
+
+function goToView(view) {
+  const tab = $(`.tab[data-view="${view}"]`);
+  if (tab) tab.click();
+}
+
+async function ensureIntel() {
+  if (USE_STATIC) {
+    if (!cache.intel) cache.intel = await loadStaticJson("intel.json");
+    return cache.intel.items || [];
+  }
+  const d = await api("/api/intel?limit=300");
+  return d.items || [];
 }
 
 function escapeHtml(s) {
@@ -407,38 +433,44 @@ async function staticApi(path, opts) {
 
 async function loadKpis() {
   const k = await api("/api/kpis");
-  $("#kpiP0").textContent = k.p0_count ?? 0;
-  $("#kpiKev").textContent = k.kev_recent_7d ?? 0;
-  $("#kpiKevHint").textContent =
-    currentLang === "zh"
-      ? `近60日 ${k.kev_recent_60d ?? 0} · 本庫 ${k.kev_total ?? 0}`
-      : `60d ${k.kev_recent_60d ?? 0} · DB ${k.kev_total ?? 0}`;
-  $("#kpiTw").textContent = `${k.tw_industry_count ?? 0} / ${k.tw_ransomware_count ?? 0}`;
-  $("#kpiHealth").textContent = `${k.source_health_pct ?? 0}%`;
-  $("#kpiHealthHint").textContent =
-    currentLang === "zh"
-      ? `${k.sources_healthy ?? 0}/${k.sources_total ?? 0} 來源正常`
-      : `${k.sources_healthy ?? 0}/${k.sources_total ?? 0} sources OK`;
+  cache.kpis = k;
 
-  // Risk KPIs
-  if ($("#kpiBreach")) $("#kpiBreach").textContent = k.breach_count ?? k.ransomware_count ?? 0;
-  if ($("#kpiBig5")) $("#kpiBig5").textContent = k.big5_count ?? 0;
-  if ($("#kpiSemi")) $("#kpiSemi").textContent = k.semi_count ?? 0;
-  if ($("#kpiEms")) $("#kpiEms").textContent = k.ems_count ?? 0;
-  if ($("#kpiUnverified")) $("#kpiUnverified").textContent = k.unverified_count ?? 0;
+  // 營運概況四卡：P0 / P1 / 核實度 / 完整度
+  if ($("#opsP0")) $("#opsP0").textContent = k.p0_count ?? 0;
+  if ($("#opsP1")) $("#opsP1").textContent = k.p1_count ?? 0;
+  const totalItems =
+    (k.p0_count || 0) +
+    (k.p1_count || 0) +
+    (k.p2_count || 0) +
+    (k.p3_count || 0);
+  // 核實度 = (已證實 + 可信) / 全部 ≈ 1 − 未核實 / 全部
+  const unv = k.unverified_count ?? 0;
+  const denom = Math.max(totalItems, 1);
+  const vPct = Math.min(100, Math.max(0, Math.round(100 * (1 - unv / denom))));
+  if ($("#opsVerify")) $("#opsVerify").textContent = Number.isFinite(vPct) ? vPct : 0;
+  if ($("#opsVerifyHint")) {
+    $("#opsVerifyHint").textContent =
+      currentLang === "zh"
+        ? `已證實+可信／全部 · 未核實 ${unv}`
+        : `Confirmed+Credible / all · unverified ${unv}`;
+  }
+  const health = k.source_health_pct ?? 0;
+  if ($("#opsComplete")) $("#opsComplete").textContent = health;
+  if ($("#opsCompleteHint")) {
+    $("#opsCompleteHint").textContent =
+      currentLang === "zh"
+        ? `${k.sources_healthy ?? 0}/${k.sources_total ?? 0} 來源正常`
+        : `${k.sources_healthy ?? 0}/${k.sources_total ?? 0} sources OK`;
+  }
 
-  const s = k.series_30d || {};
-  drawSpark($("#sparkBreach"), s.breach, "#ff1744");
-  drawSpark($("#sparkBig5"), s.big5, "#ff4081");
-  drawSpark($("#sparkSemi"), s.semi, "#ff9100");
-  drawSpark($("#sparkEms"), s.ems, "#00e5ff");
-  drawSpark($("#sparkUnverified"), s.unverified, "#e040fb");
-  drawTrendChart(s);
-
-  if ($("#kevStat60")) $("#kevStat60").textContent = k.kev_recent_60d ?? 0;
-  if ($("#kevStatTotal")) $("#kevStatTotal").textContent = k.kev_total ?? 0;
-
-  fillWatchLists();
+  // 專區導覽磚件數
+  if ($("#tileTw")) $("#tileTw").textContent = k.tw_industry_count ?? 0;
+  if ($("#tileEms"))
+    $("#tileEms").textContent = k.ems_count ?? k.tw_industry_count ?? 0;
+  if ($("#tileDark"))
+    $("#tileDark").textContent =
+      k.ransomware_count ?? k.breach_count ?? 0;
+  if ($("#tileSrc")) $("#tileSrc").textContent = health;
 
   const scan = await api("/api/scan/status");
   const parts = [
@@ -448,15 +480,14 @@ async function loadKpis() {
   if (USE_STATIC) {
     parts.push(
       currentLang === "zh"
-        ? "模式：靜態＋瀏覽器即時巡檢（KEV／勒索雙源）"
-        : "Mode: static + browser live scan (KEV/ransom dual)"
+        ? "靜態站 · 可瀏覽器即時巡檢"
+        : "Static · browser live scan OK"
     );
   } else if (!scan.manual_scan_allowed) {
     const m = Math.ceil((scan.cooldown_remaining_sec || 0) / 60);
     parts.push(`${t("nextCooldown")}: ${m}m`);
   }
   $("#scanMeta").textContent = parts.join(" · ");
-
   const btn = $("#manualScanBtn");
   if (btn) {
     btn.disabled = USE_STATIC ? false : !scan.manual_scan_allowed || scan.harvest_running;
@@ -464,17 +495,36 @@ async function loadKpis() {
 }
 
 async function loadOverview() {
-  // 總覽只做精選快覽，避免與主題分頁重複堆疊
-  const [p0, p1, p2, p3] = await Promise.all([
-    api("/api/intel?priority=P0&limit=12"),
-    api("/api/intel?priority=P1&limit=12"),
-    api("/api/intel?priority=P2&limit=12"),
-    api("/api/intel?priority=P3&limit=12"),
+  await loadKpis();
+  // OT tile count
+  const items = await ensureIntel();
+  const otN = items.filter(
+    (i) =>
+      i.layer_id === "L7" ||
+      /cisa ics|dragos|icsa-|icsma-|scada|\bot\b|industrial/i.test(
+        `${i.title} ${i.source_name}`
+      )
+  ).length;
+  if ($("#tileOt")) $("#tileOt").textContent = otN;
+
+  // 最新高風險 P0+P1 前 8（P0 優先）
+  const high = items
+    .filter((i) => i.priority === "P0" || i.priority === "P1")
+    .sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority === "P0" ? -1 : 1;
+      return 0;
+    })
+    .slice(0, 8);
+  renderList($("#overviewHighList"), high, 8);
+}
+
+async function loadHighRisk() {
+  const [p0, p1] = await Promise.all([
+    api("/api/intel?priority=P0&limit=80"),
+    api("/api/intel?priority=P1&limit=80"),
   ]);
-  renderList($("#colP0"), p0.items, 5);
-  renderList($("#colP1"), p1.items, 5);
-  renderList($("#colP2"), p2.items, 5);
-  renderList($("#colP3"), p3.items, 5);
+  renderList($("#highP0List"), p0.items, 80);
+  renderList($("#highP1List"), p1.items, 80);
 }
 
 async function loadIntelStream() {
@@ -507,110 +557,60 @@ function renderEntityChips(el, counts) {
 }
 
 async function loadTaiwan() {
-  // 單一台灣產業分頁：名單 + 命中情資（不再另開全球勒索，避免與暗網分頁重複）
+  const data = await api("/api/intel?tw=true&limit=100");
+  const items = [...(data.items || [])].sort((a, b) => {
+    if (a.is_ransomware && !b.is_ransomware) return -1;
+    if (!a.is_ransomware && b.is_ransomware) return 1;
+    return 0;
+  });
+  renderList($("#taiwanList"), items, 80);
+}
+
+async function loadEms() {
   fillWatchLists();
   const data = await api("/api/tw-dashboard");
-  if ($("#twStatTotal")) $("#twStatTotal").textContent = data.stats?.tw_total ?? 0;
-  if ($("#twStatRansom")) $("#twStatRansom").textContent = data.stats?.tw_ransomware ?? 0;
+  if ($("#emsHitTotal")) $("#emsHitTotal").textContent = data.stats?.tw_total ?? 0;
+  if ($("#emsHitRansom")) $("#emsHitRansom").textContent = data.stats?.tw_ransomware ?? 0;
   renderEntityChips($("#entityChips"), data.entity_counts);
-  renderList($("#twRansomList"), data.tw_ransomware, 40);
-  renderList($("#twOtherList"), data.tw_other, 40);
-}
-
-async function loadFinance() {
-  const data = await api("/api/finance-dashboard");
-  $("#finStatTotal").textContent = data.stats?.total ?? 0;
-  $("#finStatRansom").textContent = data.stats?.ransomware ?? 0;
-  $("#finStatKev").textContent = data.stats?.kev ?? 0;
-  renderEntityChips($("#financeChips"), data.entity_counts);
-  renderList($("#finRansomList"), data.ransomware, 40);
-  renderList($("#finKevList"), data.kev_items, 40);
-  renderList($("#finOtherList"), data.other, 40);
-}
-
-async function loadMicrosoft() {
-  // 微軟分頁：產品／TI 為主；KEV 僅顯示微軟子集（完整 KEV 在 KEV 分頁）
-  const data = await api("/api/microsoft-dashboard");
-  const s = data.stats || {};
-  $("#msStatTotal").textContent = s.total ?? 0;
-  if ($("#msStatP1")) $("#msStatP1").textContent = s.p1 ?? 0;
-  $("#msStatKev").textContent = s.kev ?? 0;
-  if ($("#msStatWindows")) $("#msStatWindows").textContent = s.windows_os ?? 0;
-  if ($("#msStatEnterprise")) $("#msStatEnterprise").textContent = s.enterprise_platform ?? 0;
-  if ($("#msStatTi")) $("#msStatTi").textContent = s.threat_intel ?? 0;
-  renderEntityChips($("#msChips"), data.entity_counts);
-  renderList($("#msWindowsList"), data.windows_os, 25);
-  renderList($("#msEnterpriseList"), data.enterprise_platform, 25);
-  renderList($("#msTiList"), data.threat_intel, 20);
-  renderList($("#msRansomList"), data.ransomware, 15);
-  renderList($("#msKevList"), data.kev_items, 20);
+  renderList($("#emsRansomList"), data.tw_ransomware, 40);
+  renderList($("#emsOtherList"), data.tw_other, 40);
 }
 
 async function loadOt() {
-  if (USE_STATIC && !cache.intel) cache.intel = await loadStaticJson("intel.json");
-  let items = [];
-  if (USE_STATIC) {
-    items = (cache.intel.items || []).filter(
-      (i) =>
-        i.layer_id === "L7" ||
-        /cisa ics|dragos|icsa-|icsma-|scada|\bot\b|industrial control|plc /i.test(
-          `${i.title} ${i.summary} ${i.source_name}`
-        )
-    );
-  } else {
-    const d = await api("/api/intel?layer=L7&limit=80");
-    items = d.items || [];
-  }
-  renderList($("#zoneOtList"), items, 50);
+  const items = await ensureIntel();
+  const ot = items.filter(
+    (i) =>
+      i.layer_id === "L7" ||
+      /cisa ics|dragos|icsa-|icsma-|scada|\bot\b|industrial control|plc /i.test(
+        `${i.title} ${i.summary} ${i.source_name}`
+      )
+  );
+  renderList($("#otList"), ot, 60);
 }
 
 async function loadDark() {
-  // 僅暗網／外洩來源，排除純 KEV／一般新聞
-  if (USE_STATIC && !cache.intel) cache.intel = await loadStaticJson("intel.json");
-  const all = USE_STATIC
-    ? cache.intel.items || []
-    : (await api("/api/intel?limit=200")).items || [];
+  const all = await ensureIntel();
   const dark = all.filter((i) => {
     const src = `${i.source_name || ""} ${i.title || ""}`.toLowerCase();
     if (src.includes("cisa kev") && !src.includes("ransom")) return false;
-    return (
-      /ransomlook|ransomware\.live|threatfox|hibp|databreach|dark web|x @|leak-site|indirect dark/i.test(
-        src
-      ) ||
-      (i.is_ransomware &&
-        /ransom|dark|leak|x @|threatfox|hibp/i.test(src))
+    return /ransomlook|ransomware\.live|threatfox|hibp|databreach|dark web|x @|leak-site|indirect dark/i.test(
+      src
     );
   });
-  const dual = dark.filter(
-    (i) =>
-      i.verification === "credible" ||
-      (Array.isArray(i.sources) && i.sources.length >= 2) ||
-      /ransomlook.*live|live.*ransomlook|\+/i.test(i.source_name || "")
-  );
-  const dualIds = new Set(dual.map((i) => i.id));
-  const p3 = dark.filter(
-    (i) =>
-      !dualIds.has(i.id) &&
-      (i.verification === "unverified" || i.priority === "P3")
-  );
-  renderList($("#zoneDarkDual"), dual, 35);
-  renderList($("#zoneDarkP3"), p3, 35);
+  // 單一列表：雙源在前，單源 P3 在後
+  dark.sort((a, b) => {
+    const ad =
+      a.verification === "credible" || (a.sources || []).length >= 2 ? 0 : 1;
+    const bd =
+      b.verification === "credible" || (b.sources || []).length >= 2 ? 0 : 1;
+    if (ad !== bd) return ad - bd;
+    return 0;
+  });
+  renderList($("#darkList"), dark, 80);
 }
 
-async function loadKev() {
-  if (USE_STATIC && !cache.intel) cache.intel = await loadStaticJson("intel.json");
-  let items = [];
-  if (USE_STATIC) {
-    items = (cache.intel.items || []).filter(
-      (i) =>
-        (i.source_name || "").includes("KEV") ||
-        (i.tags || []).includes("kev")
-    );
-  } else {
-    const d = await api("/api/intel?limit=200");
-    items = (d.items || []).filter((i) => (i.source_name || "").includes("KEV"));
-  }
-  renderList($("#zoneKevList"), items, 80);
+async function loadSources() {
+  await loadLayers();
 }
 
 /** Browser-side live scan: KEV mirror + ransomware dual sources (static Pages). */
@@ -819,10 +819,15 @@ async function browserLiveScan() {
 async function loadLayers() {
   const data = await api("/api/layers");
   const badge = $("#scheduleBadge");
-  badge.textContent =
-    currentLang === "zh" ? data.schedule?.description_zh : data.schedule?.description_en;
+  if (badge) {
+    badge.textContent =
+      currentLang === "zh"
+        ? data.schedule?.description_zh || ""
+        : data.schedule?.description_en || "";
+  }
 
   const grid = $("#layersGrid");
+  if (!grid) return;
   const statusLabel = (st) => {
     if (st === "healthy") return currentLang === "zh" ? "正常" : "OK";
     if (st === "degraded") return currentLang === "zh" ? "異常" : "Degraded";
@@ -836,8 +841,7 @@ async function loadLayers() {
       const name = currentLang === "zh" ? L.name_zh : L.name_en;
       const srcs = (L.sources || [])
         .map((s) => {
-          const lat =
-            s.latency_ms != null ? ` · ${s.latency_ms}ms` : "";
+          const lat = s.latency_ms != null ? ` · ${s.latency_ms}ms` : "";
           const n = s.item_count != null ? ` · ${s.item_count}` : "";
           return `
         <li>
@@ -920,21 +924,21 @@ function tickClock() {
   $("#clock").textContent = s + " TST";
 }
 
+async function loadView(view) {
+  if (view === "overview") await loadOverview();
+  if (view === "highrisk") await loadHighRisk();
+  if (view === "taiwan") await loadTaiwan();
+  if (view === "ot") await loadOt();
+  if (view === "dark") await loadDark();
+  if (view === "ems") await loadEms();
+  if (view === "sources") await loadSources();
+}
+
 async function refreshAll() {
   try {
-    // bust static cache on refresh cycle
     if (USE_STATIC) Object.keys(cache).forEach((k) => (cache[k] = null));
-    await loadKpis();
     const active = $(".tab.active")?.dataset.view || "overview";
-    if (active === "overview") await loadOverview();
-    if (active === "intel") await loadIntelStream();
-    if (active === "taiwan") await loadTaiwan();
-    if (active === "kev") await loadKev();
-    if (active === "dark") await loadDark();
-    if (active === "ot") await loadOt();
-    if (active === "finance") await loadFinance();
-    if (active === "microsoft") await loadMicrosoft();
-    if (active === "layers") await loadLayers();
+    await loadView(active);
   } catch (e) {
     console.error(e);
   }
@@ -950,29 +954,23 @@ function setupTabs() {
       const view = tab.dataset.view;
       $$(".view").forEach((v) => v.classList.remove("active"));
       $(`#view-${view}`)?.classList.add("active");
-      if (view === "overview") await loadOverview();
-      if (view === "intel") await loadIntelStream();
-      if (view === "taiwan") await loadTaiwan();
-      if (view === "kev") await loadKev();
-      if (view === "dark") await loadDark();
-      if (view === "ot") await loadOt();
-      if (view === "finance") await loadFinance();
-      if (view === "microsoft") await loadMicrosoft();
-      if (view === "layers") await loadLayers();
+      await loadView(view);
     });
   });
+  $$(".nav-tile").forEach((tile) => {
+    tile.addEventListener("click", () => {
+      const v = tile.dataset.goto;
+      if (v) goToView(v);
+    });
+  });
+  $("#btnViewAllHigh")?.addEventListener("click", () => goToView("highrisk"));
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
   applyI18n();
   setupTabs();
-  fillWatchLists();
-  $("#langToggle").addEventListener("click", () => toggleLang());
-  $("#manualScanBtn").addEventListener("click", () => manualScan());
-  $("#applyFilters")?.addEventListener("click", () => loadIntelStream());
-  $("#filterQ")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") loadIntelStream();
-  });
+  $("#langToggle")?.addEventListener("click", () => toggleLang());
+  $("#manualScanBtn")?.addEventListener("click", () => manualScan());
   $("#scanModalClose")?.addEventListener("click", () => {
     $("#scanModal")?.classList.add("hidden");
   });
