@@ -247,10 +247,26 @@ INTEL_FEEDS: list[dict] = [
     },
     # Microsoft official / TI (feeds into is_microsoft classification)
     {
+        # microsoft.com /feed and /feed/atom often timeout from cloud egress (0 items
+        # or 30s hang). Prefer Google News site: mirror first for reliability.
         "source_id": "ms_security_blog",
         "layer_id": "L2",
         "name": "Microsoft Security Blog",
-        "url": "https://www.microsoft.com/en-us/security/blog/feed/",
+        "url": (
+            "https://news.google.com/rss/search?"
+            "q=site:microsoft.com/en-us/security/blog"
+            "+(security+OR+threat+OR+defender+OR+vulnerability+OR+ransomware+OR+CVE)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "fallback_url": (
+            "https://news.google.com/rss/search?"
+            "q=site:microsoft.com/en-us/security/blog"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "fallback_urls": [
+            "https://www.microsoft.com/en-us/security/blog/feed/atom/",
+            "https://www.microsoft.com/en-us/security/blog/feed/",
+        ],
         "force_all": True,
         "max_items": 20,
         "darkweb_indirect": False,

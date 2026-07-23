@@ -356,6 +356,7 @@ async def collect_rss_layer(
     force_ransomware_scan: bool = True,
     max_items: int = 40,
     fallback_url: str | None = None,
+    fallback_urls: list[str] | None = None,
 ) -> int:
     t0 = time.perf_counter()
     count = 0
@@ -364,7 +365,11 @@ async def collect_rss_layer(
         content = ""
         async with await _client() as client:
             last_err: Exception | None = None
-            candidates = [url] + ([fallback_url] if fallback_url else [])
+            # Primary → single fallback_url → extra fallback_urls (deduped, order kept)
+            candidates: list[str] = []
+            for u in [url, fallback_url, *(fallback_urls or [])]:
+                if u and u not in candidates:
+                    candidates.append(u)
             for candidate in candidates:
                 if not candidate:
                     continue
@@ -383,8 +388,15 @@ async def collect_rss_layer(
                         timeout=HTTP_TIMEOUT,
                     )
                     r.raise_for_status()
+                    body = r.content or b""
                     # Skip empty / non-feed HTML bodies and try next candidate
-                    parsed = feedparser.parse(r.content)
+                    text_head = body[:400].lstrip().lower()
+                    if b"<html" in text_head[:200] and b"<rss" not in text_head and b"<feed" not in text_head:
+                        last_err = RuntimeError(
+                            f"HTML not RSS from {candidate} (HTTP {r.status_code})"
+                        )
+                        continue
+                    parsed = feedparser.parse(body)
                     if not parsed.entries:
                         last_err = RuntimeError(
                             f"no RSS entries from {candidate} (HTTP {r.status_code})"
@@ -550,7 +562,7 @@ async def collect_rss_layer(
 
         ms = int((time.perf_counter() - t0) * 1000)
         detail = f"url={used_url}"
-        if fallback_url and used_url == fallback_url:
+        if used_url != url:
             detail += " (fallback)"
         await _mark(
             source_id,
@@ -582,6 +594,7 @@ async def collect_registered_intel_feeds() -> dict[str, Any]:
                 name=feed["name"],
                 url=feed["url"],
                 fallback_url=feed.get("fallback_url"),
+                fallback_urls=feed.get("fallback_urls"),
                 darkweb_indirect=bool(feed.get("darkweb_indirect")),
                 force_ransomware_scan=bool(feed.get("force_all", True)),
                 max_items=int(feed.get("max_items") or 20),
