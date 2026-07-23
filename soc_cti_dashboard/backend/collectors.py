@@ -21,6 +21,9 @@ from .config import (
     CISA_ICS_GITHUB_API,
     CISA_ICS_MAX_ITEMS,
     EPSS_API,
+    EPSS_TOP_LIMIT,
+    EPSS_TOP_MIN,
+    EPSS_TOP_URL,
     BLEEPING_RSS,
     THEHACKERNEWS_RSS,
     TWCERT_NEWS_RSS,
@@ -30,6 +33,7 @@ from .config import (
     HIBP_MAX_ITEMS,
     HIBP_RECENT_DAYS,
     HIBP_WATCH_DOMAINS,
+    INTEL_FEEDS,
     CENSYS_API_ID,
     CENSYS_API_SECRET,
     CENSYS_HOST_API,
@@ -39,6 +43,10 @@ from .config import (
     SHODAN_API_HOST,
     SHODAN_API_KEY,
     SHODAN_INTERNETDB_URL,
+    OTX_API_KEY,
+    OTX_MAX_PULSES,
+    OTX_PULSE_ACTIVITY_URL,
+    OTX_PULSES_URL,
     RANSOMWARE_LIVE_API_KEY,
     RANSOMWARE_LIVE_API_V2,
     RANSOMWARE_LIVE_MAX_ITEMS,
@@ -279,14 +287,40 @@ async def collect_rss_layer(
     darkweb_indirect: bool = False,
     force_ransomware_scan: bool = True,
     max_items: int = 40,
+    fallback_url: str | None = None,
 ) -> int:
     t0 = time.perf_counter()
     count = 0
+    used_url = url
     try:
+        content = ""
         async with await _client() as client:
-            r = await client.get(url)
-            r.raise_for_status()
-            content = r.text
+            last_err: Exception | None = None
+            for candidate in [url] + ([fallback_url] if fallback_url else []):
+                if not candidate:
+                    continue
+                try:
+                    r = await client.get(
+                        candidate,
+                        headers={
+                            "User-Agent": (
+                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                "Chrome/128.0.0.0 Safari/537.36"
+                            ),
+                            "Accept": "application/rss+xml, application/xml, text/xml, */*",
+                        },
+                    )
+                    r.raise_for_status()
+                    content = r.text
+                    used_url = candidate
+                    last_err = None
+                    break
+                except Exception as e:
+                    last_err = e
+                    continue
+            if last_err and not content:
+                raise last_err
         feed = feedparser.parse(content)
         entries = feed.entries[:max_items]
 
@@ -424,14 +458,373 @@ async def collect_rss_layer(
             count += 1
 
         ms = int((time.perf_counter() - t0) * 1000)
+        detail = f"url={used_url}"
+        if fallback_url and used_url == fallback_url:
+            detail += " (fallback)"
         await _mark(
-            source_id, layer_id, name, ok=True, count=count, latency_ms=ms
+            source_id,
+            layer_id,
+            name,
+            ok=True,
+            count=count,
+            latency_ms=ms,
+            detail=detail,
         )
         return count
     except Exception as e:
         ms = int((time.perf_counter() - t0) * 1000)
         await _mark(
             source_id, layer_id, name, ok=False, latency_ms=ms, error=str(e)[:500]
+        )
+        return 0
+
+
+async def collect_registered_intel_feeds() -> dict[str, Any]:
+    """Harvest all INTEL_FEEDS (Unit 42, news, Fortinet PSIRT, Dragos, …)."""
+    out: dict[str, Any] = {}
+    total = 0
+    for feed in INTEL_FEEDS:
+        try:
+            n = await collect_rss_layer(
+                source_id=feed["source_id"],
+                layer_id=feed["layer_id"],
+                name=feed["name"],
+                url=feed["url"],
+                fallback_url=feed.get("fallback_url"),
+                darkweb_indirect=bool(feed.get("darkweb_indirect")),
+                force_ransomware_scan=bool(feed.get("force_all", True)),
+                max_items=int(feed.get("max_items") or 20),
+            )
+            out[feed["source_id"]] = {"ok": True, "count": n, "name": feed["name"]}
+            total += n
+        except Exception as e:
+            out[feed["source_id"]] = {
+                "ok": False,
+                "error": str(e)[:300],
+                "name": feed["name"],
+            }
+    out["_total"] = total
+    return out
+
+
+async def collect_epss_top_scores(
+    *, limit: int | None = None, min_epss: float | None = None
+) -> int:
+    """
+    L1 — FIRST EPSS highest exploit-probability CVEs (public API).
+    Complements KEV enrichment with predictive scores.
+    """
+    t0 = time.perf_counter()
+    lim = limit if limit is not None else EPSS_TOP_LIMIT
+    thr = min_epss if min_epss is not None else EPSS_TOP_MIN
+    count = 0
+    try:
+        async with await _client() as client:
+            r = await client.get(
+                EPSS_TOP_URL,
+                params={"order": "!epss", "limit": str(min(lim * 2, 100))},
+                headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
+            )
+            r.raise_for_status()
+            rows = r.json().get("data") or []
+
+        rows = [x for x in rows if float(x.get("epss") or 0) >= thr][:lim]
+        for row in rows:
+            cve = (row.get("cve") or "").upper()
+            if not cve:
+                continue
+            try:
+                epss = float(row.get("epss") or 0)
+            except (TypeError, ValueError):
+                continue
+            percentile = row.get("percentile")
+            try:
+                pct = float(percentile) if percentile is not None else None
+            except (TypeError, ValueError):
+                pct = None
+
+            title_zh = f"[EPSS] {cve} — 利用機率 {epss * 100:.1f}%"
+            title_en = f"[EPSS] {cve} — exploit probability {epss * 100:.1f}%"
+            summary_zh = (
+                f"FIRST EPSS 公開評分\n"
+                f"CVE：{cve}\n"
+                f"EPSS：{epss:.5f}（{epss * 100:.2f}%）\n"
+                f"百分位：{f'{pct * 100:.1f}%' if pct is not None else '—'}\n"
+                f"用途：預測在野利用可能性（非等同 KEV 已證實利用）"
+            )
+            summary_en = (
+                f"FIRST EPSS public score\n"
+                f"CVE: {cve}\n"
+                f"EPSS: {epss:.5f} ({epss * 100:.2f}%)\n"
+                f"Percentile: {f'{pct * 100:.1f}%' if pct is not None else '—'}\n"
+                f"Note: predictive exploit likelihood — not the same as KEV confirmation"
+            )
+            flags = enrich_flags(title_en, summary_en, "", "")
+            priority = assign_priority(
+                in_kev=False,
+                known_ransomware_campaign=False,
+                is_ransomware=flags["is_ransomware"],
+                is_tw_industry=flags["is_tw_industry"],
+                epss=epss,
+                source_count=1,
+                layer_id="L1",
+            )
+            verification, admiralty = "confirmed", "A2"
+
+            await upsert_intel(
+                {
+                    "id": _id("epss-top", cve),
+                    "title": title_zh,
+                    "title_en": title_en,
+                    "summary": summary_zh,
+                    "summary_en": summary_en,
+                    "priority": priority,
+                    "verification": verification,
+                    "layer_id": "L1",
+                    "source_name": "FIRST EPSS",
+                    "sources_json": json.dumps(["FIRST EPSS"]),
+                    "cve_id": cve,
+                    "product": "",
+                    "vendor": "",
+                    "is_ransomware": 1 if flags["is_ransomware"] else 0,
+                    "is_tw_industry": 1 if flags["is_tw_industry"] else 0,
+                    "tw_entities_json": json.dumps(
+                        flags["tw_entities"], ensure_ascii=False
+                    ),
+                    "is_finance": 1 if flags["is_finance"] else 0,
+                    "finance_entities_json": json.dumps(
+                        flags["finance_entities"], ensure_ascii=False
+                    ),
+                    "is_microsoft": 1 if flags["is_microsoft"] else 0,
+                    "ms_entities_json": json.dumps(
+                        flags["ms_entities"], ensure_ascii=False
+                    ),
+                    "known_ransomware_campaign": 0,
+                    "epss": epss,
+                    "cvss": None,
+                    "date_added": now_iso()[:10],
+                    "published_at": now_iso()[:10],
+                    "fetched_at": now_iso(),
+                    "url": f"https://api.first.org/data/v1/epss?cve={cve}",
+                    "admiralty": admiralty,
+                    "raw_json": json.dumps(row, ensure_ascii=False)[:2000],
+                    "tags_json": json.dumps(
+                        ["epss", "predictive", "exploit-probability"]
+                        + (["high-epss"] if epss >= 0.5 else [])
+                    ),
+                }
+            )
+            count += 1
+
+        ms = int((time.perf_counter() - t0) * 1000)
+        await _mark(
+            "first_epss_top",
+            "L1",
+            "FIRST EPSS (top scores)",
+            ok=True,
+            count=count,
+            latency_ms=ms,
+            detail=f"min_epss>={thr}; ingested={count}",
+        )
+        # Keep legacy source_id used by KEV enrichment healthy if top scores OK
+        await _mark(
+            "first_epss",
+            "L1",
+            "FIRST EPSS",
+            ok=True,
+            count=count,
+            latency_ms=ms,
+            detail=f"top-score feed; min>={thr}",
+        )
+        return count
+    except Exception as e:
+        ms = int((time.perf_counter() - t0) * 1000)
+        await _mark(
+            "first_epss_top",
+            "L1",
+            "FIRST EPSS (top scores)",
+            ok=False,
+            latency_ms=ms,
+            error=str(e)[:500],
+        )
+        return 0
+
+
+async def collect_otx_pulses(max_items: int | None = None) -> int:
+    """
+    L3 — AlienVault OTX pulses.
+    Requires OTX_API_KEY (free account at otx.alienvault.com).
+    """
+    t0 = time.perf_counter()
+    limit = max_items if max_items is not None else OTX_MAX_PULSES
+
+    if not OTX_API_KEY:
+        await upsert_source_health(
+            {
+                "source_id": "otx_pulse",
+                "layer_id": "L3",
+                "name": "AlienVault OTX Pulse",
+                "last_success": None,
+                "last_error": None,
+                "last_attempt": now_iso(),
+                "status": "not_configured",
+                "item_count": 0,
+                "latency_ms": 0,
+                "detail": (
+                    "需免費 OTX_API_KEY（https://otx.alienvault.com → Settings → API Key）"
+                ),
+            }
+        )
+        return 0
+
+    count = 0
+    try:
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "application/json",
+            "X-OTX-API-KEY": OTX_API_KEY,
+        }
+        pulses: list[dict] = []
+        async with await _client() as client:
+            # Prefer subscribed pulses; fall back to activity
+            for url in (OTX_PULSES_URL, OTX_PULSE_ACTIVITY_URL):
+                try:
+                    r = await client.get(
+                        url, headers=headers, params={"limit": str(limit)}
+                    )
+                    if r.status_code == 200:
+                        data = r.json()
+                        if isinstance(data, dict):
+                            pulses = data.get("results") or data.get("pulses") or []
+                        elif isinstance(data, list):
+                            pulses = data
+                        if pulses:
+                            break
+                except Exception:
+                    continue
+
+        for p in pulses[:limit]:
+            name = (p.get("name") or p.get("title") or "OTX Pulse").strip()
+            desc = (p.get("description") or "")[:1200]
+            author = ""
+            if isinstance(p.get("author_name"), str):
+                author = p["author_name"]
+            elif isinstance(p.get("author"), dict):
+                author = p["author"].get("username") or ""
+            tags = p.get("tags") or []
+            if isinstance(tags, list):
+                tag_s = ", ".join(str(t) for t in tags[:15])
+            else:
+                tag_s = str(tags)
+            created = p.get("created") or p.get("modified") or ""
+            pulse_id = str(p.get("id") or p.get("pulse_id") or name)
+            indicators = p.get("indicators") or []
+            ind_n = len(indicators) if isinstance(indicators, list) else 0
+            ind_sample = []
+            if isinstance(indicators, list):
+                for ind in indicators[:8]:
+                    if isinstance(ind, dict):
+                        ind_sample.append(
+                            f"{ind.get('type') or '?'}:{ind.get('indicator') or ''}"
+                        )
+
+            title_zh = f"[OTX] {name}"
+            title_en = title_zh
+            summary_zh = (
+                f"{desc}\n"
+                f"作者：{author or '—'}\n"
+                f"標籤：{tag_s or '—'}\n"
+                f"IOC 數：{ind_n}\n"
+                f"樣本：{'; '.join(ind_sample) if ind_sample else '—'}\n"
+                f"建立：{created or '—'}"
+            )
+            summary_en = summary_zh
+            flags = enrich_flags(name, desc + " " + tag_s)
+            cve_m = re.findall(r"CVE-\d{4}-\d{4,7}", f"{name} {desc}", re.I)
+            priority = assign_priority(
+                in_kev=False,
+                known_ransomware_campaign=False,
+                is_ransomware=flags["is_ransomware"],
+                is_tw_industry=flags["is_tw_industry"],
+                epss=None,
+                source_count=1,
+                layer_id="L3",
+            )
+            verification, admiralty = assign_verification(
+                in_kev=False,
+                layer_id="L3",
+                source_count=1,
+                is_darkweb_indirect=False,
+            )
+
+            await upsert_intel(
+                {
+                    "id": _id("otx", pulse_id),
+                    "title": title_zh,
+                    "title_en": title_en,
+                    "summary": summary_zh,
+                    "summary_en": summary_en,
+                    "priority": priority,
+                    "verification": verification,
+                    "layer_id": "L3",
+                    "source_name": "AlienVault OTX",
+                    "sources_json": json.dumps(["AlienVault OTX"]),
+                    "cve_id": cve_m[0].upper() if cve_m else None,
+                    "product": "",
+                    "vendor": author or "",
+                    "is_ransomware": 1 if flags["is_ransomware"] else 0,
+                    "is_tw_industry": 1 if flags["is_tw_industry"] else 0,
+                    "tw_entities_json": json.dumps(
+                        flags["tw_entities"], ensure_ascii=False
+                    ),
+                    "is_finance": 1 if flags["is_finance"] else 0,
+                    "finance_entities_json": json.dumps(
+                        flags["finance_entities"], ensure_ascii=False
+                    ),
+                    "is_microsoft": 1 if flags["is_microsoft"] else 0,
+                    "ms_entities_json": json.dumps(
+                        flags["ms_entities"], ensure_ascii=False
+                    ),
+                    "known_ransomware_campaign": 0,
+                    "epss": None,
+                    "cvss": None,
+                    "date_added": (created or "")[:10] or None,
+                    "published_at": created or None,
+                    "fetched_at": now_iso(),
+                    "url": f"https://otx.alienvault.com/pulse/{pulse_id}",
+                    "admiralty": admiralty,
+                    "raw_json": json.dumps(
+                        {"id": pulse_id, "name": name, "tags": tags[:20]},
+                        ensure_ascii=False,
+                    )[:4000],
+                    "tags_json": json.dumps(
+                        ["otx", "ioc", "pulse"]
+                        + (["ransomware"] if flags["is_ransomware"] else [])
+                    ),
+                }
+            )
+            count += 1
+
+        ms = int((time.perf_counter() - t0) * 1000)
+        await _mark(
+            "otx_pulse",
+            "L3",
+            "AlienVault OTX Pulse",
+            ok=True,
+            count=count,
+            latency_ms=ms,
+            detail=f"pulses={count}",
+        )
+        return count
+    except Exception as e:
+        ms = int((time.perf_counter() - t0) * 1000)
+        await _mark(
+            "otx_pulse",
+            "L3",
+            "AlienVault OTX Pulse",
+            ok=False,
+            latency_ms=ms,
+            error=str(e)[:500],
         )
         return 0
 
@@ -2524,12 +2917,18 @@ async def run_full_harvest() -> dict[str, Any]:
     """Run all configured collectors; return summary."""
     results: dict[str, Any] = {"started_at": now_iso(), "steps": {}}
 
-    # L1 KEV + EPSS
+    # L1 KEV + EPSS enrichment + EPSS top-score feed
     try:
         n = await collect_cisa_kev()
         results["steps"]["cisa_kev"] = {"ok": True, "count": n}
     except Exception as e:
         results["steps"]["cisa_kev"] = {"ok": False, "error": str(e)}
+
+    try:
+        n = await collect_epss_top_scores()
+        results["steps"]["epss_top"] = {"ok": True, "count": n}
+    except Exception as e:
+        results["steps"]["epss_top"] = {"ok": False, "error": str(e)}
 
     # L2 TWCERT/CC official RSS (news + Taiwan Vulnerability Notes)
     n_news = await collect_rss_layer(
@@ -2566,9 +2965,21 @@ async def run_full_harvest() -> dict[str, Any]:
         "tvn": n_tvn,
     }
 
-    # L3 placeholder
+    # L3 — abuse.ch placeholder + OTX pulses
     await mark_abusech_placeholder()
     results["steps"]["abusech"] = {"ok": True, "count": 0, "status": "not_configured"}
+    try:
+        n = await collect_otx_pulses()
+        results["steps"]["otx"] = {"ok": True, "count": n}
+    except Exception as e:
+        results["steps"]["otx"] = {"ok": False, "error": str(e)}
+
+    # Multi-layer news / research / PSIRT feeds (Unit42, Fortinet, news, Dragos, …)
+    try:
+        feed_stats = await collect_registered_intel_feeds()
+        results["steps"]["intel_feeds"] = feed_stats
+    except Exception as e:
+        results["steps"]["intel_feeds"] = {"ok": False, "error": str(e)}
 
     # L4 EASM — Shodan InternetDB (free) + optional Shodan/Censys keys
     try:

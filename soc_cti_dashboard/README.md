@@ -103,7 +103,13 @@ python scripts/export_static.py
 | L6 | **@DailyDarkWeb / @DarkWebInformer** | Nitter RSS，失敗則用官網 blog RSS | 無需 X API 金鑰 |
 | L4 | **Shodan** | **InternetDB 免金鑰**（需監控 IP） | `EASM_WATCH_IPS` / `EASM_WATCH_HOSTS`；可選 `SHODAN_API_KEY` |
 | L4 | **Censys** | Host lookup（需金鑰 + 監控 IP） | `CENSYS_API_ID` + `CENSYS_API_SECRET` + 上述監控目標 |
+| L3 | **AlienVault OTX Pulse** | 需免費 API key | `OTX_API_KEY` |
 | L3 | abuse.ch | `not_configured` | `ABUSECH_AUTH_KEY`（尚未接線） |
+| L1 | **FIRST EPSS** | 高 EPSS CVE 公開 API + KEV 豐富化 | 無需金鑰 |
+| L2 | **Unit 42 / Fortinet PSIRT** | 官方 RSS | 無需金鑰 |
+| L5 | **DataBreaches.net** | RSS | 無需金鑰 |
+| L6 | **資安媒體** | THN / BC / Record / SecurityWeek / CSN / Reuters(GNews) | 無需金鑰 |
+| L7 | **Dragos (OT)** | RSS 或 Google News 備援 | 無需金鑰 |
 
 ```powershell
 # 可選：HIBP 付費網域搜尋（否則仍會抓公開 breaches 目錄）

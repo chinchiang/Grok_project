@@ -39,6 +39,142 @@ CISA_ICS_MAX_ITEMS = 40
 BLEEPING_RSS = "https://www.bleepingcomputer.com/feed/"
 THEHACKERNEWS_RSS = "https://feeds.feedburner.com/TheHackersNews"
 
+# --- Additional OSINT news / research / PSIRT / EPSS / OTX ---
+UNIT42_RSS = "https://unit42.paloaltonetworks.com/feed/"
+DATABREACHES_RSS = "https://databreaches.net/feed/"
+# Reuters cybersecurity via Google News (official Reuters RSS is limited)
+REUTERS_CYBER_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:reuters.com+(cyber+OR+cybersecurity+OR+ransomware+OR+hack+OR+breach+OR+malware)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+# Cyber Security News often 403 on direct feed → Google News mirror
+CYBERSECURITYNEWS_RSS = "https://cybersecuritynews.com/feed/"
+CYBERSECURITYNEWS_GNEWS_RSS = (
+    "https://news.google.com/rss/search?q=site:cybersecuritynews.com"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+SECURITYWEEK_RSS = "https://www.securityweek.com/feed/"
+THERECORD_RSS = "https://therecord.media/feed/"
+# Dragos OT research — site may block bots; Google News fallback
+DRAGOS_RSS_CANDIDATES = (
+    "https://www.dragos.com/feed/",
+    "https://www.dragos.com/blog/feed/",
+)
+DRAGOS_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:dragos.com+(OT+OR+ICS+OR+industrial+OR+advisory+OR+threat)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+# Fortinet PSIRT / FortiGuard IR advisories
+FORTINET_PSIRT_RSS = "https://www.fortiguard.com/rss/ir.xml"
+# AlienVault OTX (optional API key for pulse stream)
+OTX_API_KEY = (os.environ.get("OTX_API_KEY") or "").strip()
+OTX_PULSES_URL = "https://otx.alienvault.com/api/v1/pulses/subscribed"
+OTX_PULSE_ACTIVITY_URL = "https://otx.alienvault.com/api/v1/pulses/activity"
+OTX_MAX_PULSES = int(os.environ.get("OTX_MAX_PULSES") or "25")
+# FIRST EPSS — top scores as predictive exploit intel (public API)
+EPSS_TOP_URL = "https://api.first.org/data/v1/epss"
+EPSS_TOP_LIMIT = int(os.environ.get("EPSS_TOP_LIMIT") or "30")
+EPSS_TOP_MIN = float(os.environ.get("EPSS_TOP_MIN") or "0.5")
+
+# Registered multi-layer news/research feeds collected each harvest
+# force_all=True keeps all items (general news), False filters to CTI-relevant
+INTEL_FEEDS: list[dict] = [
+    {
+        "source_id": "unit42_rss",
+        "layer_id": "L2",
+        "name": "Palo Alto Unit 42",
+        "url": UNIT42_RSS,
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "fortinet_psirt",
+        "layer_id": "L2",
+        "name": "Fortinet PSIRT",
+        "url": FORTINET_PSIRT_RSS,
+        "force_all": True,
+        "max_items": 30,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "databreaches_rss",
+        "layer_id": "L5",
+        "name": "DataBreaches.net",
+        "url": DATABREACHES_RSS,
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "reuters_cyber_gnews",
+        "layer_id": "L6",
+        "name": "Reuters Cyber (Google News)",
+        "url": REUTERS_CYBER_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "cybersecuritynews_rss",
+        "layer_id": "L6",
+        "name": "Cyber Security News",
+        "url": CYBERSECURITYNEWS_RSS,
+        "fallback_url": CYBERSECURITYNEWS_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "securityweek_rss",
+        "layer_id": "L6",
+        "name": "SecurityWeek",
+        "url": SECURITYWEEK_RSS,
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "thn_news_rss",
+        "layer_id": "L6",
+        "name": "The Hacker News",
+        "url": THEHACKERNEWS_RSS,
+        "force_all": True,
+        "max_items": 25,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "therecord_rss",
+        "layer_id": "L6",
+        "name": "The Record",
+        "url": THERECORD_RSS,
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "bleeping_news_rss",
+        "layer_id": "L6",
+        "name": "BleepingComputer",
+        "url": BLEEPING_RSS,
+        "force_all": True,
+        "max_items": 25,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "dragos_ot_rss",
+        "layer_id": "L7",
+        "name": "Dragos (OT)",
+        "url": DRAGOS_RSS_CANDIDATES[0],
+        "fallback_url": DRAGOS_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
+]
+
 # --- L6 ransomware / dark-web indirect trackers ---
 # Ransomware.live: free data dump (v2 REST often 404/rate-limited; data.* is reliable)
 RANSOMWARE_LIVE_VICTIMS_URL = "https://data.ransomware.live/victims.json"
@@ -82,22 +218,27 @@ LAYERS = [
         "id": "L1",
         "name_zh": "官方權威漏洞",
         "name_en": "Official / Authority Vuln",
-        "sources": ["CISA KEV", "FIRST EPSS", "CVE/NVD"],
+        "sources": ["CISA KEV", "FIRST EPSS top scores", "CVE/NVD"],
         "schedule_hint": "hourly / daily",
     },
     {
         "id": "L2",
         "name_zh": "國家 CERT／廠商 PSIRT",
         "name_en": "National CERT / Vendor PSIRT",
-        "sources": ["TWCERT/CC 資安新聞", "TWCERT/CC TVN", "Vendor PSIRT"],
+        "sources": [
+            "TWCERT/CC",
+            "Fortinet PSIRT",
+            "Palo Alto Unit 42",
+            "Vendor PSIRT",
+        ],
         "schedule_hint": "daily",
     },
     {
         "id": "L3",
         "name_zh": "社群 IOC／工具",
         "name_en": "Community IOC / Tools",
-        "sources": ["abuse.ch", "OTX"],
-        "schedule_hint": "daily",
+        "sources": ["abuse.ch", "AlienVault OTX Pulse"],
+        "schedule_hint": "daily (OTX optional API key)",
     },
     {
         "id": "L4",
@@ -110,8 +251,8 @@ LAYERS = [
         "id": "L5",
         "name_zh": "外洩／憑證監控",
         "name_en": "Breach / Credential Monitor",
-        "sources": ["Have I Been Pwned breaches", "Public breach news"],
-        "schedule_hint": "daily (public catalog free; domain search needs API key)",
+        "sources": ["Have I Been Pwned", "DataBreaches.net"],
+        "schedule_hint": "daily",
     },
     {
         "id": "L6",
@@ -120,8 +261,13 @@ LAYERS = [
         "sources": [
             "Ransomware.live",
             "RansomLook",
-            "@DailyDarkWeb / @DarkWebInformer (X)",
-            "BleepingComputer / THN dual-verify",
+            "BleepingComputer",
+            "The Hacker News",
+            "The Record",
+            "SecurityWeek",
+            "Cyber Security News",
+            "Reuters (Google News)",
+            "@DailyDarkWeb / @DarkWebInformer",
         ],
         "schedule_hint": "07:00 & 15:00 + dual-source verify",
     },
@@ -129,8 +275,12 @@ LAYERS = [
         "id": "L7",
         "name_zh": "OT／ICS 專屬",
         "name_en": "OT / ICS Specialized",
-        "sources": ["CISA ICS Advisories", "ICS Advisory Project mirror", "SEMI / manufacturing OT"],
-        "schedule_hint": "daily (RSS or GitHub CSV fallback)",
+        "sources": [
+            "CISA ICS Advisories",
+            "Dragos (OT)",
+            "ICS Advisory Project mirror",
+        ],
+        "schedule_hint": "daily (RSS or GitHub CSV / Google News fallback)",
     },
 ]
 
