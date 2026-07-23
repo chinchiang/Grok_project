@@ -107,29 +107,29 @@
         {
           "source_id": "censys",
           "layer_id": "L4",
-          "name": "Censys (API key required)",
+          "name": "Censys host lookup",
           "last_success": null,
-          "last_error": "CENSYS_API_ID/SECRET not configured",
-          "last_attempt": "2026-07-23T20:13:36+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:43:09+08:00",
           "status": "not_configured",
           "item_count": 0,
           "latency_ms": 0,
-          "detail": "Set Censys credentials to enable ASM delta alerts"
+          "detail": "需 CENSYS_API_ID + CENSYS_API_SECRET（免費帳號可申請），並設定 EASM_WATCH_IPS 或 EASM_WATCH_HOSTS"
         },
         {
           "source_id": "shodan",
           "layer_id": "L4",
-          "name": "Shodan (API key required)",
-          "last_success": null,
-          "last_error": "SHODAN_API_KEY not configured",
-          "last_attempt": "2026-07-23T20:13:36+08:00",
+          "name": "Shodan InternetDB / API",
+          "last_success": "2026-07-23T20:42:54+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:43:09+08:00",
           "status": "not_configured",
           "item_count": 0,
           "latency_ms": 0,
-          "detail": "Set SHODAN_API_KEY to enable external attack surface monitoring"
+          "detail": "免金鑰可用 InternetDB：設定 EASM_WATCH_IPS=x.x.x.x 或 EASM_WATCH_HOSTS=edge.example.com；進階可設 SHODAN_API_KEY"
         }
       ],
-      "schedule_hint": "daily (API key required)",
+      "schedule_hint": "daily (InternetDB free with EASM_WATCH_IPS; keys optional)",
       "overall": "not_configured"
     },
     {
