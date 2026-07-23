@@ -1,21 +1,15 @@
 """
-P0–P3 exclusive priority assignment.
+P0–P3 exclusive priority assignment (first match wins, no mixing).
 
-Rules (mutually exclusive — P1 never mixed into other buckets):
-  P0  KEV + known ransomware campaign use
-      OR Taiwan electronics/semi manufacturing victim + ransomware
-      OR dual-confirmed critical exploit against TW manufacturing stack
-  P1  In CISA KEV (confirmed in-the-wild) and NOT already P0
-  P2  Not KEV; high EPSS (>= 0.5) OR multi-source credible non-KEV alert
-  P3  Everything else under monitoring
+  P0  KEV + known ransomware campaign
+      OR TW electronics/semi watchlist + ransomware
+      OR TW industry + KEV
+  P1  In CISA KEV and not already P0  (never mixed into P2/P3)
+  P2  Not KEV; EPSS >= 0.5 OR multi-source credible
+  P3  Everything else (incl. single-source dark-web review queue)
 
 Verification:
-  confirmed   — official authority (CISA KEV, ICS official)
-  credible    — >= 2 independent sources OR official non-KEV
-  unverified  — single source / dark-web indirect without second source
-
-Category flags (orthogonal to priority):
-  is_tw_industry / is_finance / is_microsoft — tab filtering only
+  confirmed / credible / unverified + Admiralty hint
 """
 
 from __future__ import annotations
@@ -57,16 +51,9 @@ def match_finance_entities(text: str) -> list[dict[str, str]]:
     return _match_watchlist(text, FINANCE_WATCHLIST)
 
 
-def match_microsoft_entities(text: str, vendor: str = "", product: str = "") -> list[dict[str, str]]:
-    """
-    Microsoft-related matching with vendor/product boost.
-
-    Rules for correctness:
-    - Vendor Microsoft → always classify (KEV catalog).
-    - Known non-Microsoft vendor → only match product/title (first ~220 chars),
-      never full multi-browser descriptions that casually mention Edge.
-    - Empty vendor (news RSS) → full text match with specific product strings.
-    """
+def match_microsoft_entities(
+    text: str, vendor: str = "", product: str = ""
+) -> list[dict[str, str]]:
     v = (vendor or "").strip().lower()
     p = (product or "").strip().lower()
     is_ms_vendor = v in ("microsoft", "microsoft corporation") or v.startswith(
@@ -86,7 +73,6 @@ def match_microsoft_entities(text: str, vendor: str = "", product: str = "") -> 
             )
         return hits
 
-    # Non-MS vendor (e.g. Google Chromium notes "including Microsoft Edge")
     if v:
         short = text_blob(product, (text or "")[:220])
         hits = _match_watchlist(short, MICROSOFT_WATCHLIST)
@@ -99,23 +85,21 @@ def match_microsoft_entities(text: str, vendor: str = "", product: str = "") -> 
             "windows",
             "security_stack",
             "server_apps",
+            "threat_intel",
         }
         filtered: list[dict[str, str]] = []
         for h in hits:
             matched = (h.get("matched") or "").lower()
-            if matched in weak_aliases:
-                continue
-            if h.get("key") == "microsoft":
+            if matched in weak_aliases or h.get("key") == "microsoft":
                 continue
             if h.get("key") in strong_keys:
                 filtered.append(h)
         return filtered
 
-    # News / no vendor: full-text specific product watchlist
     hits = _match_watchlist(text_blob(text, product), MICROSOFT_WATCHLIST)
     if p and not hits:
         ms_product = re.search(
-            r"\b(exchange|sharepoint|azure|windows server|sql server|active directory|office 365|microsoft 365)\b",
+            r"\b(exchange|sharepoint|azure|windows server|sql server|active directory|office 365|microsoft 365|entra)\b",
             p,
         )
         if ms_product:
@@ -143,8 +127,13 @@ def assign_priority(
     epss: float | None,
     source_count: int,
     layer_id: str,
+    force_p3_review: bool = False,
 ) -> str:
-    """Return exactly one of P0|P1|P2|P3 — exclusive, no mixing."""
+    """Return exactly one of P0|P1|P2|P3 — exclusive, first match wins."""
+    # Spec: single-source dark-web → P3 review queue only
+    if force_p3_review:
+        return "P3"
+
     # P0 first
     if in_kev and known_ransomware_campaign:
         return "P0"
@@ -153,14 +142,14 @@ def assign_priority(
     if is_tw_industry and in_kev:
         return "P0"
 
-    # P1: pure KEV without P0 elevation
+    # P1: pure KEV without P0 elevation — never mixed into P2
     if in_kev:
         return "P1"
 
     # P2: predictive / multi-source
     if epss is not None and epss >= 0.5:
         return "P2"
-    if source_count >= 2 and layer_id in ("L2", "L3", "L6", "L7"):
+    if source_count >= 2 and layer_id in ("L2", "L3", "L6", "L7", "T2", "T3", "T6", "T7"):
         return "P2"
     if is_ransomware and source_count >= 2:
         return "P2"
@@ -175,13 +164,9 @@ def assign_verification(
     source_count: int,
     is_darkweb_indirect: bool,
 ) -> tuple[str, str]:
-    """
-    Returns (verification, admiralty_hint)
-    verification: confirmed | credible | unverified
-    """
-    if in_kev or layer_id == "L1" and source_count >= 1 and not is_darkweb_indirect:
-        if in_kev:
-            return "confirmed", "A1"
+    if in_kev:
+        return "confirmed", "A1"
+    if layer_id in ("L1", "T1") and source_count >= 1 and not is_darkweb_indirect:
         return "confirmed", "A2"
 
     if is_darkweb_indirect:
@@ -191,7 +176,7 @@ def assign_verification(
 
     if source_count >= 2:
         return "credible", "B2"
-    if layer_id in ("L2", "L7"):
+    if layer_id in ("L2", "L7", "T2", "T7"):
         return "credible", "B2"
     return "unverified", "C3"
 

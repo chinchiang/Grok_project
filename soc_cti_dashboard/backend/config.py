@@ -22,6 +22,18 @@ MANUAL_SCAN_COOLDOWN_SEC = 30 * 60
 CISA_KEV_URL = (
     "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 )
+# GitHub mirror when cisa.gov is blocked (cisagov maintains KEV data)
+CISA_KEV_GITHUB_MIRROR = (
+    "https://raw.githubusercontent.com/cisagov/kev-data/main/"
+    "known_exploited_vulnerabilities.json"
+)
+# Alternate community mirrors
+CISA_KEV_MIRRORS = (
+    CISA_KEV_URL,
+    CISA_KEV_GITHUB_MIRROR,
+    "https://raw.githubusercontent.com/cisagov/vulnrichment/develop/"
+    "cisa/known_exploited_vulnerabilities.json",
+)
 EPSS_API = "https://api.first.org/data/v1/epss"
 # Official CISA advisory RSS (often blocked by Akamai/WAF from some networks)
 CISA_ICS_RSS = "https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml"

@@ -75,6 +75,7 @@ _MIGRATIONS = [
     "ALTER TABLE intel_items ADD COLUMN finance_entities_json TEXT DEFAULT '[]'",
     "ALTER TABLE intel_items ADD COLUMN is_microsoft INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE intel_items ADD COLUMN ms_entities_json TEXT DEFAULT '[]'",
+    "ALTER TABLE intel_items ADD COLUMN extras_json TEXT DEFAULT '{}'",
 ]
 
 
@@ -101,12 +102,39 @@ async def init_db() -> None:
         await db.commit()
 
 
+def _pack_extras(item: dict[str, Any]) -> str:
+    """Serialize ops/display extras into extras_json."""
+    if item.get("extras_json"):
+        return item["extras_json"] if isinstance(item["extras_json"], str) else json.dumps(
+            item["extras_json"], ensure_ascii=False
+        )
+    extras = {
+        "priority_rationale": item.get("priority_rationale"),
+        "priority_rationale_en": item.get("priority_rationale_en"),
+        "evidence_count": item.get("evidence_count"),
+        "assets": item.get("assets")
+        or (
+            json.loads(item["assets_json"])
+            if isinstance(item.get("assets_json"), str) and item.get("assets_json")
+            else item.get("assets_json")
+        ),
+        "sop_id": item.get("sop_id"),
+        "sop_zh": item.get("sop_zh"),
+        "sop_en": item.get("sop_en"),
+        "owner": item.get("owner"),
+        "sla_hours": item.get("sla_hours"),
+        "is_live": bool(item.get("is_live")),
+    }
+    return json.dumps(extras, ensure_ascii=False, default=str)
+
+
 async def upsert_intel(item: dict[str, Any]) -> None:
     # Defaults for optional category fields (older callers)
     item.setdefault("is_finance", 0)
     item.setdefault("finance_entities_json", "[]")
     item.setdefault("is_microsoft", 0)
     item.setdefault("ms_entities_json", "[]")
+    item["extras_json"] = _pack_extras(item)
 
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
@@ -117,14 +145,14 @@ async def upsert_intel(item: dict[str, Any]) -> None:
                 is_ransomware, is_tw_industry, tw_entities_json,
                 is_finance, finance_entities_json, is_microsoft, ms_entities_json,
                 known_ransomware_campaign, epss, cvss, date_added, published_at,
-                fetched_at, url, admiralty, raw_json, tags_json
+                fetched_at, url, admiralty, raw_json, tags_json, extras_json
             ) VALUES (
                 :id, :title, :title_en, :summary, :summary_en, :priority, :verification,
                 :layer_id, :source_name, :sources_json, :cve_id, :product, :vendor,
                 :is_ransomware, :is_tw_industry, :tw_entities_json,
                 :is_finance, :finance_entities_json, :is_microsoft, :ms_entities_json,
                 :known_ransomware_campaign, :epss, :cvss, :date_added, :published_at,
-                :fetched_at, :url, :admiralty, :raw_json, :tags_json
+                :fetched_at, :url, :admiralty, :raw_json, :tags_json, :extras_json
             )
             ON CONFLICT(id) DO UPDATE SET
                 title=excluded.title,
@@ -155,7 +183,8 @@ async def upsert_intel(item: dict[str, Any]) -> None:
                 url=excluded.url,
                 admiralty=excluded.admiralty,
                 raw_json=excluded.raw_json,
-                tags_json=excluded.tags_json
+                tags_json=excluded.tags_json,
+                extras_json=excluded.extras_json
             """,
             item,
         )
@@ -227,6 +256,17 @@ def _row_to_item(r: aiosqlite.Row) -> dict[str, Any]:
     d["is_finance"] = bool(d.get("is_finance"))
     d["is_microsoft"] = bool(d.get("is_microsoft"))
     d["known_ransomware_campaign"] = bool(d.get("known_ransomware_campaign"))
+    try:
+        extras = json.loads(d.get("extras_json") or "{}")
+    except json.JSONDecodeError:
+        extras = {}
+    if isinstance(extras, dict):
+        for k, v in extras.items():
+            if v is not None and k not in d:
+                d[k] = v
+        d["assets"] = extras.get("assets") or []
+        d["evidence_count"] = extras.get("evidence_count") or len(d.get("sources") or [])
+        d["is_live"] = bool(extras.get("is_live"))
     return d
 
 
@@ -282,6 +322,32 @@ async def query_intel(
             return [_row_to_item(r) for r in rows]
 
 
+async def _series_30d(db: aiosqlite.Connection, where_sql: str) -> list[dict[str, Any]]:
+    """Build last-30-day daily counts for sparklines (date, count)."""
+    series: list[dict[str, Any]] = []
+    async with db.execute(
+        f"""
+        SELECT substr(COALESCE(date_added, published_at, fetched_at), 1, 10) AS d,
+               COUNT(*) AS n
+        FROM intel_items
+        WHERE {where_sql}
+          AND substr(COALESCE(date_added, published_at, fetched_at), 1, 10)
+              >= date('now', '-29 days')
+        GROUP BY d
+        ORDER BY d
+        """
+    ) as cur:
+        rows = await cur.fetchall()
+    by_day = {r[0]: int(r[1]) for r in rows if r[0]}
+    from datetime import timedelta
+
+    today = datetime.now(TZ_TAIPEI).date()
+    for i in range(29, -1, -1):
+        d = (today - timedelta(days=i)).isoformat()
+        series.append({"date": d, "count": by_day.get(d, 0)})
+    return series
+
+
 async def get_kpis() -> dict[str, Any]:
     async with aiosqlite.connect(DB_PATH) as db:
         async def one(sql: str, *p: Any) -> int:
@@ -296,7 +362,6 @@ async def get_kpis() -> dict[str, Any]:
         kev_total = await one(
             "SELECT COUNT(*) FROM intel_items WHERE source_name LIKE '%KEV%'"
         )
-        # Recent KEV = catalog dateAdded within 7 days (not fetch time)
         recent_kev = await one(
             """
             SELECT COUNT(*) FROM intel_items
@@ -305,9 +370,58 @@ async def get_kpis() -> dict[str, Any]:
               AND date_added >= date('now', '-7 days')
             """
         )
+        kev_60d = await one(
+            """
+            SELECT COUNT(*) FROM intel_items
+            WHERE source_name LIKE '%KEV%'
+              AND date_added IS NOT NULL
+              AND date_added >= date('now', '-60 days')
+            """
+        )
         tw_total = await one("SELECT COUNT(*) FROM intel_items WHERE is_tw_industry=1")
         tw_ransom = await one(
             "SELECT COUNT(*) FROM intel_items WHERE is_tw_industry=1 AND is_ransomware=1"
+        )
+        # Risk KPIs (event-oriented)
+        breach = await one(
+            """
+            SELECT COUNT(*) FROM intel_items
+            WHERE is_ransomware=1 OR source_name LIKE '%HIBP%'
+               OR source_name LIKE '%DataBreach%' OR source_name LIKE '%ThreatFox%'
+            """
+        )
+        big5 = await one(
+            """
+            SELECT COUNT(*) FROM intel_items
+            WHERE is_tw_industry=1 AND (
+              tw_entities_json LIKE '%"big5"%'
+              OR tw_entities_json LIKE '%foxconn%'
+              OR tw_entities_json LIKE '%pegatron%'
+              OR tw_entities_json LIKE '%quanta%'
+              OR tw_entities_json LIKE '%compal%'
+              OR tw_entities_json LIKE '%wistron%'
+            )
+            """
+        )
+        semi = await one(
+            """
+            SELECT COUNT(*) FROM intel_items
+            WHERE is_tw_industry=1 AND tw_entities_json LIKE '%"semi"%'
+            """
+        )
+        ems = await one(
+            """
+            SELECT COUNT(*) FROM intel_items
+            WHERE is_tw_industry=1 AND (
+              tw_entities_json LIKE '%"electronics"%'
+              OR tw_entities_json LIKE '%"odm"%'
+              OR tw_entities_json LIKE '%"display"%'
+              OR tw_entities_json LIKE '%"industrial"%'
+            )
+            """
+        )
+        unverified = await one(
+            "SELECT COUNT(*) FROM intel_items WHERE verification='unverified'"
         )
         finance_total = await one("SELECT COUNT(*) FROM intel_items WHERE is_finance=1")
         ms_total = await one("SELECT COUNT(*) FROM intel_items WHERE is_microsoft=1")
@@ -317,6 +431,27 @@ async def get_kpis() -> dict[str, Any]:
         )
         total_src = await one("SELECT COUNT(*) FROM source_health")
         health_pct = round(100.0 * healthy / total_src, 1) if total_src else 0.0
+
+        series = {
+            "breach": await _series_30d(
+                db,
+                "is_ransomware=1 OR source_name LIKE '%HIBP%' OR source_name LIKE '%DataBreach%'",
+            ),
+            "big5": await _series_30d(
+                db, "is_tw_industry=1 AND tw_entities_json LIKE '%\"big5\"%'"
+            ),
+            "semi": await _series_30d(
+                db, "is_tw_industry=1 AND tw_entities_json LIKE '%\"semi\"%'"
+            ),
+            "ems": await _series_30d(
+                db,
+                "is_tw_industry=1 AND (tw_entities_json LIKE '%\"electronics\"%' OR tw_entities_json LIKE '%\"odm\"%')",
+            ),
+            "unverified": await _series_30d(db, "verification='unverified'"),
+            "kev": await _series_30d(db, "source_name LIKE '%KEV%'"),
+            "p0": await _series_30d(db, "priority='P0'"),
+        }
+
         return {
             "p0_count": p0,
             "p1_count": p1,
@@ -324,14 +459,22 @@ async def get_kpis() -> dict[str, Any]:
             "p3_count": p3,
             "kev_total": kev_total,
             "kev_recent_7d": recent_kev,
+            "kev_recent_60d": kev_60d,
             "tw_industry_count": tw_total,
             "tw_ransomware_count": tw_ransom,
             "finance_count": finance_total,
             "microsoft_count": ms_total,
             "ransomware_count": ransom_all,
+            "breach_count": breach,
+            "big5_count": big5,
+            "semi_count": semi,
+            "ems_count": ems,
+            "unverified_count": unverified,
             "source_health_pct": health_pct,
             "sources_healthy": healthy,
             "sources_total": total_src,
+            "series_30d": series,
+            "unit": "件",
             "as_of": now_iso(),
         }
 

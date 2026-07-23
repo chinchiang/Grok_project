@@ -17,6 +17,7 @@ import httpx
 
 from .config import (
     CISA_KEV_URL,
+    CISA_KEV_MIRRORS,
     CISA_ADVISORIES_RSS_CANDIDATES,
     CISA_ICS_GITHUB_API,
     CISA_ICS_MAX_ITEMS,
@@ -73,6 +74,7 @@ from .config import (
     LAYERS,
 )
 from .database import delete_source_health, now_iso, upsert_intel, upsert_source_health
+from .ops import explain_priority, guess_assets, pick_sop
 from .priority import assign_priority, assign_verification, enrich_flags
 
 
@@ -118,16 +120,37 @@ async def _mark(
 
 
 async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
-    """L1 — CISA KEV real-time JSON feed."""
+    """L1 — CISA KEV JSON feed with GitHub mirror fallbacks."""
     t0 = time.perf_counter()
     count = 0
+    used_url = CISA_KEV_URL
     try:
+        data = None
+        last_err: Exception | None = None
         async with await _client() as client:
-            r = await client.get(CISA_KEV_URL)
-            r.raise_for_status()
-            data = r.json()
+            for url in CISA_KEV_MIRRORS:
+                try:
+                    r = await client.get(
+                        url,
+                        headers={
+                            "User-Agent": USER_AGENT,
+                            "Accept": "application/json",
+                        },
+                        timeout=90.0,
+                    )
+                    r.raise_for_status()
+                    data = r.json()
+                    used_url = url
+                    last_err = None
+                    break
+                except Exception as e:
+                    last_err = e
+                    continue
+        if data is None:
+            raise last_err or RuntimeError("KEV feed unavailable")
+
         vulns = data.get("vulnerabilities") or []
-        # Sort by dateAdded desc
+        catalog_total = len(vulns)
         vulns = sorted(
             vulns,
             key=lambda v: v.get("dateAdded") or "",
@@ -169,12 +192,30 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
                 source_count=1,
                 layer_id="L1",
             )
+            rz, re_ = explain_priority(
+                priority=priority,
+                in_kev=True,
+                known_ransomware_campaign=ransomware_flag,
+                is_ransomware=is_ransom,
+                is_tw_industry=is_tw,
+                epss=epss,
+                source_count=1,
+            )
             verification, admiralty = assign_verification(
                 in_kev=True,
                 layer_id="L1",
                 source_count=1,
                 is_darkweb_indirect=False,
             )
+            sop = pick_sop(
+                priority=priority,
+                in_kev=True,
+                is_ransomware=is_ransom,
+                is_tw_industry=is_tw,
+                is_microsoft=is_ms,
+                verification=verification,
+            )
+            assets = guess_assets(flags, vendor, product)
 
             title_zh = f"[KEV] {cve} — {name}"
             title_en = f"[KEV] {cve} — {name}"
@@ -182,13 +223,15 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
                 f"{desc}\n廠商/產品：{vendor} / {product}\n"
                 f"KEV 收錄日：{date_added}｜修補期限：{due}\n"
                 f"必要處置：{required}\n"
-                f"勒索活動關聯：{'是' if ransomware_flag else '未知/否'}"
+                f"勒索活動關聯：{'是' if ransomware_flag else '未知/否'}\n"
+                f"{rz}"
             )
             summary_en = (
                 f"{desc}\nVendor/Product: {vendor} / {product}\n"
                 f"KEV dateAdded: {date_added} | dueDate: {due}\n"
                 f"Required action: {required}\n"
-                f"Ransomware campaign use: {'Known' if ransomware_flag else 'Unknown'}"
+                f"Ransomware campaign use: {'Known' if ransomware_flag else 'Unknown'}\n"
+                f"{re_}"
             )
 
             await upsert_intel(
@@ -199,6 +242,8 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
                     "summary": summary_zh,
                     "summary_en": summary_en,
                     "priority": priority,
+                    "priority_rationale": rz,
+                    "priority_rationale_en": re_,
                     "verification": verification,
                     "layer_id": "L1",
                     "source_name": "CISA KEV",
@@ -231,11 +276,20 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
                         + (["finance"] if is_finance else [])
                         + (["microsoft"] if is_ms else [])
                     ),
+                    "evidence_count": 1,
+                    "assets_json": json.dumps(assets, ensure_ascii=False),
+                    "sop_id": sop["sop_id"],
+                    "sop_zh": sop["sop_zh"],
+                    "sop_en": sop["sop_en"],
+                    "owner": sop["owner"],
+                    "sla_hours": sop["sla_hours"],
+                    "is_live": 0,
                 }
             )
             count += 1
 
         ms = int((time.perf_counter() - t0) * 1000)
+        mirror = "github" if "github" in used_url else "cisa.gov"
         await _mark(
             "cisa_kev",
             "L1",
@@ -243,7 +297,10 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
             ok=True,
             count=count,
             latency_ms=ms,
-            detail=f"catalog entries ingested (cap={limit_recent})",
+            detail=(
+                f"source={mirror}; ingested={count}; "
+                f"catalog_total={catalog_total}; cap={limit_recent}"
+            ),
         )
         return count
     except Exception as e:
@@ -2199,15 +2256,26 @@ async def _upsert_ransom_victim_item(
     source_count = len(sources) if dual_verified else 1
     if dual_verified:
         source_count = max(2, source_count)
+    # Spec: single-source leak-site → P3 human review queue only
+    force_p3 = not dual_verified
 
     priority = assign_priority(
         in_kev=False,
         known_ransomware_campaign=False,
         is_ransomware=is_ransom,
-        is_tw_industry=is_tw,
+        is_tw_industry=is_tw and dual_verified,
         epss=None,
         source_count=source_count,
         layer_id="L6",
+        force_p3_review=force_p3,
+    )
+    rz, re_ = explain_priority(
+        priority=priority,
+        is_ransomware=is_ransom,
+        is_tw_industry=is_tw,
+        source_count=source_count,
+        dual_verified=dual_verified,
+        forced_p3_review=force_p3,
     )
     verification, admiralty = assign_verification(
         in_kev=False,
@@ -2219,6 +2287,17 @@ async def _upsert_ransom_victim_item(
         verification, admiralty = "credible", "B2"
     else:
         verification, admiralty = "unverified", "C3"
+
+    sop = pick_sop(
+        priority=priority,
+        is_ransomware=is_ransom,
+        is_tw_industry=is_tw,
+        is_microsoft=is_ms,
+        verification=verification,
+        is_darkweb=True,
+        is_breach=True,
+    )
+    assets = guess_assets(flags, group, website)
 
     title_core = f"{victim} — claimed by {group}"
     title_zh = f"🔐 勒索受駭｜{title_core}"
@@ -2241,7 +2320,8 @@ async def _upsert_ransom_victim_item(
         f"發現/公布：{discovered or '—'} / {published or '—'}\n"
         f"{(description or '')[:800]}\n"
         f"來源：{', '.join(sources)}（暗網洩漏站間接 — "
-        f"{'雙源可信' if dual_verified else '單源未核實'}）"
+        f"{'雙源可信' if dual_verified else '單源未核實 → P3 複核佇列'}）\n"
+        f"{rz}"
     )
     summary_en = (
         f"Victim: {victim}\n"
@@ -2251,7 +2331,8 @@ async def _upsert_ransom_victim_item(
         f"Discovered/Published: {discovered or '—'} / {published or '—'}\n"
         f"{(description or '')[:800]}\n"
         f"Source: {', '.join(sources)} (indirect leak-site — "
-        f"{'dual-source credible' if dual_verified else 'single-source unverified'})"
+        f"{'dual-source credible' if dual_verified else 'single-source → P3 review'})\n"
+        f"{re_}"
     )
 
     link = url or (
@@ -2268,6 +2349,8 @@ async def _upsert_ransom_victim_item(
             "summary": summary_zh,
             "summary_en": summary_en,
             "priority": priority,
+            "priority_rationale": rz,
+            "priority_rationale_en": re_,
             "verification": verification,
             "layer_id": "L6",
             "source_name": source_name,
@@ -2292,6 +2375,14 @@ async def _upsert_ransom_victim_item(
             "fetched_at": now_iso(),
             "url": link,
             "admiralty": admiralty,
+            "evidence_count": source_count,
+            "assets": assets,
+            "sop_id": sop["sop_id"],
+            "sop_zh": sop["sop_zh"],
+            "sop_en": sop["sop_en"],
+            "owner": sop["owner"],
+            "sla_hours": sop["sla_hours"],
+            "is_live": 0,
             "raw_json": json.dumps(
                 {
                     "victim": victim,
