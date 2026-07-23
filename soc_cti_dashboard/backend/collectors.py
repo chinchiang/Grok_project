@@ -65,8 +65,8 @@ from .config import (
     RANSOMLOOK_MAX_ITEMS,
     RANSOMLOOK_RECENT_URL,
     RANSOMLOOK_RSS_URL,
-    X_DARKWEB_ACCOUNTS,
-    X_DARKWEB_MAX_ITEMS,
+    X_OSINT_ACCOUNTS,
+    X_OSINT_MAX_ITEMS,
     X_NITTER_MIRRORS,
     OBSOLETE_SOURCE_IDS,
     USER_AGENT,
@@ -2671,15 +2671,24 @@ def _parse_rss_entries(
 
 
 async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
-    """
-    L6 — @DailyDarkWeb and @DarkWebInformer (no X API key).
+    """Alias — X OSINT account collector (darkweb + news handles)."""
+    return await collect_x_osint_accounts(max_items=max_items)
 
-    Order: Nitter mirrors → official blog RSS → Google News site: search.
+
+async def collect_x_osint_accounts(max_items: int | None = None) -> int:
+    """
+    L6 — Curated X OSINT handles (no X API key).
+
+    Order per account: Nitter mirrors → official blog RSS → Google News.
     Health rows are per-handle only (no aggregate line).
+
+    Skips handles already covered by primary RSS/API (see config comments).
+    In-run title fingerprint de-dupes cross-handle reposts.
     """
     t0 = time.perf_counter()
-    per = max_items if max_items is not None else X_DARKWEB_MAX_ITEMS
+    default_per = max_items if max_items is not None else X_OSINT_MAX_ITEMS
     total = 0
+    seen_fp: set[str] = set()
 
     rss_headers = {
         "User-Agent": (
@@ -2714,6 +2723,15 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
         "cyber",
         "database",
         "credential",
+        "exploit",
+        "vulnerability",
+        "zero-day",
+        "0day",
+        "dfir",
+        "ioc",
+        "apt",
+        "sigma",
+        "detection",
     )
 
     # Always remove obsolete aggregate row first
@@ -2723,10 +2741,12 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
         except Exception:
             pass
 
-    for acct in X_DARKWEB_ACCOUNTS:
+    for acct in X_OSINT_ACCOUNTS:
         handle = acct["handle"]
+        category = (acct.get("category") or "darkweb").lower()
         source_id = f"x_{handle.lower()}"
         name = f"@{handle} (X)"
+        per = int(acct.get("max_items") or default_per)
         count = 0
         used = ""
         errors: list[str] = []
@@ -2786,6 +2806,16 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
                     # GNews can be noisy — require threat keywords
                     continue
 
+                # Cross-handle de-dupe (strip URLs / handles / punctuation)
+                fp_raw = re.sub(r"https?://\S+", " ", title.lower())
+                fp_raw = re.sub(r"@\w+", " ", fp_raw)
+                fp_raw = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", fp_raw)
+                fp_raw = re.sub(r"\s+", " ", fp_raw).strip()[:160]
+                if fp_raw and fp_raw in seen_fp:
+                    continue
+                if fp_raw:
+                    seen_fp.add(fp_raw)
+
                 flags = enrich_flags(title, summary)
                 is_ransom = flags["is_ransomware"] or any(
                     k in blob for k in ("ransom", "勒索", "extortion", "lockbit")
@@ -2809,20 +2839,41 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
                 title_zh = f"[未核實 Unverified] {title_zh}"
                 title_en = f"[Unverified] {title_en}"
 
+                is_dark = category == "darkweb" or any(
+                    k in blob
+                    for k in ("dark web", "darkweb", "leak site", "ransom", "extortion")
+                )
+                note_zh = (
+                    f"[單來源] @{handle} via {used or 'rss'}"
+                    + (" — 暗網間接，標示未核實" if is_dark else " — OSINT 社群，標示未核實")
+                )
+                note_en = (
+                    f"[Single source] @{handle} via {used or 'rss'}"
+                    + (
+                        " — indirect dark-web intel, Unverified"
+                        if is_dark
+                        else " — OSINT community post, Unverified"
+                    )
+                )
+
+                tags = [
+                    "x-twitter",
+                    "unverified",
+                    handle.lower(),
+                    f"cat-{category}",
+                ]
+                if is_dark:
+                    tags.append("darkweb-indirect")
+                if is_ransom:
+                    tags.append("ransomware")
+
                 await upsert_intel(
                     {
                         "id": _id("x", handle, title, e["link"]),
                         "title": title_zh,
                         "title_en": title_en,
-                        "summary": (
-                            f"{summary}\n\n"
-                            f"[單來源] @{handle} via {used or 'rss'} — 暗網間接，標示未核實"
-                        ),
-                        "summary_en": (
-                            f"{summary}\n\n"
-                            f"[Single source] @{handle} via {used or 'rss'} — "
-                            "indirect dark-web intel, Unverified"
-                        ),
+                        "summary": f"{summary}\n\n{note_zh}",
+                        "summary_en": f"{summary}\n\n{note_en}",
                         "priority": priority,
                         "verification": verification,
                         "layer_id": "L6",
@@ -2856,15 +2907,7 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
                         "url": e["link"] or acct["profile"],
                         "admiralty": admiralty,
                         "raw_json": json.dumps(e, ensure_ascii=False)[:3000],
-                        "tags_json": json.dumps(
-                            [
-                                "x-twitter",
-                                "darkweb-indirect",
-                                "unverified",
-                                handle.lower(),
-                            ]
-                            + (["ransomware"] if is_ransom else [])
-                        ),
+                        "tags_json": json.dumps(tags),
                     }
                 )
                 count += 1
@@ -2879,7 +2922,7 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
                     ok=True,
                     count=count,
                     latency_ms=ms,
-                    detail=f"via={used}; tried={len(candidates)}",
+                    detail=f"via={used}; cat={category}; tried={len(candidates)}",
                 )
             else:
                 await _mark(

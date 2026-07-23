@@ -192,6 +192,49 @@ INTEL_FEEDS: list[dict] = [
         "max_items": 25,
         "darkweb_indirect": False,
     },
+    # Official blogs for accounts that also exist on X — prefer RSS over X (dedupe)
+    {
+        "source_id": "krebs_rss",
+        "layer_id": "L6",
+        "name": "Krebs on Security",
+        "url": "https://krebsonsecurity.com/feed/",
+        "force_all": True,
+        "max_items": 15,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "darkreading_rss",
+        "layer_id": "L6",
+        "name": "Dark Reading",
+        "url": "https://www.darkreading.com/rss.xml",
+        "fallback_url": (
+            "https://news.google.com/rss/search?q=site:darkreading.com"
+            "+(cyber+OR+ransomware+OR+breach+OR+vulnerability)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "dfir_report_rss",
+        "layer_id": "L6",
+        "name": "The DFIR Report",
+        "url": "https://thedfirreport.com/feed/",
+        "force_all": True,
+        "max_items": 12,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "sans_isc_rss",
+        "layer_id": "L6",
+        "name": "SANS Internet Storm Center",
+        "url": "https://isc.sans.edu/rssfeed_full.xml",
+        "fallback_url": "https://isc.sans.edu/rssfeed.xml",
+        "force_all": True,
+        "max_items": 15,
+        "darkweb_indirect": False,
+    },
     {
         "source_id": "dragos_ot_rss",
         "layer_id": "L7",
@@ -260,16 +303,27 @@ RANSOMLOOK_RECENT_URL = "https://www.ransomlook.io/api/recent"
 RANSOMLOOK_RSS_URL = "https://www.ransomlook.io/rss.xml"
 RANSOMLOOK_MAX_ITEMS = int(os.environ.get("RANSOMLOOK_MAX_ITEMS") or "60")
 
-# X accounts: multi-mirror Nitter → blog RSS → Google News (no X API key)
+# X accounts: multi-mirror Nitter → blog RSS → Google News (no X API key).
 # Nitter instances are flaky; always keep blog/gnews fallbacks.
+#
+# Dedupe policy (do NOT also collect X for these — already have primary feeds):
+#   @TheHackersNews     → The Hacker News RSS
+#   @BleepinComputer    → BleepingComputer RSS
+#   @haveibeenpwned     → HIBP API (L5)
+#   @briankrebs         → Krebs on Security RSS
+#   @DarkReading        → Dark Reading RSS
+#   @TheDFIRReport      → The DFIR Report RSS
+#   @sans_isc           → SANS ISC RSS
 X_NITTER_MIRRORS = (
     "https://nitter.net",
     "https://nitter.privacyredirect.com",
     "https://xcancel.com",
 )
-X_DARKWEB_ACCOUNTS = [
+X_OSINT_ACCOUNTS = [
+    # —— 暗網／地下活動監測 ——
     {
         "handle": "DailyDarkWeb",
+        "category": "darkweb",
         "blog_rss": "https://dailydarkweb.net/feed/",
         "gnews_rss": (
             "https://news.google.com/rss/search?q=site:dailydarkweb.net"
@@ -277,9 +331,11 @@ X_DARKWEB_ACCOUNTS = [
             "&hl=en-US&gl=US&ceid=US:en"
         ),
         "profile": "https://x.com/DailyDarkWeb",
+        "max_items": 25,
     },
     {
         "handle": "DarkWebInformer",
+        "category": "darkweb",
         "blog_rss": "https://darkwebinformer.com/rss/",
         "gnews_rss": (
             "https://news.google.com/rss/search?q=site:darkwebinformer.com"
@@ -287,9 +343,105 @@ X_DARKWEB_ACCOUNTS = [
             "&hl=en-US&gl=US&ceid=US:en"
         ),
         "profile": "https://x.com/DarkWebInformer",
+        "max_items": 25,
+    },
+    {
+        "handle": "MonThreat",
+        "category": "darkweb",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(MonThreat+OR+ThreatMon+OR+%22@MonThreat%22)"
+            "+(ransomware+OR+breach+OR+leak+OR+dark+web+OR+threat)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/MonThreat",
+        "max_items": 15,
+    },
+    {
+        "handle": "Bank_Security",
+        "category": "darkweb",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(%22Bank_Security%22+OR+%22@Bank_Security%22)"
+            "+(bank+OR+ransomware+OR+malware+OR+breach+OR+swift)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/Bank_Security",
+        "max_items": 15,
+    },
+    # —— 資安新聞／CVE／DFIR（無官方 RSS 或僅 X 為主）——
+    {
+        "handle": "GossiTheDog",
+        "category": "news",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(%22Kevin+Beaumont%22+OR+GossiTheDog)"
+            "+(CVE+OR+exploit+OR+vulnerability+OR+ransomware+OR+zero-day)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/GossiTheDog",
+        "max_items": 15,
+    },
+    {
+        "handle": "vxunderground",
+        "category": "news",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(vx-underground+OR+vxunderground+OR+%22@vxunderground%22)"
+            "+(malware+OR+ransomware+OR+threat+OR+sample)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/vxunderground",
+        "max_items": 12,
+    },
+    {
+        "handle": "troyhunt",
+        "category": "news",
+        "blog_rss": "https://www.troyhunt.com/rss/",
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(%22Troy+Hunt%22+OR+troyhunt)"
+            "+(breach+OR+pwned+OR+password+OR+leak)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/troyhunt",
+        "max_items": 12,
+    },
+    {
+        "handle": "campuscodi",
+        "category": "news",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(%22Catalin+Cimpanu%22+OR+campuscodi)"
+            "+(cyber+OR+ransomware+OR+breach+OR+vulnerability+OR+hack)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/campuscodi",
+        "max_items": 12,
+    },
+    {
+        "handle": "cyb3rops",
+        "category": "news",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(%22Florian+Roth%22+OR+cyb3rops+OR+Nextron)"
+            "+(detection+OR+sigma+OR+malware+OR+DFIR+OR+threat)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/cyb3rops",
+        "max_items": 12,
     },
 ]
-X_DARKWEB_MAX_ITEMS = int(os.environ.get("X_DARKWEB_MAX_ITEMS") or "25")
+# Backward-compatible alias
+X_DARKWEB_ACCOUNTS = X_OSINT_ACCOUNTS
+X_DARKWEB_MAX_ITEMS = int(os.environ.get("X_DARKWEB_MAX_ITEMS") or "20")
+X_OSINT_MAX_ITEMS = X_DARKWEB_MAX_ITEMS
 # Obsolete source_health rows to strip from layer dashboard
 OBSOLETE_SOURCE_IDS = frozenset({"x_darkweb_accounts"})
 # TWCERT/CC public RSS (official channels; old /tw/rss/rss.xml is 404)
@@ -363,14 +515,20 @@ LAYERS = [
             "RansomLook",
             "BleepingComputer",
             "The Hacker News",
+            "Krebs on Security",
+            "Dark Reading",
+            "The DFIR Report",
+            "SANS Internet Storm Center",
             "The Record",
             "SecurityWeek",
             "Cyber Security News",
             "Reuters (Google News)",
-            "@DailyDarkWeb (X)",
-            "@DarkWebInformer (X)",
+            "@DailyDarkWeb / @DarkWebInformer (X)",
+            "@MonThreat / @Bank_Security (X)",
+            "@GossiTheDog / @vxunderground / @troyhunt (X)",
+            "@campuscodi / @cyb3rops (X)",
         ],
-        "schedule_hint": "07:00 & 15:00 + dual-source verify",
+        "schedule_hint": "07:00 & 15:00 + dual-source verify; X via Nitter/blog (no API key)",
     },
     {
         "id": "L7",

@@ -100,7 +100,7 @@ python scripts/export_static.py
 | L7 | **CISA ICS Advisories** | 先試官方 RSS；若 WAF 403 則改用 [ICS Advisory Project](https://github.com/icsadvprj/ICS-Advisory-Project) CSV 鏡像 | 無需金鑰 |
 | L6 | **Ransomware.live** | `data.ransomware.live/victims.json` 近期受駭 | 可選 `RANSOMWARE_LIVE_API_KEY`（PRO） |
 | L6 | **RansomLook** | `ransomlook.io/api/recent` | 無需金鑰 |
-| L6 | **@DailyDarkWeb / @DarkWebInformer** | Nitter RSS，失敗則用官網 blog RSS | 無需 X API 金鑰 |
+| L6 | **X OSINT 帳號** | Nitter → blog RSS → Google News；已排除與 THN／BC／HIBP／Krebs／Dark Reading／DFIR／SANS 重複 | 無需 X API 金鑰 |
 | L4 | **Shodan** | **InternetDB 免金鑰**（需監控 IP） | `EASM_WATCH_IPS` / `EASM_WATCH_HOSTS`；可選 `SHODAN_API_KEY` |
 | L4 | **Censys** | Host lookup（需金鑰 + 監控 IP） | `CENSYS_API_ID` + `CENSYS_API_SECRET` + 上述監控目標 |
 | L3 | **AlienVault OTX Pulse** | 需免費 API key | `OTX_API_KEY` |
