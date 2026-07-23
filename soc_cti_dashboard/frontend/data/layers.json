@@ -9,25 +9,25 @@
           "source_id": "cisa_kev",
           "layer_id": "L1",
           "name": "CISA KEV",
-          "last_success": "2026-07-23T20:13:36+08:00",
+          "last_success": "2026-07-23T22:09:42+08:00",
           "last_error": null,
-          "last_attempt": "2026-07-23T20:13:36+08:00",
+          "last_attempt": "2026-07-23T22:09:42+08:00",
           "status": "healthy",
-          "item_count": 120,
-          "latency_ms": 5970,
-          "detail": "catalog entries ingested (cap=120)"
+          "item_count": 50,
+          "latency_ms": 5146,
+          "detail": "source=cisa.gov; ingested=50; catalog_total=1653; cap=50"
         },
         {
           "source_id": "first_epss",
           "layer_id": "L1",
           "name": "FIRST EPSS",
-          "last_success": "2026-07-23T21:04:42+08:00",
+          "last_success": "2026-07-23T22:09:39+08:00",
           "last_error": null,
-          "last_attempt": "2026-07-23T21:04:42+08:00",
+          "last_attempt": "2026-07-23T22:09:39+08:00",
           "status": "healthy",
-          "item_count": 30,
-          "latency_ms": 1788,
-          "detail": "top-score feed; min>=0.5"
+          "item_count": 50,
+          "latency_ms": 0,
+          "detail": "enriched 50 CVEs"
         },
         {
           "source_id": "first_epss_top",
@@ -479,7 +479,7 @@
       15
     ],
     "description_zh": "每日 07:00、15:00（臺灣時間）由 GitHub Actions 自動更新",
-    "description_en": "Auto-updated daily at 07:00 & 15:00 Asia/Taipei via GitHub Actions"
+    "description_en": "Auto-updated daily"
   },
   "last_scheduled_scan": "2026-07-23T20:13:39+08:00",
   "last_manual_scan": null
