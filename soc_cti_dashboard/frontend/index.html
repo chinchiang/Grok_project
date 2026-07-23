@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0e17" />
+  <title>SOC 即時威脅情資｜CTI Early Warning</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-pulse"></div>
+      <div>
+        <h1 data-i18n="appTitle">SOC 即時威脅情資中心</h1>
+        <p class="subtitle" data-i18n="appSubtitle">OSINT CTI · CISA KEV · 七層來源 · 臺灣時區</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <div class="clock" id="clock">--:--:--</div>
+      <button type="button" class="btn lang-btn" id="langToggle" title="Language">EN</button>
+      <button type="button" class="btn scan-btn" id="manualScanBtn">
+        <span class="btn-ico">⚡</span>
+        <span data-i18n="manualScan">立即巡檢</span>
+      </button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-view="overview" data-i18n="tabOverview">總覽</button>
+    <button class="tab" data-view="intel" data-i18n="tabIntel">情資串流</button>
+    <button class="tab" data-view="tw" data-i18n="tabTw">🇹🇼 電子／半導體</button>
+    <button class="tab" data-view="layers" data-i18n="tabLayers">七層健康</button>
+  </nav>
+
+  <main>
+    <section class="kpi-row" id="kpiRow" aria-label="KPIs">
+      <article class="kpi kpi-p0">
+        <div class="kpi-label" data-i18n="kpiP0">P0 緊急</div>
+        <div class="kpi-value" id="kpiP0">—</div>
+        <div class="kpi-hint" data-i18n="kpiP0Hint">勒索 KEV／台灣產業受害</div>
+      </article>
+      <article class="kpi kpi-kev">
+        <div class="kpi-label" data-i18n="kpiKev">KEV 近 7 日</div>
+        <div class="kpi-value" id="kpiKev">—</div>
+        <div class="kpi-hint" id="kpiKevHint">—</div>
+      </article>
+      <article class="kpi kpi-tw">
+        <div class="kpi-label" data-i18n="kpiTw">台灣產業／勒索</div>
+        <div class="kpi-value" id="kpiTw">—</div>
+        <div class="kpi-hint" data-i18n="kpiTwHint">電子五哥＋半導體</div>
+      </article>
+      <article class="kpi kpi-health">
+        <div class="kpi-label" data-i18n="kpiHealth">來源健康度</div>
+        <div class="kpi-value" id="kpiHealth">—</div>
+        <div class="kpi-hint" id="kpiHealthHint">—</div>
+      </article>
+    </section>
+
+    <p class="scan-meta" id="scanMeta"></p>
+    <div id="toast" class="toast hidden" role="status"></div>
+
+    <section class="view active" id="view-overview">
+      <div class="panel-head">
+        <h2 data-i18n="overviewTitle">優先情資快覽</h2>
+        <div class="legend">
+          <span class="pill p0">P0</span>
+          <span class="pill p1">P1</span>
+          <span class="pill p2">P2</span>
+          <span class="pill p3">P3</span>
+          <span class="pill v-confirmed" data-i18n="vConfirmed">已證實</span>
+          <span class="pill v-credible" data-i18n="vCredible">可信</span>
+          <span class="pill v-unverified" data-i18n="vUnverified">未核實</span>
+        </div>
+      </div>
+      <div class="priority-grid">
+        <div class="prio-col" data-p="P0">
+          <h3><span class="pill p0">P0</span> <span data-i18n="colP0">緊急</span></h3>
+          <div class="card-list" id="colP0"></div>
+        </div>
+        <div class="prio-col" data-p="P1">
+          <h3><span class="pill p1">P1</span> <span data-i18n="colP1">KEV 在野利用</span></h3>
+          <div class="card-list" id="colP1"></div>
+        </div>
+        <div class="prio-col" data-p="P2">
+          <h3><span class="pill p2">P2</span> <span data-i18n="colP2">高 EPSS／多源</span></h3>
+          <div class="card-list" id="colP2"></div>
+        </div>
+        <div class="prio-col" data-p="P3">
+          <h3><span class="pill p3">P3</span> <span data-i18n="colP3">監控</span></h3>
+          <div class="card-list" id="colP3"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-intel">
+      <div class="filters">
+        <select id="filterPriority">
+          <option value="" data-i18n="filterAllP">全部優先級</option>
+          <option value="P0">P0</option>
+          <option value="P1">P1</option>
+          <option value="P2">P2</option>
+          <option value="P3">P3</option>
+        </select>
+        <select id="filterVerification">
+          <option value="" data-i18n="filterAllV">全部核實狀態</option>
+          <option value="confirmed" data-i18n="vConfirmed">已證實</option>
+          <option value="credible" data-i18n="vCredible">可信</option>
+          <option value="unverified" data-i18n="vUnverified">未核實</option>
+        </select>
+        <label class="chk"><input type="checkbox" id="filterRansom" /> <span data-i18n="filterRansom">僅勒索</span></label>
+        <label class="chk"><input type="checkbox" id="filterTw" /> <span data-i18n="filterTw">僅台灣產業</span></label>
+        <input type="search" id="filterQ" placeholder="CVE / 關鍵字…" data-i18n-placeholder="searchPh" />
+        <button type="button" class="btn" id="applyFilters" data-i18n="apply">套用</button>
+      </div>
+      <div class="card-list stream" id="intelStream"></div>
+    </section>
+
+    <section class="view" id="view-tw">
+      <div class="tw-banner">
+        <div>
+          <h2 data-i18n="twTitle">台灣電子五哥／半導體・上市櫃受害情資</h2>
+          <p data-i18n="twDesc">獨立監控 ODM/EMS 與半導體供應鏈；勒索相關以高亮強調。</p>
+        </div>
+        <div class="tw-stats">
+          <div><span id="twStatTotal">0</span><small data-i18n="twStatTotal">產業相關</small></div>
+          <div class="hot"><span id="twStatRansom">0</span><small data-i18n="twStatRansom">勒索強調</small></div>
+        </div>
+      </div>
+      <div class="entity-chips" id="entityChips"></div>
+      <h3 class="section-h ransom-h" data-i18n="twRansomSection">🔐 勒索相關（優先關注）</h3>
+      <div class="card-list" id="twRansomList"></div>
+      <h3 class="section-h" data-i18n="twOtherSection">其他台灣產業情資</h3>
+      <div class="card-list" id="twOtherList"></div>
+      <h3 class="section-h" data-i18n="globalRansomSection">全球高優先勒索（供應鏈風險）</h3>
+      <div class="card-list" id="globalRansomList"></div>
+    </section>
+
+    <section class="view" id="view-layers">
+      <div class="panel-head">
+        <h2 data-i18n="layersTitle">七層情資來源與排程健康</h2>
+        <p class="schedule-badge" id="scheduleBadge"></p>
+      </div>
+      <div class="layers-grid" id="layersGrid"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span data-i18n="footer">TLP:AMBER · 防禦用途 · 暗網採間接雙來源核實 · 未核實情資不得單獨驅動工單</span>
+  </footer>
+
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

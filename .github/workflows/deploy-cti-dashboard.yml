@@ -1,0 +1,75 @@
+# Harvest CISA KEV + OSINT feeds and publish static SOC CTI dashboard to GitHub Pages.
+# Schedule: 07:00 & 15:00 Asia/Taipei  →  23:00 UTC (prev day) & 07:00 UTC
+
+name: Deploy SOC CTI Dashboard
+
+on:
+  schedule:
+    # 07:00 Asia/Taipei
+    - cron: "0 23 * * *"
+    # 15:00 Asia/Taipei
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+  push:
+    branches: [master, main]
+    paths:
+      - "soc_cti_dashboard/**"
+      - ".github/workflows/deploy-cti-dashboard.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-cti
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: soc_cti_dashboard/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r soc_cti_dashboard/requirements.txt
+
+      - name: Harvest intel & export static JSON
+        working-directory: soc_cti_dashboard
+        run: python scripts/export_static.py
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      - name: Prepare Pages artifact
+        run: |
+          mkdir -p _site
+          cp -r soc_cti_dashboard/frontend/* _site/
+          # Marker for Pages root
+          touch _site/.nojekyll
+          ls -la _site
+          ls -la _site/data || true
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

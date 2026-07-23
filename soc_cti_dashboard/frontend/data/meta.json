@@ -1,0 +1,36 @@
+{
+  "exported_at": "2026-07-23T14:46:06+08:00",
+  "timezone": "Asia/Taipei",
+  "mode": "static",
+  "harvest_summary": {
+    "cisa_kev": {
+      "ok": true,
+      "count": 120
+    },
+    "twcert": {
+      "ok": true,
+      "count": 0
+    },
+    "abusech": {
+      "ok": true,
+      "count": 0,
+      "status": "not_configured"
+    },
+    "easm": {
+      "ok": true,
+      "status": "not_configured"
+    },
+    "hibp": {
+      "ok": true,
+      "status": "not_configured"
+    },
+    "darkweb_dual": {
+      "ok": true,
+      "dual_elevated": 35
+    },
+    "cisa_ics": {
+      "ok": true,
+      "count": 0
+    }
+  }
+}
