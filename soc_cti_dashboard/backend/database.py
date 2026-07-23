@@ -162,6 +162,13 @@ async def upsert_intel(item: dict[str, Any]) -> None:
         await db.commit()
 
 
+async def delete_source_health(source_id: str) -> None:
+    """Remove a source_health row (e.g. obsolete aggregate entries)."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("DELETE FROM source_health WHERE source_id=?", (source_id,))
+        await db.commit()
+
+
 async def upsert_source_health(row: dict[str, Any]) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
