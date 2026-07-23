@@ -62,6 +62,7 @@ jobs:
           HIBP_WATCH_DOMAINS: ${{ secrets.HIBP_WATCH_DOMAINS }}
           RANSOMWARE_LIVE_API_KEY: ${{ secrets.RANSOMWARE_LIVE_API_KEY }}
           OTX_API_KEY: ${{ secrets.OTX_API_KEY }}
+          ABUSECH_AUTH_KEY: ${{ secrets.ABUSECH_AUTH_KEY }}
 
       - name: Prepare Pages artifact
         run: |

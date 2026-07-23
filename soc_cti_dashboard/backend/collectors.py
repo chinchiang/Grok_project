@@ -43,10 +43,15 @@ from .config import (
     SHODAN_API_HOST,
     SHODAN_API_KEY,
     SHODAN_INTERNETDB_URL,
+    ABUSECH_AUTH_KEY,
     OTX_API_KEY,
     OTX_MAX_PULSES,
     OTX_PULSE_ACTIVITY_URL,
     OTX_PULSES_URL,
+    THREATFOX_API_URL,
+    THREATFOX_MAX_FAMILIES,
+    THREATFOX_MIN_CONFIDENCE,
+    THREATFOX_RECENT_EXPORT,
     RANSOMWARE_LIVE_API_KEY,
     RANSOMWARE_LIVE_API_V2,
     RANSOMWARE_LIVE_MAX_ITEMS,
@@ -61,7 +66,7 @@ from .config import (
     HTTP_TIMEOUT,
     LAYERS,
 )
-from .database import now_iso, upsert_intel, upsert_source_health
+from .database import delete_source_health, now_iso, upsert_intel, upsert_source_health
 from .priority import assign_priority, assign_verification, enrich_flags
 
 
@@ -1856,21 +1861,289 @@ async def collect_hibp_breaches(
         return 0
 
 
-async def mark_abusech_placeholder() -> None:
-    await upsert_source_health(
-        {
-            "source_id": "abusech_threatfox",
-            "layer_id": "L3",
-            "name": "abuse.ch ThreatFox (optional Auth-Key)",
-            "last_success": None,
-            "last_error": "optional — configure ABUSECH_AUTH_KEY for full IOC feed",
-            "last_attempt": now_iso(),
-            "status": "not_configured",
-            "item_count": 0,
-            "latency_ms": 0,
-            "detail": "Community IOC layer ready for API key",
-        }
+async def collect_threatfox(
+    *,
+    max_families: int | None = None,
+    min_confidence: int | None = None,
+) -> int:
+    """
+    L3 — abuse.ch ThreatFox community IOCs.
+
+    Free path: public recent JSON export (no key).
+    Optional ABUSECH_AUTH_KEY / THREATFOX_API_KEY for POST API get_iocs.
+    Aggregates by malware family to avoid flooding the dashboard.
+    """
+    t0 = time.perf_counter()
+    fam_cap = max_families if max_families is not None else THREATFOX_MAX_FAMILIES
+    min_conf = (
+        min_confidence if min_confidence is not None else THREATFOX_MIN_CONFIDENCE
     )
+    count = 0
+    mode = "export"
+
+    try:
+        rows: list[dict[str, Any]] = []
+        async with await _client() as client:
+            # Optional authenticated API (last N days)
+            if ABUSECH_AUTH_KEY:
+                try:
+                    r = await client.post(
+                        THREATFOX_API_URL,
+                        headers={
+                            "User-Agent": USER_AGENT,
+                            "Accept": "application/json",
+                            "Content-Type": "application/json",
+                            "Auth-Key": ABUSECH_AUTH_KEY,
+                        },
+                        json={"query": "get_iocs", "days": 3},
+                        timeout=90.0,
+                    )
+                    if r.status_code == 200:
+                        payload = r.json()
+                        if payload.get("query_status") == "ok" and payload.get("data"):
+                            rows = list(payload["data"])
+                            mode = "api+auth"
+                except Exception:
+                    rows = []
+
+            # Free public recent export
+            if not rows:
+                r = await client.get(
+                    THREATFOX_RECENT_EXPORT,
+                    headers={
+                        "User-Agent": USER_AGENT,
+                        "Accept": "application/json",
+                    },
+                    timeout=120.0,
+                )
+                r.raise_for_status()
+                payload = r.json()
+                if isinstance(payload, dict):
+                    for tf_key, items in payload.items():
+                        if isinstance(items, list):
+                            for it in items:
+                                if isinstance(it, dict):
+                                    it = {**it, "id": it.get("id") or tf_key}
+                                    rows.append(it)
+                        elif isinstance(items, dict):
+                            rows.append({**items, "id": items.get("id") or tf_key})
+                elif isinstance(payload, list):
+                    rows = payload
+                mode = "export/json/recent"
+
+        # Filter by confidence
+        filtered: list[dict[str, Any]] = []
+        for row in rows:
+            try:
+                conf = int(row.get("confidence_level") or 0)
+            except (TypeError, ValueError):
+                conf = 0
+            if conf < min_conf:
+                continue
+            filtered.append(row)
+
+        # Aggregate by malware family
+        families: dict[str, dict[str, Any]] = {}
+        for row in filtered:
+            fam = (
+                row.get("malware_printable")
+                or row.get("malware")
+                or "Unknown malware"
+            )
+            fam = str(fam).strip() or "Unknown malware"
+            bucket = families.setdefault(
+                fam,
+                {
+                    "family": fam,
+                    "malware_id": row.get("malware") or "",
+                    "count": 0,
+                    "max_conf": 0,
+                    "threat_types": set(),
+                    "ioc_types": set(),
+                    "samples": [],
+                    "tags": set(),
+                    "first_seen": row.get("first_seen_utc") or "",
+                    "references": [],
+                },
+            )
+            bucket["count"] += 1
+            try:
+                conf = int(row.get("confidence_level") or 0)
+            except (TypeError, ValueError):
+                conf = 0
+            bucket["max_conf"] = max(bucket["max_conf"], conf)
+            if row.get("threat_type"):
+                bucket["threat_types"].add(str(row["threat_type"]))
+            if row.get("ioc_type"):
+                bucket["ioc_types"].add(str(row["ioc_type"]))
+            tags = row.get("tags") or ""
+            if isinstance(tags, str) and tags:
+                for t in tags.replace(";", ",").split(","):
+                    t = t.strip()
+                    if t:
+                        bucket["tags"].add(t)
+            elif isinstance(tags, list):
+                for t in tags:
+                    if t:
+                        bucket["tags"].add(str(t))
+            if len(bucket["samples"]) < 6:
+                val = row.get("ioc_value") or row.get("ioc") or ""
+                typ = row.get("ioc_type") or "?"
+                if val:
+                    bucket["samples"].append(f"{typ}:{val}")
+            ref = row.get("reference") or ""
+            if ref and ref not in bucket["references"] and len(bucket["references"]) < 3:
+                bucket["references"].append(str(ref))
+            fs = row.get("first_seen_utc") or ""
+            if fs and (not bucket["first_seen"] or fs > bucket["first_seen"]):
+                bucket["first_seen"] = fs
+
+        # Prioritize ransomware-ish + volume
+        def fam_score(b: dict[str, Any]) -> tuple:
+            tags_l = " ".join(b["tags"]).lower()
+            ransom = 1 if any(
+                k in tags_l or k in b["family"].lower()
+                for k in ("ransom", "locker", "lockbit", "blackcat", "akira")
+            ) else 0
+            return (ransom, b["count"], b["max_conf"])
+
+        ranked = sorted(families.values(), key=fam_score, reverse=True)[:fam_cap]
+
+        for b in ranked:
+            fam = b["family"]
+            threat_s = ", ".join(sorted(b["threat_types"])) or "—"
+            ioc_s = ", ".join(sorted(b["ioc_types"])) or "—"
+            tag_s = ", ".join(sorted(b["tags"])[:12]) or "—"
+            samples = "\n".join(f"  - {s}" for s in b["samples"]) or "  —"
+            refs = b["references"][0] if b["references"] else "https://threatfox.abuse.ch/"
+
+            title_zh = f"[ThreatFox] {fam} — {b['count']} IOCs (max conf {b['max_conf']})"
+            title_en = title_zh
+            summary_zh = (
+                f"abuse.ch ThreatFox 社群 IOC 彙整\n"
+                f"惡意程式家族：{fam} ({b.get('malware_id') or '—'})\n"
+                f"IOC 數量（近期匯出，conf≥{min_conf}）：{b['count']}\n"
+                f"最高信心：{b['max_conf']}\n"
+                f"威脅類型：{threat_s}\n"
+                f"IOC 類型：{ioc_s}\n"
+                f"標籤：{tag_s}\n"
+                f"最新觀察：{b['first_seen'] or '—'}\n"
+                f"樣本 IOC：\n{samples}\n"
+                f"來源模式：{mode}"
+            )
+            summary_en = (
+                f"abuse.ch ThreatFox community IOC rollup\n"
+                f"Malware family: {fam} ({b.get('malware_id') or '—'})\n"
+                f"IOC count (recent export, conf≥{min_conf}): {b['count']}\n"
+                f"Max confidence: {b['max_conf']}\n"
+                f"Threat types: {threat_s}\n"
+                f"IOC types: {ioc_s}\n"
+                f"Tags: {tag_s}\n"
+                f"Latest seen: {b['first_seen'] or '—'}\n"
+                f"Sample IOCs:\n{samples}\n"
+                f"Mode: {mode}"
+            )
+
+            flags = enrich_flags(fam, tag_s + " " + threat_s)
+            # ThreatFox is malware/IOC — ransomware if tag/family suggests
+            is_ransom = flags["is_ransomware"] or any(
+                k in (tag_s + " " + fam).lower()
+                for k in ("ransom", "locker", "lockbit", "blackcat", "akira", "clop")
+            )
+            priority = assign_priority(
+                in_kev=False,
+                known_ransomware_campaign=False,
+                is_ransomware=is_ransom,
+                is_tw_industry=flags["is_tw_industry"],
+                epss=None,
+                source_count=1,
+                layer_id="L3",
+            )
+            if priority == "P3" and (b["count"] >= 50 or b["max_conf"] >= 90):
+                priority = "P2"
+
+            verification, admiralty = "credible", "B2"
+
+            await upsert_intel(
+                {
+                    "id": _id("threatfox", fam, str(b["count"]), b["first_seen"][:10]),
+                    "title": title_zh,
+                    "title_en": title_en,
+                    "summary": summary_zh,
+                    "summary_en": summary_en,
+                    "priority": priority,
+                    "verification": verification,
+                    "layer_id": "L3",
+                    "source_name": "abuse.ch ThreatFox",
+                    "sources_json": json.dumps(["abuse.ch ThreatFox"]),
+                    "cve_id": None,
+                    "product": fam,
+                    "vendor": "ThreatFox",
+                    "is_ransomware": 1 if is_ransom else 0,
+                    "is_tw_industry": 1 if flags["is_tw_industry"] else 0,
+                    "tw_entities_json": json.dumps(
+                        flags["tw_entities"], ensure_ascii=False
+                    ),
+                    "is_finance": 1 if flags["is_finance"] else 0,
+                    "finance_entities_json": json.dumps(
+                        flags["finance_entities"], ensure_ascii=False
+                    ),
+                    "is_microsoft": 1 if flags["is_microsoft"] else 0,
+                    "ms_entities_json": json.dumps(
+                        flags["ms_entities"], ensure_ascii=False
+                    ),
+                    "known_ransomware_campaign": 1 if is_ransom else 0,
+                    "epss": None,
+                    "cvss": None,
+                    "date_added": (b["first_seen"] or "")[:10] or now_iso()[:10],
+                    "published_at": b["first_seen"] or None,
+                    "fetched_at": now_iso(),
+                    "url": refs if refs.startswith("http") else "https://threatfox.abuse.ch/",
+                    "admiralty": admiralty,
+                    "raw_json": json.dumps(
+                        {
+                            "family": fam,
+                            "count": b["count"],
+                            "max_conf": b["max_conf"],
+                            "samples": b["samples"],
+                        },
+                        ensure_ascii=False,
+                    )[:4000],
+                    "tags_json": json.dumps(
+                        ["threatfox", "ioc", "malware"]
+                        + (["ransomware"] if is_ransom else [])
+                        + list(sorted(b["tags"]))[:8]
+                    ),
+                }
+            )
+            count += 1
+
+        ms = int((time.perf_counter() - t0) * 1000)
+        await _mark(
+            "abusech_threatfox",
+            "L3",
+            "abuse.ch ThreatFox",
+            ok=True,
+            count=count,
+            latency_ms=ms,
+            detail=(
+                f"mode={mode}; raw_iocs={len(rows)}; "
+                f"conf>={min_conf}; families={count}"
+                + ("; auth=set" if ABUSECH_AUTH_KEY else "; auth=none(free export)")
+            ),
+        )
+        return count
+    except Exception as e:
+        ms = int((time.perf_counter() - t0) * 1000)
+        await _mark(
+            "abusech_threatfox",
+            "L3",
+            "abuse.ch ThreatFox",
+            ok=False,
+            latency_ms=ms,
+            error=str(e)[:500],
+        )
+        return 0
 
 
 async def _upsert_ransom_victim_item(
@@ -2456,7 +2729,8 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
                 name,
                 ok=True,
                 count=count,
-                detail=f"via={used or 'none'}",
+                latency_ms=int((time.perf_counter() - t0) * 1000),
+                detail=f"via={used or 'none'}; nitter/blog RSS",
             )
         except Exception as ex:
             details.append(f"@{handle}:err")
@@ -2468,17 +2742,11 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
                 error=str(ex)[:400],
             )
 
-    ms = int((time.perf_counter() - t0) * 1000)
-    await _mark(
-        "x_darkweb_accounts",
-        "L6",
-        "@DailyDarkWeb / @DarkWebInformer (X)",
-        ok=total > 0 or any("err" not in d for d in details),
-        count=total,
-        latency_ms=ms,
-        detail="; ".join(details),
-        error=None if total > 0 else ("all sources failed: " + "; ".join(details))[:500],
-    )
+    # Drop obsolete aggregate row (was double-counting 13+20 as a third line)
+    try:
+        await delete_source_health("x_darkweb_accounts")
+    except Exception:
+        pass
     return total
 
 
@@ -2975,9 +3243,12 @@ async def run_full_harvest() -> dict[str, Any]:
         "tvn": n_tvn,
     }
 
-    # L3 — abuse.ch placeholder + OTX pulses
-    await mark_abusech_placeholder()
-    results["steps"]["abusech"] = {"ok": True, "count": 0, "status": "not_configured"}
+    # L3 — ThreatFox (free export) + OTX pulses (optional key)
+    try:
+        n = await collect_threatfox()
+        results["steps"]["abusech"] = {"ok": True, "count": n}
+    except Exception as e:
+        results["steps"]["abusech"] = {"ok": False, "error": str(e)}
     try:
         n = await collect_otx_pulses()
         results["steps"]["otx"] = {"ok": True, "count": n}

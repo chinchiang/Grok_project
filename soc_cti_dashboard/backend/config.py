@@ -84,6 +84,16 @@ EPSS_TOP_URL = "https://api.first.org/data/v1/epss"
 EPSS_TOP_LIMIT = int(os.environ.get("EPSS_TOP_LIMIT") or "30")
 EPSS_TOP_MIN = float(os.environ.get("EPSS_TOP_MIN") or "0.5")
 
+# abuse.ch ThreatFox — free recent JSON export; Auth-Key optional for API
+# https://threatfox.abuse.ch/export/ / https://threatfox.abuse.ch/api/
+ABUSECH_AUTH_KEY = (
+    os.environ.get("ABUSECH_AUTH_KEY") or os.environ.get("THREATFOX_API_KEY") or ""
+).strip()
+THREATFOX_RECENT_EXPORT = "https://threatfox.abuse.ch/export/json/recent/"
+THREATFOX_API_URL = "https://threatfox-api.abuse.ch/api/v1/"
+THREATFOX_MAX_FAMILIES = int(os.environ.get("THREATFOX_MAX_FAMILIES") or "35")
+THREATFOX_MIN_CONFIDENCE = int(os.environ.get("THREATFOX_MIN_CONFIDENCE") or "50")
+
 # Registered multi-layer news/research feeds collected each harvest
 # force_all=True keeps all items (general news), False filters to CTI-relevant
 INTEL_FEEDS: list[dict] = [
@@ -244,8 +254,8 @@ LAYERS = [
         "id": "L3",
         "name_zh": "社群 IOC／工具",
         "name_en": "Community IOC / Tools",
-        "sources": ["abuse.ch", "AlienVault OTX Pulse"],
-        "schedule_hint": "daily (OTX optional API key)",
+        "sources": ["abuse.ch ThreatFox", "AlienVault OTX Pulse"],
+        "schedule_hint": "daily (ThreatFox free export; OTX optional key)",
     },
     {
         "id": "L4",
@@ -274,7 +284,8 @@ LAYERS = [
             "SecurityWeek",
             "Cyber Security News",
             "Reuters (Google News)",
-            "@DailyDarkWeb / @DarkWebInformer",
+            "@DailyDarkWeb (X)",
+            "@DarkWebInformer (X)",
         ],
         "schedule_hint": "07:00 & 15:00 + dual-source verify",
     },

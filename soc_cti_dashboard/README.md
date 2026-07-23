@@ -104,7 +104,7 @@ python scripts/export_static.py
 | L4 | **Shodan** | **InternetDB 免金鑰**（需監控 IP） | `EASM_WATCH_IPS` / `EASM_WATCH_HOSTS`；可選 `SHODAN_API_KEY` |
 | L4 | **Censys** | Host lookup（需金鑰 + 監控 IP） | `CENSYS_API_ID` + `CENSYS_API_SECRET` + 上述監控目標 |
 | L3 | **AlienVault OTX Pulse** | 需免費 API key | `OTX_API_KEY` |
-| L3 | abuse.ch | `not_configured` | `ABUSECH_AUTH_KEY`（尚未接線） |
+| L3 | **abuse.ch ThreatFox** | **公開 recent JSON 免金鑰**（依家族彙整） | 可選 `ABUSECH_AUTH_KEY` 用 API |
 | L1 | **FIRST EPSS** | 高 EPSS CVE 公開 API + KEV 豐富化 | 無需金鑰 |
 | L2 | **Unit 42 / Fortinet PSIRT** | 官方 RSS | 無需金鑰 |
 | L5 | **DataBreaches.net** | RSS | 無需金鑰 |

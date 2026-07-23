@@ -122,14 +122,14 @@
         {
           "source_id": "abusech_threatfox",
           "layer_id": "L3",
-          "name": "abuse.ch ThreatFox (optional Auth-Key)",
-          "last_success": null,
-          "last_error": "optional — configure ABUSECH_AUTH_KEY for full IOC feed",
-          "last_attempt": "2026-07-23T20:13:36+08:00",
-          "status": "not_configured",
-          "item_count": 0,
-          "latency_ms": 0,
-          "detail": "Community IOC layer ready for API key"
+          "name": "abuse.ch ThreatFox",
+          "last_success": "2026-07-23T21:44:57+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T21:44:57+08:00",
+          "status": "healthy",
+          "item_count": 35,
+          "latency_ms": 2645,
+          "detail": "mode=export/json/recent; raw_iocs=4114; conf>=50; families=35; auth=none(free export)"
         },
         {
           "source_id": "otx_pulse",
@@ -144,8 +144,8 @@
           "detail": "需免費 OTX_API_KEY（https://otx.alienvault.com → Settings → API Key）"
         }
       ],
-      "schedule_hint": "daily (OTX optional API key)",
-      "overall": "not_configured"
+      "schedule_hint": "daily (ThreatFox free export; OTX optional key)",
+      "overall": "partial"
     },
     {
       "id": "L4",
