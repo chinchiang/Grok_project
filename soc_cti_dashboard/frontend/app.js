@@ -226,12 +226,13 @@ function drawTrendChart(seriesMap) {
   }
 }
 
+// 電子五哥 = ODM 五家（不含鴻海）
 const WATCH_BIG5 = [
-  "鴻海 2317 Foxconn",
-  "和碩 4938 Pegatron",
   "廣達 2382 Quanta",
   "仁寶 2324 Compal",
+  "英業達 2356 Inventec",
   "緯創 3231 Wistron",
+  "和碩 4938 Pegatron",
 ];
 const WATCH_SEMI = [
   "台積電 2330 TSMC",
@@ -254,7 +255,7 @@ const WATCH_SEMI = [
   "祥碩 5269 ASMedia",
 ];
 const WATCH_EMS = [
-  "英業達 2356 Inventec",
+  "鴻海 2317 Foxconn",
   "光寶 2301 Lite-On",
   "台達電 2308 Delta",
   "華碩 2357 ASUS",

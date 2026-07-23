@@ -1,26 +1,6 @@
 {
   "watchlist": [
     {
-      "key": "foxconn",
-      "aliases": [
-        "foxconn",
-        "hon hai",
-        "鴻海",
-        "富士康",
-        "2317"
-      ],
-      "tier": "big5"
-    },
-    {
-      "key": "pegatron",
-      "aliases": [
-        "pegatron",
-        "和碩",
-        "4938"
-      ],
-      "tier": "big5"
-    },
-    {
       "key": "quanta",
       "aliases": [
         "quanta computer",
@@ -40,6 +20,15 @@
       "tier": "big5"
     },
     {
+      "key": "inventec",
+      "aliases": [
+        "inventec",
+        "英業達",
+        "2356"
+      ],
+      "tier": "big5"
+    },
+    {
       "key": "wistron",
       "aliases": [
         "wistron",
@@ -49,13 +38,24 @@
       "tier": "big5"
     },
     {
-      "key": "inventec",
+      "key": "pegatron",
       "aliases": [
-        "inventec",
-        "英業達",
-        "2356"
+        "pegatron",
+        "和碩",
+        "4938"
       ],
-      "tier": "odm"
+      "tier": "big5"
+    },
+    {
+      "key": "foxconn",
+      "aliases": [
+        "foxconn",
+        "hon hai",
+        "鴻海",
+        "富士康",
+        "2317"
+      ],
+      "tier": "ems"
     },
     {
       "key": "tsmc",

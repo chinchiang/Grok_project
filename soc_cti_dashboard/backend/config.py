@@ -387,13 +387,14 @@ LAYERS = [
 
 # Taiwan electronics "Big 5" ODM/EMS + listed semiconductor / electronics manufacturing
 TW_ELECTRONICS_WATCHLIST = [
-    # 電子五哥 / ODM EMS
-    {"key": "foxconn", "aliases": ["foxconn", "hon hai", "鴻海", "富士康", "2317"], "tier": "big5"},
-    {"key": "pegatron", "aliases": ["pegatron", "和碩", "4938"], "tier": "big5"},
+    # 電子五哥（ODM：廣達／仁寶／英業達／緯創／和碩；不含鴻海）
     {"key": "quanta", "aliases": ["quanta computer", "quanta", "廣達", "2382"], "tier": "big5"},
     {"key": "compal", "aliases": ["compal", "仁寶", "2324"], "tier": "big5"},
+    {"key": "inventec", "aliases": ["inventec", "英業達", "2356"], "tier": "big5"},
     {"key": "wistron", "aliases": ["wistron", "緯創", "3231"], "tier": "big5"},
-    {"key": "inventec", "aliases": ["inventec", "英業達", "2356"], "tier": "odm"},
+    {"key": "pegatron", "aliases": ["pegatron", "和碩", "4938"], "tier": "big5"},
+    # 鴻海為大型 EMS，非電子五哥
+    {"key": "foxconn", "aliases": ["foxconn", "hon hai", "鴻海", "富士康", "2317"], "tier": "ems"},
     # 半導體／封測／IC 設計（上市櫃重點）
     {"key": "tsmc", "aliases": ["tsmc", "taiwan semiconductor", "台積電", "2330"], "tier": "semi"},
     {"key": "umc", "aliases": ["umc", "united microelectronics", "聯電", "2303"], "tier": "semi"},

@@ -390,16 +390,17 @@ async def get_kpis() -> dict[str, Any]:
                OR source_name LIKE '%DataBreach%' OR source_name LIKE '%ThreatFox%'
             """
         )
+        # 電子五哥 = quanta/compal/inventec/wistron/pegatron（不含鴻海）
         big5 = await one(
             """
             SELECT COUNT(*) FROM intel_items
             WHERE is_tw_industry=1 AND (
               tw_entities_json LIKE '%"big5"%'
-              OR tw_entities_json LIKE '%foxconn%'
-              OR tw_entities_json LIKE '%pegatron%'
-              OR tw_entities_json LIKE '%quanta%'
-              OR tw_entities_json LIKE '%compal%'
-              OR tw_entities_json LIKE '%wistron%'
+              OR tw_entities_json LIKE '%"quanta"%'
+              OR tw_entities_json LIKE '%"compal"%'
+              OR tw_entities_json LIKE '%"inventec"%'
+              OR tw_entities_json LIKE '%"wistron"%'
+              OR tw_entities_json LIKE '%"pegatron"%'
             )
             """
         )
@@ -414,9 +415,10 @@ async def get_kpis() -> dict[str, Any]:
             SELECT COUNT(*) FROM intel_items
             WHERE is_tw_industry=1 AND (
               tw_entities_json LIKE '%"electronics"%'
-              OR tw_entities_json LIKE '%"odm"%'
+              OR tw_entities_json LIKE '%"ems"%'
               OR tw_entities_json LIKE '%"display"%'
               OR tw_entities_json LIKE '%"industrial"%'
+              OR tw_entities_json LIKE '%"foxconn"%'
             )
             """
         )
@@ -445,7 +447,7 @@ async def get_kpis() -> dict[str, Any]:
             ),
             "ems": await _series_30d(
                 db,
-                "is_tw_industry=1 AND (tw_entities_json LIKE '%\"electronics\"%' OR tw_entities_json LIKE '%\"odm\"%')",
+                "is_tw_industry=1 AND (tw_entities_json LIKE '%\"electronics\"%' OR tw_entities_json LIKE '%\"ems\"%' OR tw_entities_json LIKE '%\"foxconn\"%')",
             ),
             "unverified": await _series_30d(db, "verification='unverified'"),
             "kev": await _series_30d(db, "source_name LIKE '%KEV%'"),
