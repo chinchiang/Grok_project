@@ -283,7 +283,20 @@ OBSOLETE_SOURCE_IDS = frozenset({"x_darkweb_accounts"})
 # TWCERT/CC public RSS (official channels; old /tw/rss/rss.xml is 404)
 # See https://www.twcert.org.tw/tw/cp-40-2835-507dc-1.html
 TWCERT_NEWS_RSS = "https://www.twcert.org.tw/tw/rss-104-1.xml"  # 資安新聞
-TWCERT_TVN_RSS = "https://www.twcert.org.tw/tw/rss-132-1.xml"  # TVN 漏洞公告
+TWCERT_TVN_RSS = "https://www.twcert.org.tw/tw/rss-132-1.xml"  # TVN 漏洞公告（中文）
+TWCERT_TVN_EN_RSS = "https://www.twcert.org.tw/en/rss-139-2.xml"  # TVN List（英文備援）
+TWCERT_NEWS_EN_RSS = "https://www.twcert.org.tw/en/rss-104-2.xml"  # 資安新聞英文頁
+# Actions/datacenter may get blocked → Google News fallbacks
+TWCERT_TVN_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:twcert.org.tw+(TVN+OR+ICSA+OR+漏洞+OR+vulnerability)"
+    "&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+)
+TWCERT_NEWS_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:twcert.org.tw+(資安+OR+ransomware+OR+漏洞)"
+    "&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"
+)
 # Backward-compatible alias used by older call sites
 TWCERT_RSS = TWCERT_NEWS_RSS
 

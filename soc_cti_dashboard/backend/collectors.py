@@ -27,7 +27,11 @@ from .config import (
     BLEEPING_RSS,
     THEHACKERNEWS_RSS,
     TWCERT_NEWS_RSS,
+    TWCERT_NEWS_EN_RSS,
+    TWCERT_NEWS_GNEWS_RSS,
     TWCERT_TVN_RSS,
+    TWCERT_TVN_EN_RSS,
+    TWCERT_TVN_GNEWS_RSS,
     HIBP_API_KEY,
     HIBP_BREACHES_URL,
     HIBP_MAX_ITEMS,
@@ -3266,24 +3270,47 @@ async def run_full_harvest() -> dict[str, Any]:
         results["steps"]["epss_top"] = {"ok": False, "error": str(e)}
 
     # L2 TWCERT/CC official RSS (news + Taiwan Vulnerability Notes)
+    # Primary zh feeds; EN RSS + Google News fallbacks for Actions/WAF blocks
     n_news = await collect_rss_layer(
         source_id="twcert_news_rss",
         layer_id="L2",
         name="TWCERT/CC 資安新聞 RSS",
         url=TWCERT_NEWS_RSS,
+        fallback_url=TWCERT_NEWS_EN_RSS,
         darkweb_indirect=False,
-        force_ransomware_scan=False,
+        force_ransomware_scan=True,
         max_items=25,
     )
+    if n_news == 0:
+        n_news = await collect_rss_layer(
+            source_id="twcert_news_rss",
+            layer_id="L2",
+            name="TWCERT/CC 資安新聞 RSS",
+            url=TWCERT_NEWS_GNEWS_RSS,
+            darkweb_indirect=False,
+            force_ransomware_scan=True,
+            max_items=25,
+        )
     n_tvn = await collect_rss_layer(
         source_id="twcert_tvn_rss",
         layer_id="L2",
         name="TWCERT/CC TVN 漏洞公告 RSS",
         url=TWCERT_TVN_RSS,
+        fallback_url=TWCERT_TVN_EN_RSS,
         darkweb_indirect=False,
-        force_ransomware_scan=False,
+        force_ransomware_scan=True,
         max_items=25,
     )
+    if n_tvn == 0:
+        n_tvn = await collect_rss_layer(
+            source_id="twcert_tvn_rss",
+            layer_id="L2",
+            name="TWCERT/CC TVN 漏洞公告 RSS",
+            url=TWCERT_TVN_GNEWS_RSS,
+            darkweb_indirect=False,
+            force_ransomware_scan=True,
+            max_items=25,
+        )
     # Keep legacy source_id healthy for existing dashboards that still list it
     await _mark(
         "twcert_rss",

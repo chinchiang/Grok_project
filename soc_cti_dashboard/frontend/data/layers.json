@@ -40,6 +40,18 @@
           "item_count": 30,
           "latency_ms": 1788,
           "detail": "min_epss>=0.5; ingested=30"
+        },
+        {
+          "source_id": "msrc_update_guide",
+          "layer_id": "L1",
+          "name": "MSRC Update Guide",
+          "last_success": "2026-07-23T21:54:30+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T21:54:30+08:00",
+          "status": "healthy",
+          "item_count": 40,
+          "latency_ms": 6271,
+          "detail": "url=https://api.msrc.microsoft.com/update-guide/rss"
         }
       ],
       "schedule_hint": "hourly / daily",
@@ -61,6 +73,30 @@
           "item_count": 30,
           "latency_ms": 2332,
           "detail": "url=https://www.fortiguard.com/rss/ir.xml"
+        },
+        {
+          "source_id": "ms_defender_ti_blog",
+          "layer_id": "L2",
+          "name": "Microsoft Defender TI Blog",
+          "last_success": "2026-07-23T21:54:32+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T21:54:32+08:00",
+          "status": "healthy",
+          "item_count": 20,
+          "latency_ms": 1985,
+          "detail": "url=https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftThreatProtectionBlog"
+        },
+        {
+          "source_id": "ms_security_blog",
+          "layer_id": "L2",
+          "name": "Microsoft Security Blog",
+          "last_success": "2026-07-23T21:54:23+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T21:54:23+08:00",
+          "status": "healthy",
+          "item_count": 10,
+          "latency_ms": 1599,
+          "detail": "url=https://www.microsoft.com/en-us/security/blog/feed/"
         },
         {
           "source_id": "twcert_news_rss",
@@ -90,13 +126,13 @@
           "source_id": "twcert_tvn_rss",
           "layer_id": "L2",
           "name": "TWCERT/CC TVN 漏洞公告 RSS",
-          "last_success": "2026-07-23T20:16:54+08:00",
+          "last_success": "2026-07-23T21:57:39+08:00",
           "last_error": null,
-          "last_attempt": "2026-07-23T20:16:54+08:00",
+          "last_attempt": "2026-07-23T21:57:39+08:00",
           "status": "healthy",
           "item_count": 20,
-          "latency_ms": 1286,
-          "detail": "OK"
+          "latency_ms": 1382,
+          "detail": "url=https://www.twcert.org.tw/tw/rss-132-1.xml"
         },
         {
           "source_id": "unit42_rss",
@@ -265,6 +301,18 @@
           "item_count": 0,
           "latency_ms": 2197,
           "detail": "dual-elevated=0; feeds A=15 B=50"
+        },
+        {
+          "source_id": "ms_vuln_gnews",
+          "layer_id": "L6",
+          "name": "Microsoft Vuln (Google News)",
+          "last_success": "2026-07-23T21:54:34+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T21:54:34+08:00",
+          "status": "healthy",
+          "item_count": 20,
+          "latency_ms": 2034,
+          "detail": "url=https://news.google.com/rss/search?q=Microsoft+(Windows+OR+Exchange+OR+SharePoint+OR+Defender+OR+Entra+OR+Azure)+(vulnerability+OR+exploit+OR+KEV+OR+zero-day)&hl=en-US&gl=US&ceid=US:en"
         },
         {
           "source_id": "ransom_dual_verify",
