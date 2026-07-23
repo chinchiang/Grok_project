@@ -147,6 +147,14 @@ body { overflow-x: hidden; }
 
 main { padding: 14px 14px 40px; max-width: 1480px; margin: 0 auto; }
 
+.panel-sub {
+  width: 100%;
+  margin: 4px 0 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .kpi-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -360,6 +368,13 @@ main { padding: 14px 14px 40px; max-width: 1480px; margin: 0 auto; }
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 12px;
+}
+.panel-sub {
+  width: 100%;
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 600;
 }
 .panel-head h2 { margin: 0; font-size: 1.15rem; font-weight: 900; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px; }

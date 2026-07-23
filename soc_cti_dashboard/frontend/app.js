@@ -464,16 +464,17 @@ async function loadKpis() {
 }
 
 async function loadOverview() {
+  // 總覽只做精選快覽，避免與主題分頁重複堆疊
   const [p0, p1, p2, p3] = await Promise.all([
-    api("/api/intel?priority=P0&limit=20"),
-    api("/api/intel?priority=P1&limit=20"),
-    api("/api/intel?priority=P2&limit=20"),
-    api("/api/intel?priority=P3&limit=20"),
+    api("/api/intel?priority=P0&limit=12"),
+    api("/api/intel?priority=P1&limit=12"),
+    api("/api/intel?priority=P2&limit=12"),
+    api("/api/intel?priority=P3&limit=12"),
   ]);
-  renderList($("#colP0"), p0.items, 8);
-  renderList($("#colP1"), p1.items, 8);
-  renderList($("#colP2"), p2.items, 8);
-  renderList($("#colP3"), p3.items, 8);
+  renderList($("#colP0"), p0.items, 5);
+  renderList($("#colP1"), p1.items, 5);
+  renderList($("#colP2"), p2.items, 5);
+  renderList($("#colP3"), p3.items, 5);
 }
 
 async function loadIntelStream() {
@@ -505,16 +506,15 @@ function renderEntityChips(el, counts) {
     .join("");
 }
 
-async function loadTw() {
+async function loadTaiwan() {
+  // 單一台灣產業分頁：名單 + 命中情資（不再另開全球勒索，避免與暗網分頁重複）
+  fillWatchLists();
   const data = await api("/api/tw-dashboard");
-  $("#twStatTotal").textContent = data.stats?.tw_total ?? 0;
-  $("#twStatRansom").textContent = data.stats?.tw_ransomware ?? 0;
-
+  if ($("#twStatTotal")) $("#twStatTotal").textContent = data.stats?.tw_total ?? 0;
+  if ($("#twStatRansom")) $("#twStatRansom").textContent = data.stats?.tw_ransomware ?? 0;
   renderEntityChips($("#entityChips"), data.entity_counts);
-
   renderList($("#twRansomList"), data.tw_ransomware, 40);
   renderList($("#twOtherList"), data.tw_other, 40);
-  renderList($("#globalRansomList"), data.global_ransomware_highlight, 30);
 }
 
 async function loadFinance() {
@@ -529,45 +529,31 @@ async function loadFinance() {
 }
 
 async function loadMicrosoft() {
+  // 微軟分頁：產品／TI 為主；KEV 僅顯示微軟子集（完整 KEV 在 KEV 分頁）
   const data = await api("/api/microsoft-dashboard");
   const s = data.stats || {};
   $("#msStatTotal").textContent = s.total ?? 0;
   if ($("#msStatP1")) $("#msStatP1").textContent = s.p1 ?? 0;
   $("#msStatKev").textContent = s.kev ?? 0;
-  if ($("#msStatConfirmed")) $("#msStatConfirmed").textContent = s.confirmed ?? 0;
   if ($("#msStatWindows")) $("#msStatWindows").textContent = s.windows_os ?? 0;
   if ($("#msStatEnterprise")) $("#msStatEnterprise").textContent = s.enterprise_platform ?? 0;
   if ($("#msStatTi")) $("#msStatTi").textContent = s.threat_intel ?? 0;
   renderEntityChips($("#msChips"), data.entity_counts);
-  renderList($("#msP1List"), data.p1_items, 30);
-  renderList($("#msKevList"), data.kev_items, 40);
-  renderList($("#msConfirmedList"), data.confirmed_items, 30);
-  renderList($("#msWindowsList"), data.windows_os, 40);
-  renderList($("#msEnterpriseList"), data.enterprise_platform, 40);
-  renderList($("#msTiList"), data.threat_intel, 30);
-  renderList($("#msRansomList"), data.ransomware, 30);
-  renderList($("#msOtherList"), data.other, 30);
+  renderList($("#msWindowsList"), data.windows_os, 25);
+  renderList($("#msEnterpriseList"), data.enterprise_platform, 25);
+  renderList($("#msTiList"), data.threat_intel, 20);
+  renderList($("#msRansomList"), data.ransomware, 15);
+  renderList($("#msKevList"), data.kev_items, 20);
 }
 
-async function loadZoneTw() {
-  const data = await api("/api/intel?tw=true&limit=80");
-  const items = [...(data.items || [])].sort((a, b) => {
-    if (a.is_ransomware && !b.is_ransomware) return -1;
-    if (!a.is_ransomware && b.is_ransomware) return 1;
-    return 0;
-  });
-  renderList($("#zoneTwList"), items, 60);
-}
-
-async function loadZoneOt() {
-  // OT/ICS: L7 layer + ICS/OT keywords
+async function loadOt() {
   if (USE_STATIC && !cache.intel) cache.intel = await loadStaticJson("intel.json");
   let items = [];
   if (USE_STATIC) {
     items = (cache.intel.items || []).filter(
       (i) =>
         i.layer_id === "L7" ||
-        /ics|ot\b|industrial|scada|plc|cisa ics|dragos/i.test(
+        /cisa ics|dragos|icsa-|icsma-|scada|\bot\b|industrial control|plc /i.test(
           `${i.title} ${i.summary} ${i.source_name}`
         )
     );
@@ -578,36 +564,50 @@ async function loadZoneOt() {
   renderList($("#zoneOtList"), items, 50);
 }
 
-async function loadZoneDark() {
+async function loadDark() {
+  // 僅暗網／外洩來源，排除純 KEV／一般新聞
   if (USE_STATIC && !cache.intel) cache.intel = await loadStaticJson("intel.json");
   const all = USE_STATIC
     ? cache.intel.items || []
-    : (await api("/api/intel?ransomware=true&limit=150")).items || [];
-  const dark = all.filter(
-    (i) =>
-      /ransom|dark|threatfox|hibp|databreach|x @/i.test(
-        `${i.source_name} ${i.title}`
-      ) || i.is_ransomware
-  );
+    : (await api("/api/intel?limit=200")).items || [];
+  const dark = all.filter((i) => {
+    const src = `${i.source_name || ""} ${i.title || ""}`.toLowerCase();
+    if (src.includes("cisa kev") && !src.includes("ransom")) return false;
+    return (
+      /ransomlook|ransomware\.live|threatfox|hibp|databreach|dark web|x @|leak-site|indirect dark/i.test(
+        src
+      ) ||
+      (i.is_ransomware &&
+        /ransom|dark|leak|x @|threatfox|hibp/i.test(src))
+    );
+  });
   const dual = dark.filter(
-    (i) => i.verification === "credible" || (i.sources || []).length >= 2
+    (i) =>
+      i.verification === "credible" ||
+      (Array.isArray(i.sources) && i.sources.length >= 2) ||
+      /ransomlook.*live|live.*ransomlook|\+/i.test(i.source_name || "")
   );
+  const dualIds = new Set(dual.map((i) => i.id));
   const p3 = dark.filter(
-    (i) => i.verification === "unverified" || i.priority === "P3"
+    (i) =>
+      !dualIds.has(i.id) &&
+      (i.verification === "unverified" || i.priority === "P3")
   );
-  renderList($("#zoneDarkDual"), dual, 40);
-  renderList($("#zoneDarkP3"), p3, 40);
+  renderList($("#zoneDarkDual"), dual, 35);
+  renderList($("#zoneDarkP3"), p3, 35);
 }
 
-async function loadZoneKev() {
+async function loadKev() {
   if (USE_STATIC && !cache.intel) cache.intel = await loadStaticJson("intel.json");
   let items = [];
   if (USE_STATIC) {
     items = (cache.intel.items || []).filter(
-      (i) => (i.source_name || "").includes("KEV") || (i.tags || []).includes("kev")
+      (i) =>
+        (i.source_name || "").includes("KEV") ||
+        (i.tags || []).includes("kev")
     );
   } else {
-    const d = await api("/api/intel?q=KEV&limit=120");
+    const d = await api("/api/intel?limit=200");
     items = (d.items || []).filter((i) => (i.source_name || "").includes("KEV"));
   }
   renderList($("#zoneKevList"), items, 80);
@@ -928,11 +928,10 @@ async function refreshAll() {
     const active = $(".tab.active")?.dataset.view || "overview";
     if (active === "overview") await loadOverview();
     if (active === "intel") await loadIntelStream();
-    if (active === "tw") await loadTw();
-    if (active === "zone-tw") await loadZoneTw();
-    if (active === "zone-ot") await loadZoneOt();
-    if (active === "zone-dark") await loadZoneDark();
-    if (active === "zone-kev") await loadZoneKev();
+    if (active === "taiwan") await loadTaiwan();
+    if (active === "kev") await loadKev();
+    if (active === "dark") await loadDark();
+    if (active === "ot") await loadOt();
     if (active === "finance") await loadFinance();
     if (active === "microsoft") await loadMicrosoft();
     if (active === "layers") await loadLayers();
@@ -953,11 +952,10 @@ function setupTabs() {
       $(`#view-${view}`)?.classList.add("active");
       if (view === "overview") await loadOverview();
       if (view === "intel") await loadIntelStream();
-      if (view === "tw") await loadTw();
-      if (view === "zone-tw") await loadZoneTw();
-      if (view === "zone-ot") await loadZoneOt();
-      if (view === "zone-dark") await loadZoneDark();
-      if (view === "zone-kev") await loadZoneKev();
+      if (view === "taiwan") await loadTaiwan();
+      if (view === "kev") await loadKev();
+      if (view === "dark") await loadDark();
+      if (view === "ot") await loadOt();
       if (view === "finance") await loadFinance();
       if (view === "microsoft") await loadMicrosoft();
       if (view === "layers") await loadLayers();

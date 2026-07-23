@@ -30,97 +30,20 @@
     </div>
   </header>
 
+  <!-- 精簡分頁：一主題一頁，不重複 -->
   <nav class="tabs" role="tablist">
     <button class="tab active" data-view="overview" data-i18n="tabOverview">總覽</button>
-    <button class="tab" data-view="intel" data-i18n="tabIntel">情資串流</button>
-    <button class="tab" data-view="zone-tw" data-i18n="tabZoneTw">🇹🇼 臺灣專區</button>
-    <button class="tab" data-view="zone-ot" data-i18n="tabZoneOt">⚙️ OT／ICS</button>
-    <button class="tab" data-view="zone-dark" data-i18n="tabZoneDark">🌑 暗網／外洩</button>
-    <button class="tab" data-view="zone-kev" data-i18n="tabZoneKev">📋 CISA KEV</button>
-    <button class="tab" data-view="tw" data-i18n="tabTw">電子五哥／半導體</button>
+    <button class="tab" data-view="intel" data-i18n="tabIntel">情資搜尋</button>
+    <button class="tab" data-view="taiwan" data-i18n="tabTaiwan">🇹🇼 台灣產業</button>
+    <button class="tab" data-view="kev" data-i18n="tabZoneKev">📋 CISA KEV</button>
+    <button class="tab" data-view="dark" data-i18n="tabZoneDark">🌑 暗網／外洩</button>
+    <button class="tab" data-view="ot" data-i18n="tabZoneOt">⚙️ OT／ICS</button>
     <button class="tab" data-view="finance" data-i18n="tabFinance">💰 金融</button>
     <button class="tab" data-view="microsoft" data-i18n="tabMicrosoft">🪟 微軟</button>
     <button class="tab" data-view="layers" data-i18n="tabLayers">T1–T7 健康</button>
   </nav>
 
   <main>
-    <!-- 五項風險 KPI + sparkline -->
-    <section class="kpi-row risk-kpi" id="riskKpiRow" aria-label="Risk KPIs">
-      <article class="kpi kpi-breach">
-        <div class="kpi-label" data-i18n="kpiBreach">資料外洩／勒索</div>
-        <div class="kpi-value-row"><span class="kpi-value" id="kpiBreach">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
-        <canvas class="spark" id="sparkBreach" width="120" height="32" aria-hidden="true"></canvas>
-      </article>
-      <article class="kpi kpi-big5">
-        <div class="kpi-label" data-i18n="kpiBig5">電子五哥遭駭</div>
-        <div class="kpi-value-row"><span class="kpi-value" id="kpiBig5">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
-        <canvas class="spark" id="sparkBig5" width="120" height="32" aria-hidden="true"></canvas>
-      </article>
-      <article class="kpi kpi-semi">
-        <div class="kpi-label" data-i18n="kpiSemi">半導體遭駭</div>
-        <div class="kpi-value-row"><span class="kpi-value" id="kpiSemi">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
-        <canvas class="spark" id="sparkSemi" width="120" height="32" aria-hidden="true"></canvas>
-      </article>
-      <article class="kpi kpi-ems">
-        <div class="kpi-label" data-i18n="kpiEms">電子製造遭駭</div>
-        <div class="kpi-value-row"><span class="kpi-value" id="kpiEms">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
-        <canvas class="spark" id="sparkEms" width="120" height="32" aria-hidden="true"></canvas>
-      </article>
-      <article class="kpi kpi-unverified">
-        <div class="kpi-label" data-i18n="kpiUnverified">未核實宣稱</div>
-        <div class="kpi-value-row"><span class="kpi-value" id="kpiUnverified">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
-        <canvas class="spark" id="sparkUnverified" width="120" height="32" aria-hidden="true"></canvas>
-      </article>
-    </section>
-
-    <!-- 第二排：名單導向（非統計） -->
-    <section class="watch-lists" aria-label="Watchlists">
-      <div class="watch-card">
-        <h3 data-i18n="watchBig5Title">電子五哥 · 監控企業名單</h3>
-        <p class="watch-note" data-i18n="watchNotStats">非統計數字 · 名單導向監控</p>
-        <div class="watch-chips" id="watchBig5"></div>
-      </div>
-      <div class="watch-card">
-        <h3 data-i18n="watchSemiTitle">半導體 · 監控次產業</h3>
-        <p class="watch-note" data-i18n="watchNotStats">非統計數字 · 名單導向監控</p>
-        <div class="watch-chips" id="watchSemi"></div>
-      </div>
-      <div class="watch-card">
-        <h3 data-i18n="watchEmsTitle">電子製造 · 監控次產業</h3>
-        <p class="watch-note" data-i18n="watchNotStats">非統計數字 · 名單導向監控</p>
-        <div class="watch-chips" id="watchEms"></div>
-      </div>
-    </section>
-
-    <section class="trend-panel">
-      <h3 data-i18n="trendTitle">四項核心指標 30 日走勢</h3>
-      <canvas id="trendChart" width="900" height="160"></canvas>
-      <div class="trend-legend" id="trendLegend"></div>
-    </section>
-
-    <section class="kpi-row" id="kpiRow" aria-label="Core KPIs">
-      <article class="kpi kpi-p0">
-        <div class="kpi-label" data-i18n="kpiP0">P0 緊急</div>
-        <div class="kpi-value-row"><span class="kpi-value" id="kpiP0">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
-        <div class="kpi-hint" data-i18n="kpiP0Hint">勒索 KEV／台灣產業受駭</div>
-      </article>
-      <article class="kpi kpi-kev">
-        <div class="kpi-label" data-i18n="kpiKev">KEV 近 7 日</div>
-        <div class="kpi-value-row"><span class="kpi-value" id="kpiKev">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
-        <div class="kpi-hint" id="kpiKevHint">—</div>
-      </article>
-      <article class="kpi kpi-tw">
-        <div class="kpi-label" data-i18n="kpiTw">台灣產業／勒索</div>
-        <div class="kpi-value" id="kpiTw">—</div>
-        <div class="kpi-hint" data-i18n="kpiTwHint">電子五哥＋半導體</div>
-      </article>
-      <article class="kpi kpi-health">
-        <div class="kpi-label" data-i18n="kpiHealth">來源健康度</div>
-        <div class="kpi-value" id="kpiHealth">—</div>
-        <div class="kpi-hint" id="kpiHealthHint">—</div>
-      </article>
-    </section>
-
     <p class="scan-meta" id="scanMeta"></p>
     <div id="toast" class="toast hidden" role="status"></div>
     <div id="scanModal" class="modal hidden" role="dialog" aria-modal="true">
@@ -131,9 +54,68 @@
       </div>
     </div>
 
+    <!-- ========== 總覽：指揮中心（KPI／名單／走勢／優先快覽） ========== -->
     <section class="view active" id="view-overview">
+      <section class="kpi-row risk-kpi" aria-label="Risk KPIs">
+        <article class="kpi kpi-breach">
+          <div class="kpi-label" data-i18n="kpiBreach">資料外洩／勒索</div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpiBreach">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
+          <canvas class="spark" id="sparkBreach" width="120" height="32"></canvas>
+        </article>
+        <article class="kpi kpi-big5">
+          <div class="kpi-label" data-i18n="kpiBig5">電子五哥遭駭</div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpiBig5">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
+          <canvas class="spark" id="sparkBig5" width="120" height="32"></canvas>
+        </article>
+        <article class="kpi kpi-semi">
+          <div class="kpi-label" data-i18n="kpiSemi">半導體遭駭</div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpiSemi">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
+          <canvas class="spark" id="sparkSemi" width="120" height="32"></canvas>
+        </article>
+        <article class="kpi kpi-ems">
+          <div class="kpi-label" data-i18n="kpiEms">電子製造遭駭</div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpiEms">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
+          <canvas class="spark" id="sparkEms" width="120" height="32"></canvas>
+        </article>
+        <article class="kpi kpi-unverified">
+          <div class="kpi-label" data-i18n="kpiUnverified">未核實宣稱</div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpiUnverified">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
+          <canvas class="spark" id="sparkUnverified" width="120" height="32"></canvas>
+        </article>
+      </section>
+
+      <section class="kpi-row" aria-label="Core KPIs">
+        <article class="kpi kpi-p0">
+          <div class="kpi-label" data-i18n="kpiP0">P0 緊急</div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpiP0">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
+          <div class="kpi-hint" data-i18n="kpiP0Hint">勒索 KEV／台灣產業受駭</div>
+        </article>
+        <article class="kpi kpi-kev">
+          <div class="kpi-label" data-i18n="kpiKev">KEV 近 7 日</div>
+          <div class="kpi-value-row"><span class="kpi-value" id="kpiKev">—</span><span class="kpi-unit" data-i18n="unitJian">件</span></div>
+          <div class="kpi-hint" id="kpiKevHint">—</div>
+        </article>
+        <article class="kpi kpi-tw">
+          <div class="kpi-label" data-i18n="kpiTw">台灣產業／勒索</div>
+          <div class="kpi-value" id="kpiTw">—</div>
+          <div class="kpi-hint" data-i18n="kpiTwHint">詳見「台灣產業」分頁</div>
+        </article>
+        <article class="kpi kpi-health">
+          <div class="kpi-label" data-i18n="kpiHealth">來源健康度</div>
+          <div class="kpi-value" id="kpiHealth">—</div>
+          <div class="kpi-hint" id="kpiHealthHint">—</div>
+        </article>
+      </section>
+
+      <section class="trend-panel">
+        <h3 data-i18n="trendTitle">四項核心指標 30 日走勢</h3>
+        <canvas id="trendChart" width="900" height="160"></canvas>
+        <div class="trend-legend" id="trendLegend"></div>
+      </section>
+
       <div class="panel-head">
         <h2 data-i18n="overviewTitle">優先情資快覽</h2>
+        <p class="panel-sub" data-i18n="overviewHint">僅顯示各優先級精選；完整清單請用「情資搜尋」或主題分頁。</p>
         <div class="legend">
           <span class="pill p0">P0</span>
           <span class="pill p1">P1</span>
@@ -145,26 +127,19 @@
         </div>
       </div>
       <div class="priority-grid">
-        <div class="prio-col" data-p="P0">
-          <h3><span class="pill p0">P0</span> <span data-i18n="colP0">緊急</span></h3>
-          <div class="card-list" id="colP0"></div>
-        </div>
-        <div class="prio-col" data-p="P1">
-          <h3><span class="pill p1">P1</span> <span data-i18n="colP1">KEV 在野利用</span></h3>
-          <div class="card-list" id="colP1"></div>
-        </div>
-        <div class="prio-col" data-p="P2">
-          <h3><span class="pill p2">P2</span> <span data-i18n="colP2">高 EPSS／多源</span></h3>
-          <div class="card-list" id="colP2"></div>
-        </div>
-        <div class="prio-col" data-p="P3">
-          <h3><span class="pill p3">P3</span> <span data-i18n="colP3">監控／複核佇列</span></h3>
-          <div class="card-list" id="colP3"></div>
-        </div>
+        <div class="prio-col"><h3><span class="pill p0">P0</span> <span data-i18n="colP0">緊急</span></h3><div class="card-list" id="colP0"></div></div>
+        <div class="prio-col"><h3><span class="pill p1">P1</span> <span data-i18n="colP1">KEV 在野</span></h3><div class="card-list" id="colP1"></div></div>
+        <div class="prio-col"><h3><span class="pill p2">P2</span> <span data-i18n="colP2">高 EPSS／多源</span></h3><div class="card-list" id="colP2"></div></div>
+        <div class="prio-col"><h3><span class="pill p3">P3</span> <span data-i18n="colP3">監控／複核</span></h3><div class="card-list" id="colP3"></div></div>
       </div>
     </section>
 
+    <!-- ========== 情資搜尋：篩選工具，不重複 KPI ========== -->
     <section class="view" id="view-intel">
+      <div class="panel-head">
+        <h2 data-i18n="intelTitle">情資搜尋</h2>
+        <p class="panel-sub" data-i18n="intelHint">跨來源檢索與篩選；主題細節請至對應專區分頁。</p>
+      </div>
       <div class="filters">
         <select id="filterPriority">
           <option value="" data-i18n="filterAllP">全部優先級</option>
@@ -189,44 +164,48 @@
       <div class="card-list stream" id="intelStream"></div>
     </section>
 
-    <section class="view" id="view-zone-tw">
+    <!-- ========== 台灣產業：合併原「臺灣專區」+「電子五哥」 ========== -->
+    <section class="view" id="view-taiwan">
       <div class="tw-banner">
         <div>
-          <h2 data-i18n="zoneTwTitle">🇹🇼 臺灣專區</h2>
-          <p data-i18n="zoneTwDesc">電子五哥／半導體／電子製造監控名單命中情資；勒索置頂強調。</p>
+          <h2 data-i18n="taiwanTitle">🇹🇼 台灣產業監控</h2>
+          <p data-i18n="taiwanDesc">電子五哥（5 家）、半導體、電子製造監控名單命中；勒索置頂。名單為監控範圍，非統計數字。</p>
+        </div>
+        <div class="tw-stats">
+          <div><span id="twStatTotal">0</span><small data-i18n="twStatTotal">產業命中</small></div>
+          <div class="hot"><span id="twStatRansom">0</span><small data-i18n="twStatRansom">勒索</small></div>
         </div>
       </div>
-      <div class="card-list" id="zoneTwList"></div>
-    </section>
-
-    <section class="view" id="view-zone-ot">
-      <div class="tw-banner ms-banner">
-        <div>
-          <h2 data-i18n="zoneOtTitle">⚙️ OT／ICS 專區</h2>
-          <p data-i18n="zoneOtDesc">CISA ICS、Dragos、製造業 OT 相關情資。</p>
+      <section class="watch-lists" aria-label="TW watchlists">
+        <div class="watch-card">
+          <h3 data-i18n="watchBig5Title">電子五哥 · 監控企業</h3>
+          <p class="watch-note" data-i18n="watchNotStats">非統計數字 · 名單導向</p>
+          <div class="watch-chips" id="watchBig5"></div>
         </div>
-      </div>
-      <div class="card-list" id="zoneOtList"></div>
-    </section>
-
-    <section class="view" id="view-zone-dark">
-      <div class="tw-banner finance-banner">
-        <div>
-          <h2 data-i18n="zoneDarkTitle">🌑 暗網／外洩專區</h2>
-          <p data-i18n="zoneDarkDesc">Ransomware.live × RansomLook 雙源；單源一律未核實且僅 P3 複核佇列。</p>
+        <div class="watch-card">
+          <h3 data-i18n="watchSemiTitle">半導體 · 監控次產業</h3>
+          <p class="watch-note" data-i18n="watchNotStats">非統計數字 · 名單導向</p>
+          <div class="watch-chips" id="watchSemi"></div>
         </div>
-      </div>
-      <h3 class="section-h" data-i18n="zoneDarkDual">雙源可信</h3>
-      <div class="card-list" id="zoneDarkDual"></div>
-      <h3 class="section-h ransom-h" data-i18n="zoneDarkP3">P3 人工複核佇列（單源未核實）</h3>
-      <div class="card-list" id="zoneDarkP3"></div>
+        <div class="watch-card">
+          <h3 data-i18n="watchEmsTitle">電子製造 · 監控次產業</h3>
+          <p class="watch-note" data-i18n="watchNotStats">非統計數字 · 名單導向</p>
+          <div class="watch-chips" id="watchEms"></div>
+        </div>
+      </section>
+      <div class="entity-chips" id="entityChips"></div>
+      <h3 class="section-h ransom-h" data-i18n="twRansomSection">🔐 勒索相關（置頂）</h3>
+      <div class="card-list" id="twRansomList"></div>
+      <h3 class="section-h" data-i18n="twOtherSection">其他台灣產業命中</h3>
+      <div class="card-list" id="twOtherList"></div>
     </section>
 
-    <section class="view" id="view-zone-kev">
+    <!-- ========== CISA KEV 專區 ========== -->
+    <section class="view" id="view-kev">
       <div class="tw-banner">
         <div>
           <h2 data-i18n="zoneKevTitle">📋 CISA KEV 專區</h2>
-          <p data-i18n="zoneKevDesc">已知遭利用漏洞目錄；P1 為 KEV 一票路徑（不混入 P2）。</p>
+          <p data-i18n="zoneKevDesc">僅顯示 CISA Known Exploited Vulnerabilities；P1 為 KEV 在野利用路徑（不混入 P2）。</p>
         </div>
         <div class="tw-stats">
           <div><span id="kevStat60">0</span><small data-i18n="kevStat60">近 60 日</small></div>
@@ -236,85 +215,87 @@
       <div class="card-list" id="zoneKevList"></div>
     </section>
 
-    <section class="view" id="view-tw">
-      <div class="tw-banner">
+    <!-- ========== 暗網／外洩（不含台灣產業重複、不含 KEV） ========== -->
+    <section class="view" id="view-dark">
+      <div class="tw-banner finance-banner">
         <div>
-          <h2 data-i18n="twTitle">台灣電子五哥／半導體・上市櫃受駭情資</h2>
-          <p data-i18n="twDesc">5 家電子五哥、半導體與電子製造次產業別名比對；勒索徽章＋紅色脈動邊框置頂。</p>
-        </div>
-        <div class="tw-stats">
-          <div><span id="twStatTotal">0</span><small data-i18n="twStatTotal">產業相關</small></div>
-          <div class="hot"><span id="twStatRansom">0</span><small data-i18n="twStatRansom">勒索強調</small></div>
+          <h2 data-i18n="zoneDarkTitle">🌑 暗網／外洩專區</h2>
+          <p data-i18n="zoneDarkDesc">Ransomware.live × RansomLook 雙源；單源一律未核實且僅 P3 複核。不含 KEV／一般新聞。</p>
         </div>
       </div>
-      <div class="entity-chips" id="entityChips"></div>
-      <h3 class="section-h ransom-h" data-i18n="twRansomSection">🔐 勒索相關（優先關注）</h3>
-      <div class="card-list" id="twRansomList"></div>
-      <h3 class="section-h" data-i18n="twOtherSection">其他台灣產業情資</h3>
-      <div class="card-list" id="twOtherList"></div>
-      <h3 class="section-h" data-i18n="globalRansomSection">全球高優先勒索（供應鏈風險）</h3>
-      <div class="card-list" id="globalRansomList"></div>
+      <h3 class="section-h" data-i18n="zoneDarkDual">雙源可信（Live ∩ Look）</h3>
+      <div class="card-list" id="zoneDarkDual"></div>
+      <h3 class="section-h ransom-h" data-i18n="zoneDarkP3">P3 人工複核佇列（單源未核實）</h3>
+      <div class="card-list" id="zoneDarkP3"></div>
     </section>
 
+    <!-- ========== OT / ICS ========== -->
+    <section class="view" id="view-ot">
+      <div class="tw-banner ms-banner">
+        <div>
+          <h2 data-i18n="zoneOtTitle">⚙️ OT／ICS 專區</h2>
+          <p data-i18n="zoneOtDesc">僅 CISA ICS、Dragos、工業控制／OT 相關；不含一般 IT 新聞。</p>
+        </div>
+      </div>
+      <div class="card-list" id="zoneOtList"></div>
+    </section>
+
+    <!-- ========== 金融 ========== -->
     <section class="view" id="view-finance">
       <div class="tw-banner finance-banner">
         <div>
-          <h2 data-i18n="financeTitle">金融／銀行／支付威脅情資</h2>
-          <p data-i18n="financeDesc">銀行、支付、SWIFT、金融業受駭與相關 KEV。</p>
+          <h2 data-i18n="financeTitle">💰 金融／銀行／支付</h2>
+          <p data-i18n="financeDesc">僅金融關鍵字與實體命中；銀行、支付、SWIFT、金融業受駭與相關 KEV。</p>
         </div>
         <div class="tw-stats">
-          <div><span id="finStatTotal">0</span><small data-i18n="finStatTotal">金融相關</small></div>
-          <div class="hot"><span id="finStatRansom">0</span><small data-i18n="finStatRansom">勒索強調</small></div>
+          <div><span id="finStatTotal">0</span><small data-i18n="finStatTotal">金融命中</small></div>
+          <div class="hot"><span id="finStatRansom">0</span><small data-i18n="finStatRansom">勒索</small></div>
           <div><span id="finStatKev">0</span><small data-i18n="finStatKev">KEV</small></div>
         </div>
       </div>
       <div class="entity-chips" id="financeChips"></div>
       <h3 class="section-h ransom-h" data-i18n="finRansomSection">🔐 金融＋勒索</h3>
       <div class="card-list" id="finRansomList"></div>
-      <h3 class="section-h" data-i18n="finKevSection">KEV 金融相關</h3>
+      <h3 class="section-h" data-i18n="finKevSection">金融相關 KEV</h3>
       <div class="card-list" id="finKevList"></div>
       <h3 class="section-h" data-i18n="finOtherSection">其他金融情資</h3>
       <div class="card-list" id="finOtherList"></div>
     </section>
 
+    <!-- ========== 微軟（精簡區塊，避免與 KEV 全站重複感） ========== -->
     <section class="view" id="view-microsoft">
       <div class="tw-banner ms-banner">
         <div>
-          <h2 data-i18n="msTitle">微軟／Microsoft 威脅情資中心</h2>
-          <p data-i18n="msDesc">Windows、Defender／SharePoint／Exchange／Entra、MS TI；P1、KEV、官方旁證。</p>
+          <h2 data-i18n="msTitle">🪟 微軟／Microsoft</h2>
+          <p data-i18n="msDesc">僅微軟生態：Windows、Defender／SharePoint／Exchange／Entra、MS TI。完整 KEV 目錄請至 CISA KEV 分頁。</p>
         </div>
         <div class="tw-stats">
-          <div><span id="msStatTotal">0</span><small data-i18n="msStatTotal">總計</small></div>
+          <div><span id="msStatTotal">0</span><small data-i18n="msStatTotal">微軟命中</small></div>
           <div class="hot"><span id="msStatP1">0</span><small data-i18n="msStatP1">P1</small></div>
-          <div class="hot"><span id="msStatKev">0</span><small data-i18n="msStatKev">KEV 已利用</small></div>
-          <div><span id="msStatConfirmed">0</span><small data-i18n="msStatConfirmed">官方旁證</small></div>
+          <div class="hot"><span id="msStatKev">0</span><small data-i18n="msStatKev">其中 KEV</small></div>
           <div><span id="msStatWindows">0</span><small data-i18n="msStatWindows">Windows</small></div>
           <div><span id="msStatEnterprise">0</span><small data-i18n="msStatEnterprise">企業平台</small></div>
           <div><span id="msStatTi">0</span><small data-i18n="msStatTi">MS TI</small></div>
         </div>
       </div>
       <div class="entity-chips" id="msChips"></div>
-      <h3 class="section-h ransom-h" data-i18n="msP1Section">🟠 P1</h3>
-      <div class="card-list" id="msP1List"></div>
-      <h3 class="section-h ransom-h" data-i18n="msKevSection">⚠️ CISA KEV／已遭利用</h3>
-      <div class="card-list" id="msKevList"></div>
-      <h3 class="section-h" data-i18n="msConfirmedSection">✅ 官方旁證</h3>
-      <div class="card-list" id="msConfirmedList"></div>
-      <h3 class="section-h" data-i18n="msWindowsSection">💻 Windows</h3>
+      <h3 class="section-h" data-i18n="msWindowsSection">💻 Windows 作業系統</h3>
       <div class="card-list" id="msWindowsList"></div>
-      <h3 class="section-h" data-i18n="msEnterpriseSection">🏢 企業平台</h3>
+      <h3 class="section-h" data-i18n="msEnterpriseSection">🏢 Defender／SharePoint／Exchange／Entra</h3>
       <div class="card-list" id="msEnterpriseList"></div>
-      <h3 class="section-h" data-i18n="msTiSection">🛰️ MS Threat Intelligence</h3>
+      <h3 class="section-h" data-i18n="msTiSection">🛰️ Microsoft Threat Intelligence</h3>
       <div class="card-list" id="msTiList"></div>
-      <h3 class="section-h ransom-h" data-i18n="msRansomSection">🔐 微軟＋勒索</h3>
+      <h3 class="section-h ransom-h" data-i18n="msRansomSection">🔐 微軟生態＋勒索</h3>
       <div class="card-list" id="msRansomList"></div>
-      <h3 class="section-h" data-i18n="msOtherSection">其他微軟情資</h3>
-      <div class="card-list" id="msOtherList"></div>
+      <h3 class="section-h" data-i18n="msKevSection">微軟相關 KEV（子集）</h3>
+      <div class="card-list" id="msKevList"></div>
     </section>
 
+    <!-- ========== T1–T7 ========== -->
     <section class="view" id="view-layers">
       <div class="panel-head">
-        <h2 data-i18n="layersTitle">T1–T7 情資來源與排程健康</h2>
+        <h2 data-i18n="layersTitle">T1–T7 情資來源健康</h2>
+        <p class="panel-sub" data-i18n="layersHint">僅來源狀態與排程，不含情資列表。</p>
         <p class="schedule-badge" id="scheduleBadge"></p>
       </div>
       <div class="layers-grid" id="layersGrid"></div>
