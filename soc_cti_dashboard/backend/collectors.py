@@ -1130,7 +1130,7 @@ async def _upsert_ransom_victim_item(
         verification, admiralty = "unverified", "C3"
 
     title_core = f"{victim} — claimed by {group}"
-    title_zh = f"🔐 勒索受害｜{title_core}"
+    title_zh = f"🔐 勒索受駭｜{title_core}"
     title_en = f"🔐 Ransom victim｜{title_core}"
     if is_tw:
         title_zh = f"🇹🇼 台灣電子／半導體｜{title_zh}"
@@ -1143,7 +1143,7 @@ async def _upsert_ransom_victim_item(
         title_en = f"[Unverified] {title_en}"
 
     summary_zh = (
-        f"受害組織：{victim}\n"
+        f"受駭組織：{victim}\n"
         f"勒索集團：{group}\n"
         f"國家：{country or '—'}｜產業：{activity or '—'}\n"
         f"網站：{website or '—'}\n"

@@ -49,7 +49,7 @@ https://chinchiang.github.io/Grok_project/
 
 ### 優先級（互斥）
 
-- **P0**：KEV 且已知勒索活動使用；或 台灣電子／半導體受害且勒索；或 台灣產業 + KEV  
+- **P0**：KEV 且已知勒索活動使用；或 台灣電子／半導體受駭且勒索；或 台灣產業 + KEV  
 - **P1**：列入 CISA KEV 且未達 P0  
 - **P2**：非 KEV，EPSS ≥ 0.5 或多來源可信  
 - **P3**：其餘監控項  
@@ -98,7 +98,7 @@ python scripts/export_static.py
 |------|------|------|----------|
 | L5 | **Have I Been Pwned** | **公開外洩目錄免金鑰**（近期 `AddedDate`） | 可選 `HIBP_API_KEY` + `HIBP_WATCH_DOMAINS`（公司網域信箱監控，付費） |
 | L7 | **CISA ICS Advisories** | 先試官方 RSS；若 WAF 403 則改用 [ICS Advisory Project](https://github.com/icsadvprj/ICS-Advisory-Project) CSV 鏡像 | 無需金鑰 |
-| L6 | **Ransomware.live** | `data.ransomware.live/victims.json` 近期受害 | 可選 `RANSOMWARE_LIVE_API_KEY`（PRO） |
+| L6 | **Ransomware.live** | `data.ransomware.live/victims.json` 近期受駭 | 可選 `RANSOMWARE_LIVE_API_KEY`（PRO） |
 | L6 | **RansomLook** | `ransomlook.io/api/recent` | 無需金鑰 |
 | L6 | **@DailyDarkWeb / @DarkWebInformer** | Nitter RSS，失敗則用官網 blog RSS | 無需 X API 金鑰 |
 | L4 | Shodan / Censys | `not_configured` | `SHODAN_API_KEY`、`CENSYS_API_ID` / `CENSYS_API_SECRET`（尚未接線） |
