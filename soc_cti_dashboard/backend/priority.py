@@ -19,6 +19,7 @@ from typing import Any
 
 from .config import (
     FINANCE_WATCHLIST,
+    FINANCE_WORD_PATTERNS,
     MICROSOFT_WATCHLIST,
     RANSOMWARE_KEYWORDS,
     TW_ELECTRONICS_WATCHLIST,
@@ -47,8 +48,55 @@ def match_tw_entities(text: str) -> list[dict[str, str]]:
     return _match_watchlist(text, TW_ELECTRONICS_WATCHLIST)
 
 
+def _scrub_finance_false_positives(text: str) -> str:
+    """Strip CISA-style critical-infrastructure sector laundry lists.
+
+    ICS advisories often enumerate sectors like
+    ``…; Healthcare and Public Health; Financial Services; Government…``
+    which must not flag every ICS advisory as finance intel.
+    """
+    t = text
+    # Semicolon / slash separated "Financial Services" in multi-sector lists
+    t = re.sub(r"(?<=[;/|])\s*Financial Services\b", " ", t, flags=re.I)
+    t = re.sub(r"\bFinancial Services\s*(?=[;/|])", " ", t, flags=re.I)
+    t = re.sub(
+        r"\b(?:Commercial Facilities|Communications|Critical Manufacturing|"
+        r"Dams|Defense Industrial Base|Emergency Services|Energy|"
+        r"Financial Services|Food and Agriculture|Government Facilities|"
+        r"Healthcare and Public Health|Information Technology|"
+        r"Nuclear Reactors|Transportation Systems|Water and Wastewater)\b",
+        " ",
+        t,
+        flags=re.I,
+    )
+    # 中文關鍵基礎設施領域列舉中的「金融服務」
+    t = re.sub(r"關鍵基礎設施領域[：:][^\n]{0,200}", " ", t)
+    t = re.sub(r"金融服務[；;、,/]", " ", t)
+    return t
+
+
 def match_finance_entities(text: str) -> list[dict[str, str]]:
-    return _match_watchlist(text, FINANCE_WATCHLIST)
+    cleaned = _scrub_finance_false_positives(text)
+    # Drop leak-dump boilerplate that is not a finance-sector victim signal
+    cleaned = re.sub(
+        r"\bfinancial\s+(documents?|data|information|records?|files?|"
+        r"reporting|accounting|planning|statements?)\b",
+        " ",
+        cleaned,
+        flags=re.I,
+    )
+    hits = _match_watchlist(cleaned, FINANCE_WATCHLIST)
+    seen = {h["key"] for h in hits}
+    low = cleaned.lower()
+    for pat, key, tier in FINANCE_WORD_PATTERNS:
+        m = re.search(pat, low, flags=re.I)
+        if not m:
+            continue
+        if key in seen:
+            continue
+        hits.append({"key": key, "matched": m.group(0), "tier": tier})
+        seen.add(key)
+    return hits
 
 
 def match_microsoft_entities(
@@ -184,7 +232,13 @@ def assign_verification(
 def enrich_flags(
     title: str, summary: str, vendor: str = "", product: str = ""
 ) -> dict[str, Any]:
-    blob = text_blob(title, summary, vendor, product)
+    # Ignore UI classification prefixes so re-tagging is not self-reinforcing
+    title_clean = re.sub(
+        r"^(?:💰\s*金融相關｜|🪟\s*微軟相關｜|🇹🇼\s*)+",
+        "",
+        title or "",
+    )
+    blob = text_blob(title_clean, summary, vendor, product)
     tw = match_tw_entities(blob)
     finance = match_finance_entities(blob)
     ms = match_microsoft_entities(blob, vendor=vendor, product=product)

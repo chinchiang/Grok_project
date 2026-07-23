@@ -578,11 +578,86 @@ async function loadEms() {
   renderList($("#emsOtherList"), data.tw_other, 40);
 }
 
+function isFinanceItem(item) {
+  if (item?.is_finance) return true;
+  const blob = [
+    item?.title,
+    item?.title_en,
+    item?.summary,
+    item?.summary_en,
+    item?.vendor,
+    item?.product,
+    item?.source_name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  // 避開 CISA ICS 關鍵基礎設施「Financial Services」列舉誤判
+  const scrubbed = blob
+    .replace(/financial services\s*[;/|]/gi, " ")
+    .replace(/[;/|]\s*financial services\b/gi, " ")
+    .replace(
+      /\b(commercial facilities|communications|critical manufacturing|financial services|healthcare and public health|government facilities|information technology)\b/gi,
+      " "
+    );
+  // 組織／產業訊號，避免「financial documents」「partial credit card data」等外洩內容誤判
+  const noLeakBoiler = scrubbed.replace(
+    /\bfinancial\s+(documents?|data|information|records?|files?|reporting|accounting|planning|statements?)\b/gi,
+    " "
+  );
+  return /(?<![a-z])(banks?|banking|fintech|insurance|assurance|reinsurance|financi[eè]re|neobank)(?![a-z])|金融|銀行|金控|壽險|產險|證交所|證券商|電子支付|支付機構|swift network|credit union|stock exchange|crypto exchange|payment processor|paypal|mastercard|jpmorgan|hsbc|citibank|中國信託|國泰世華|富邦銀行|玉山銀行|兆豐|合作金庫|街口支付/.test(
+    noLeakBoiler
+  );
+}
+
 async function loadFinance() {
-  const data = await api("/api/finance-dashboard");
-  if ($("#finHitTotal")) $("#finHitTotal").textContent = data.stats?.total ?? 0;
-  if ($("#finHitRansom")) $("#finHitRansom").textContent = data.stats?.ransomware ?? 0;
-  if ($("#finHitKev")) $("#finHitKev").textContent = data.stats?.kev ?? 0;
+  let data = {};
+  try {
+    data = await api("/api/finance-dashboard");
+  } catch (e) {
+    console.warn("finance-dashboard", e);
+  }
+
+  // 以 dashboard 為主；若過舊／過少，改從全庫 is_finance + 前端關鍵字後援
+  let items = [...(data.items || [])];
+  if (items.length < 3) {
+    try {
+      const fin = await api("/api/intel?finance=true&limit=200");
+      items = fin.items || items;
+    } catch {
+      /* keep */
+    }
+  }
+  if (items.length < 3) {
+    const all = await ensureIntel();
+    items = all.filter(isFinanceItem);
+  }
+
+  // 去重
+  const seen = new Set();
+  items = items.filter((i) => {
+    const k = i.id || i.url || i.title;
+    if (!k || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  const ransom = items.filter((i) => i.is_ransomware);
+  const kev = items.filter(
+    (i) =>
+      (i.source_name && /kev/i.test(i.source_name)) ||
+      (i.tags && /kev/i.test(String(i.tags))) ||
+      (Array.isArray(i.tags) && i.tags.some((t) => /kev/i.test(t)))
+  );
+  const kevIds = new Set(kev.map((i) => i.id || i.url || i.title));
+  const other = items.filter(
+    (i) => !i.is_ransomware && !kevIds.has(i.id || i.url || i.title)
+  );
+
+  if ($("#finHitTotal")) $("#finHitTotal").textContent = items.length;
+  if ($("#finHitRansom")) $("#finHitRansom").textContent = ransom.length;
+  if ($("#finHitKev")) $("#finHitKev").textContent = kev.length;
+  if ($("#tileFin")) $("#tileFin").textContent = items.length;
 
   const chips = $("#watchFinance");
   if (chips) {
@@ -598,14 +673,28 @@ async function loadFinance() {
       : `<span>${t("empty")}</span>`;
   }
 
-  renderEntityChips($("#finEntityChips"), data.entity_counts);
-  renderList($("#finRansomList"), data.ransomware, 40);
-  renderList($("#finKevList"), data.kev_items, 40);
-  // other：排除已在 KEV 區出現的 id，避免重複
-  const kevIds = new Set((data.kev_items || []).map((i) => i.id || i.url || i.title));
-  const other = (data.other || []).filter(
-    (i) => !kevIds.has(i.id) && !kevIds.has(i.url) && !kevIds.has(i.title)
-  );
+  const entityCounts = data.entity_counts && Object.keys(data.entity_counts).length
+    ? data.entity_counts
+    : {};
+  if (!Object.keys(entityCounts).length) {
+    for (const it of items) {
+      let ents = it.finance_entities;
+      if (typeof ents === "string") {
+        try {
+          ents = JSON.parse(ents);
+        } catch {
+          ents = [];
+        }
+      }
+      for (const e of ents || []) {
+        const k = e.key || e.matched || "finance";
+        entityCounts[k] = (entityCounts[k] || 0) + 1;
+      }
+    }
+  }
+  renderEntityChips($("#finEntityChips"), entityCounts);
+  renderList($("#finRansomList"), ransom, 40);
+  renderList($("#finKevList"), kev, 40);
   renderList($("#finOtherList"), other, 60);
 }
 

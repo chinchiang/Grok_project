@@ -9888,8 +9888,8 @@
       "admiralty": "B2",
       "raw_json": "{\"victim\": \"acsmallmaxwell.com.au\", \"group\": \"safepay\", \"country\": \"AU\", \"website\": \"acsmallmaxwell.com.au\", \"activity\": \"Professional Services\"}",
       "tags_json": "[\"ransomware\", \"leak-site\", \"darkweb-indirect\", \"dual-source\", \"finance\", \"country:AU\"]",
-      "is_finance": true,
-      "finance_entities_json": "[{\"key\": \"banking\", \"matched\": \"financial services\", \"tier\": \"sector\"}]",
+      "is_finance": false,
+      "finance_entities_json": "[]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -9898,13 +9898,7 @@
         "RansomLook"
       ],
       "tw_entities": [],
-      "finance_entities": [
-        {
-          "key": "banking",
-          "matched": "financial services",
-          "tier": "sector"
-        }
-      ],
+      "finance_entities": [],
       "ms_entities": [],
       "tags": [
         "ransomware",
@@ -10346,7 +10340,7 @@
       "raw_json": "{\"victim\": \"EFU Life Assurance\", \"group\": \"qilin\", \"country\": \"PK\", \"website\": \"www.efulife.com\", \"activity\": \"Financial Services\"}",
       "tags_json": "[\"ransomware\", \"leak-site\", \"darkweb-indirect\", \"dual-source\", \"finance\", \"country:PK\"]",
       "is_finance": true,
-      "finance_entities_json": "[{\"key\": \"banking\", \"matched\": \"financial services\", \"tier\": \"sector\"}]",
+      "finance_entities_json": "[{\"key\": \"markets\", \"matched\": \"life assurance\", \"tier\": \"markets\"}]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -10357,9 +10351,9 @@
       "tw_entities": [],
       "finance_entities": [
         {
-          "key": "banking",
-          "matched": "financial services",
-          "tier": "sector"
+          "key": "markets",
+          "matched": "life assurance",
+          "tier": "markets"
         }
       ],
       "ms_entities": [],
@@ -10900,8 +10894,8 @@
       "admiralty": "B2",
       "raw_json": "{\"victim\": \"Evergreen Title\", \"group\": \"qilin\", \"country\": \"US\", \"website\": \"www.evergreentitlecompany.com\", \"activity\": \"Financial Services\"}",
       "tags_json": "[\"ransomware\", \"leak-site\", \"darkweb-indirect\", \"dual-source\", \"finance\", \"country:US\"]",
-      "is_finance": true,
-      "finance_entities_json": "[{\"key\": \"banking\", \"matched\": \"financial services\", \"tier\": \"sector\"}]",
+      "is_finance": false,
+      "finance_entities_json": "[]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -10910,13 +10904,7 @@
         "RansomLook"
       ],
       "tw_entities": [],
-      "finance_entities": [
-        {
-          "key": "banking",
-          "matched": "financial services",
-          "tier": "sector"
-        }
-      ],
+      "finance_entities": [],
       "ms_entities": [],
       "tags": [
         "ransomware",
@@ -11058,7 +11046,7 @@
       "raw_json": "{\"victim\": \"La Financière d'Orion (finorion)\", \"group\": \"nova\", \"country\": \"FR\", \"website\": \"\", \"activity\": \"Financial Services\"}",
       "tags_json": "[\"ransomware\", \"leak-site\", \"darkweb-indirect\", \"dual-source\", \"finance\", \"country:FR\"]",
       "is_finance": true,
-      "finance_entities_json": "[{\"key\": \"banking\", \"matched\": \"financial services\", \"tier\": \"sector\"}]",
+      "finance_entities_json": "[{\"key\": \"banking\", \"matched\": \"financière\", \"tier\": \"sector\"}]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -11070,7 +11058,7 @@
       "finance_entities": [
         {
           "key": "banking",
-          "matched": "financial services",
+          "matched": "financière",
           "tier": "sector"
         }
       ],
@@ -12021,7 +12009,7 @@
       "raw_json": "{\"victim\": \"Disney Family\", \"group\": \"thegentlemen\", \"country\": \"US\", \"website\": \"shamrock.com\", \"activity\": \"Financial Services\"}",
       "tags_json": "[\"ransomware\", \"leak-site\", \"darkweb-indirect\", \"dual-source\", \"finance\", \"country:US\"]",
       "is_finance": true,
-      "finance_entities_json": "[{\"key\": \"banking\", \"matched\": \"bank \", \"tier\": \"sector\"}]",
+      "finance_entities_json": "[{\"key\": \"markets\", \"matched\": \"private equity\", \"tier\": \"markets\"}]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -12032,9 +12020,9 @@
       "tw_entities": [],
       "finance_entities": [
         {
-          "key": "banking",
-          "matched": "bank ",
-          "tier": "sector"
+          "key": "markets",
+          "matched": "private equity",
+          "tier": "markets"
         }
       ],
       "ms_entities": [],
@@ -12227,8 +12215,8 @@
       "admiralty": "B2",
       "raw_json": "{\"victim\": \"Triton Trading\", \"group\": \"qilin\", \"country\": \"PE\", \"website\": \"www.triton.com.pe\", \"activity\": \"Financial Services\"}",
       "tags_json": "[\"ransomware\", \"leak-site\", \"darkweb-indirect\", \"dual-source\", \"finance\", \"country:PE\"]",
-      "is_finance": true,
-      "finance_entities_json": "[{\"key\": \"banking\", \"matched\": \"financial services\", \"tier\": \"sector\"}]",
+      "is_finance": false,
+      "finance_entities_json": "[]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -12237,13 +12225,7 @@
         "RansomLook"
       ],
       "tw_entities": [],
-      "finance_entities": [
-        {
-          "key": "banking",
-          "matched": "financial services",
-          "tier": "sector"
-        }
-      ],
+      "finance_entities": [],
       "ms_entities": [],
       "tags": [
         "ransomware",
@@ -12883,8 +12865,8 @@
       "admiralty": "A2",
       "raw_json": "{\"icsad_ID\": \"3908\", \"Original_Release_Date\": \"7/7/2026\", \"Last_Updated\": \"7/7/2026\", \"Year\": \"2026\", \"ICS-CERT_Number\": \"ICSA-26-188-05\", \"ICS-CERT_Advisory_Title\": \"Siemens SINEC OS\", \"Vendor\": \"Siemens\", \"Product\": \"Siemens SINEC OS\", \"Products_Affected\": \"RUGGEDCOM RST2428P (6GK6242-6PA00)\", \"CVE_Number\": \"CVE-2025-1352, CVE-2025-1376, CVE-2025-6052, CVE-2025-6141, CVE-2025-6170, CVE-2025-7039, CVE-2025-8732, CVE-2025-9086, CVE-2025-9230, CVE-2025-9231, CVE-2025-9232, CVE-2025-10966, CVE-2025-13465, CVE-2025-13601, CVE-2025-39913, CVE-2025-40214, CVE-2025-40248, CVE-2025-40250, CVE-2025-40251, CVE-2025-40252, CVE-2025-40254, CVE-2025-40257, CVE-2025-40258, CVE-2025-40261, CVE-2025-40262, CVE-2025-40263, CVE-2025-40264, CVE-2025-40271, CVE-2025-40278, CVE-2025-40280, CVE-2025-40281, CVE-2025-40345, CVE-2025-46394, CVE-2025-49794, CVE-2025-49795, CVE-2025-49796, CVE-2025-60876, CVE-2025-66035, CVE-2025-66382, CVE-2025-66412, CVE-2025-69720, CVE-2025-71185, CVE-2025-71186, CVE-2025-71188, CVE-2025-71189, CVE-2025-71190, CVE-2025-71191, CVE-2026-1484, CVE-2026-1489, CVE-2026-3784, CVE-2026-22610, CVE-2026-22976, CVE-2026-22977, CVE-2026-23025, CVE-2026-23026, CVE-2026-23030, CVE-2026-23031, CVE-2026-23032, CVE-2026-23033, CVE-2026-23037, CVE-2026-23038, CVE-2026-23111, CVE-2026-23112, CVE-2026-23220, CVE-2026-23222, CVE-2026-23228, CVE-2026-23229, CVE-2026-23230, CVE-2026-23231, CVE-2026-23236, CVE-2026-23238, CVE-2026-24515, CVE-2026-25210, CVE-2026-26157, CVE-2026-26158, CVE-2026-35535, CVE-2026-41918\", \"Cumulative_CVSS\": \"9.8\", \"CVSS_Severity\": \"Critical\", \"CWE_Number\": \"CWE-119, CWE-121, CWE-125, CWE-1321, CWE-1335, CWE-1341, CWE-190, CWE-20, CWE-201, CWE-22, CWE-271, CWE-284, CWE-305, CWE-362, CWE-385, CWE-404, CWE-407, CWE-451, CWE-476, CWE-489, CWE-525, CWE-625, CWE-674, CWE-73, CWE-787, CWE-79, CWE-820, CWE-825, CWE-835, CWE-911\", \"Critical_Infrastructure_Sector\": \"Critical Manufacturing; Transportation Systems; Energy; Healthcare and Public Health; Financial Services; Government Services and Facilities\", \"Product_Distribution\": \"Worldwide\", \"Company_Headquarters\": \"Germany\", \"License\": \"Open Database License (ODbL) v1.0 - 2026 ICS Advisory Project\"}",
       "tags_json": "[\"cisa\", \"ics\", \"ot\", \"critical\", \"tw-industry\", \"finance\"]",
-      "is_finance": true,
-      "finance_entities_json": "[{\"key\": \"banking\", \"matched\": \"financial services\", \"tier\": \"sector\"}]",
+      "is_finance": false,
+      "finance_entities_json": "[]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -12904,13 +12886,7 @@
           "tier": "semi"
         }
       ],
-      "finance_entities": [
-        {
-          "key": "banking",
-          "matched": "financial services",
-          "tier": "sector"
-        }
-      ],
+      "finance_entities": [],
       "ms_entities": [],
       "tags": [
         "cisa",
@@ -13446,8 +13422,8 @@
       "admiralty": "A2",
       "raw_json": "{\"Name\": \"ADDI\", \"Domain\": \"addi.com\", \"PwnCount\": 34532941, \"DataClasses\": [\"Age groups\", \"Credit scores\", \"Device information\", \"Email addresses\", \"Government issued IDs\", \"Income levels\", \"IP addresses\", \"Latitude and longitude pairs\", \"Names\", \"Phone numbers\", \"Physical addresses\", \"Purchases\", \"Socioeconomic levels\"]}",
       "tags_json": "[\"hibp\", \"breach\", \"credentials\"]",
-      "is_finance": false,
-      "finance_entities_json": "[]",
+      "is_finance": true,
+      "finance_entities_json": "[{\"key\": \"payments\", \"matched\": \"fintech\", \"tier\": \"payments\"}]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -13455,7 +13431,13 @@
         "Have I Been Pwned"
       ],
       "tw_entities": [],
-      "finance_entities": [],
+      "finance_entities": [
+        {
+          "key": "payments",
+          "matched": "fintech",
+          "tier": "payments"
+        }
+      ],
       "ms_entities": [],
       "tags": [
         "hibp",
@@ -13587,8 +13569,8 @@
       "admiralty": "A2",
       "raw_json": "{\"Name\": \"Paidwork\", \"Domain\": \"paidwork.com\", \"PwnCount\": 23272765, \"DataClasses\": [\"Bank account numbers\", \"Dates of birth\", \"Device information\", \"Education levels\", \"Email addresses\", \"Financial transactions\", \"Genders\", \"IP addresses\", \"Names\", \"Passwords\", \"Personal interests\", \"Phone numbers\", \"Physical addresses\", \"Profile photos\"]}",
       "tags_json": "[\"hibp\", \"breach\", \"credentials\"]",
-      "is_finance": false,
-      "finance_entities_json": "[]",
+      "is_finance": true,
+      "finance_entities_json": "[{\"key\": \"banking\", \"matched\": \"banking\", \"tier\": \"sector\"}]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -13596,7 +13578,13 @@
         "Have I Been Pwned"
       ],
       "tw_entities": [],
-      "finance_entities": [],
+      "finance_entities": [
+        {
+          "key": "banking",
+          "matched": "banking",
+          "tier": "sector"
+        }
+      ],
       "ms_entities": [],
       "tags": [
         "hibp",
@@ -13916,8 +13904,8 @@
       "admiralty": "A2",
       "raw_json": "{\"Name\": \"DentaQuest\", \"Domain\": \"dentaquest.com\", \"PwnCount\": 2553599, \"DataClasses\": [\"Dates of birth\", \"Email addresses\", \"Genders\", \"Government issued IDs\", \"Health insurance information\", \"Names\", \"Phone numbers\", \"Physical addresses\"]}",
       "tags_json": "[\"hibp\", \"breach\", \"credentials\"]",
-      "is_finance": false,
-      "finance_entities_json": "[]",
+      "is_finance": true,
+      "finance_entities_json": "[{\"key\": \"markets\", \"matched\": \"health insurance\", \"tier\": \"markets\"}]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -13925,7 +13913,13 @@
         "Have I Been Pwned"
       ],
       "tw_entities": [],
-      "finance_entities": [],
+      "finance_entities": [
+        {
+          "key": "markets",
+          "matched": "health insurance",
+          "tier": "markets"
+        }
+      ],
       "ms_entities": [],
       "tags": [
         "hibp",
@@ -15379,8 +15373,8 @@
       "admiralty": "B2",
       "raw_json": "{\"title\": \"BankPro E-Service Technology｜Service Center - Insecure Direct Object Reference\", \"link\": \"https://www.twcert.org.tw/en/cp-139-10940-d90bd-2.html\"}",
       "tags_json": "[\"finance\"]",
-      "is_finance": true,
-      "finance_entities_json": "[{\"key\": \"banking\", \"matched\": \" bank\", \"tier\": \"sector\"}]",
+      "is_finance": false,
+      "finance_entities_json": "[]",
       "is_microsoft": false,
       "ms_entities_json": "[]",
       "extras_json": "{}",
@@ -15388,13 +15382,7 @@
         "TWCERT/CC TVN 漏洞公告 RSS"
       ],
       "tw_entities": [],
-      "finance_entities": [
-        {
-          "key": "banking",
-          "matched": " bank",
-          "tier": "sector"
-        }
-      ],
+      "finance_entities": [],
       "ms_entities": [],
       "tags": [
         "finance"
