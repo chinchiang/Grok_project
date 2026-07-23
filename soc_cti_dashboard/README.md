@@ -42,6 +42,8 @@ https://chinchiang.github.io/Grok_project/
 | 中英切換 | 右上角 EN / 中文 |
 | 手動巡檢 | 每 30 分鐘一次（429 冷卻） |
 | 電子五哥／半導體 Dashboard | 獨立分頁；勒索高亮 |
+| 金融相關 Dashboard | 銀行／支付／SWIFT 等關鍵字與實體；勒索與 KEV 分區 |
+| 微軟相關 Dashboard | Microsoft 廠商／Windows／Exchange／Azure／M365 等；KEV 分區 |
 | 上方四項 KPI | P0、KEV 近 7 日、台灣產業／勒索、來源健康度 |
 | 每日 07:00、15:00 | APScheduler Cron（臺灣時間） |
 
@@ -83,14 +85,32 @@ python scripts/export_static.py
 ## API 摘要
 
 - `GET /api/kpis` — 四項 KPI  
-- `GET /api/intel?priority=P0&verification=confirmed&ransomware=true&tw=true`  
+- `GET /api/intel?priority=P0&verification=confirmed&ransomware=true&tw=true&finance=true&microsoft=true`  
 - `GET /api/tw-dashboard` — 台灣產業獨立看板  
+- `GET /api/finance-dashboard` — 金融相關看板  
+- `GET /api/microsoft-dashboard` — 微軟相關看板  
 - `GET /api/layers` — 七層健康  
 - `POST /api/scan/manual` — 手動巡檢（30 分鐘冷卻）  
 
 ## 選用 API 金鑰（強化 L3/L4/L5）
 
-目前 L4 Shodan/Censys、L5 HIBP、L3 abuse.ch 預設為 `not_configured`（不影響 KEV／新聞層）。日後可於環境變數擴充。
+| 層級 | 來源 | 預設 | 環境變數 |
+|------|------|------|----------|
+| L5 | **Have I Been Pwned** | **公開外洩目錄免金鑰**（近期 `AddedDate`） | 可選 `HIBP_API_KEY` + `HIBP_WATCH_DOMAINS`（公司網域信箱監控，付費） |
+| L7 | **CISA ICS Advisories** | 先試官方 RSS；若 WAF 403 則改用 [ICS Advisory Project](https://github.com/icsadvprj/ICS-Advisory-Project) CSV 鏡像 | 無需金鑰 |
+| L6 | **Ransomware.live** | `data.ransomware.live/victims.json` 近期受害 | 可選 `RANSOMWARE_LIVE_API_KEY`（PRO） |
+| L6 | **RansomLook** | `ransomlook.io/api/recent` | 無需金鑰 |
+| L6 | **@DailyDarkWeb / @DarkWebInformer** | Nitter RSS，失敗則用官網 blog RSS | 無需 X API 金鑰 |
+| L4 | Shodan / Censys | `not_configured` | `SHODAN_API_KEY`、`CENSYS_API_ID` / `CENSYS_API_SECRET`（尚未接線） |
+| L3 | abuse.ch | `not_configured` | `ABUSECH_AUTH_KEY`（尚未接線） |
+
+```powershell
+# 可選：HIBP 付費網域搜尋（否則仍會抓公開 breaches 目錄）
+$env:HIBP_API_KEY = "your-key"
+$env:HIBP_WATCH_DOMAINS = "inventec.com,example.com"
+$env:HIBP_RECENT_DAYS = "120"   # 預設 120
+$env:HIBP_MAX_ITEMS = "40"      # 預設 40
+```
 
 ## 免責
 

@@ -1,0 +1,302 @@
+{
+  "watchlist": [
+    {
+      "key": "banking",
+      "aliases": [
+        "banking",
+        "bank ",
+        " bank",
+        "banks ",
+        "金融",
+        "銀行",
+        "financial institution",
+        "financial sector",
+        "financial services"
+      ],
+      "tier": "sector"
+    },
+    {
+      "key": "payments",
+      "aliases": [
+        "payment card",
+        "credit card",
+        "debit card",
+        "pos malware",
+        "atm malware",
+        "atm jackpot",
+        "swift ",
+        "swift network",
+        "pci dss",
+        "fintech",
+        "wire transfer",
+        "ach fraud",
+        "支付",
+        "刷卡",
+        "atm "
+      ],
+      "tier": "payments"
+    },
+    {
+      "key": "markets",
+      "aliases": [
+        "stock exchange",
+        "securities",
+        "brokerage",
+        "finra",
+        "證交所",
+        "證券",
+        "保險業",
+        "insurance company",
+        "cryptocurrency exchange",
+        "crypto exchange"
+      ],
+      "tier": "markets"
+    },
+    {
+      "key": "ctbc",
+      "aliases": [
+        "ctbc",
+        "chinatrust",
+        "中國信託",
+        "中信銀"
+      ],
+      "tier": "tw-bank"
+    },
+    {
+      "key": "cathay",
+      "aliases": [
+        "cathay united",
+        "cathay bank",
+        "國泰世華",
+        "國泰金"
+      ],
+      "tier": "tw-bank"
+    },
+    {
+      "key": "fubon",
+      "aliases": [
+        "fubon bank",
+        "台北富邦",
+        "富邦金",
+        "富邦銀行"
+      ],
+      "tier": "tw-bank"
+    },
+    {
+      "key": "esun",
+      "aliases": [
+        "esun bank",
+        "玉山銀行",
+        "玉山金"
+      ],
+      "tier": "tw-bank"
+    },
+    {
+      "key": "firstbank",
+      "aliases": [
+        "first bank",
+        "第一銀行",
+        "一銀"
+      ],
+      "tier": "tw-bank"
+    },
+    {
+      "key": "megabank",
+      "aliases": [
+        "mega bank",
+        "兆豐銀行",
+        "兆豐金"
+      ],
+      "tier": "tw-bank"
+    },
+    {
+      "key": "bot",
+      "aliases": [
+        "bank of taiwan",
+        "台灣銀行",
+        "台銀"
+      ],
+      "tier": "tw-bank"
+    },
+    {
+      "key": "hncb",
+      "aliases": [
+        "hua nan",
+        "華南銀行",
+        "華南金"
+      ],
+      "tier": "tw-bank"
+    },
+    {
+      "key": "tcb",
+      "aliases": [
+        "taiwan cooperative",
+        "合作金庫",
+        "合庫"
+      ],
+      "tier": "tw-bank"
+    },
+    {
+      "key": "linebank",
+      "aliases": [
+        "line bank",
+        "linebank",
+        "連線銀行"
+      ],
+      "tier": "tw-fintech"
+    },
+    {
+      "key": "jko",
+      "aliases": [
+        "jkopay",
+        "街口支付",
+        "街口"
+      ],
+      "tier": "tw-fintech"
+    },
+    {
+      "key": "swift",
+      "aliases": [
+        "swift messaging",
+        "swift system",
+        "swift cve"
+      ],
+      "tier": "infra"
+    },
+    {
+      "key": "visa",
+      "aliases": [
+        "visa inc",
+        "visa payment"
+      ],
+      "tier": "payments"
+    },
+    {
+      "key": "mastercard",
+      "aliases": [
+        "mastercard"
+      ],
+      "tier": "payments"
+    },
+    {
+      "key": "paypal",
+      "aliases": [
+        "paypal"
+      ],
+      "tier": "payments"
+    }
+  ],
+  "items": [
+    {
+      "id": "f013eb4371470b411a34d777",
+      "title": "[未核實 Unverified] 💰 金融相關｜Upbound says hack caused $13 million in fraudulent Acima leases",
+      "title_en": "[Unverified] 💰 Finance｜Upbound says hack caused $13 million in fraudulent Acima leases",
+      "summary": "The Upbound Group fintech company disclosed that threat actors who stole data from its systems leveraged it to create $13 million in Acima leases. [...]\n\n[單來源] 暗網間接情資 — 標示為未核實",
+      "summary_en": "The Upbound Group fintech company disclosed that threat actors who stole data from its systems leveraged it to create $13 million in Acima leases. [...]\n\n[Single source] Indirect dark-web intel — Unverified",
+      "priority": "P3",
+      "verification": "unverified",
+      "layer_id": "L6",
+      "source_name": "Indirect Dark Web (news dual-track)",
+      "sources_json": "[\"BleepingComputer\"]",
+      "cve_id": null,
+      "product": "",
+      "vendor": "",
+      "is_ransomware": false,
+      "is_tw_industry": false,
+      "tw_entities_json": "[]",
+      "known_ransomware_campaign": false,
+      "epss": null,
+      "cvss": null,
+      "date_added": null,
+      "published_at": "Wed, 22 Jul 2026 17:43:39 -0400",
+      "fetched_at": "2026-07-23T20:13:38+08:00",
+      "url": "https://www.bleepingcomputer.com/news/security/upbound-says-hack-caused-13-million-in-fraudulent-acima-leases/",
+      "admiralty": "C3",
+      "raw_json": "{\"title\": \"Upbound says hack caused $13 million in fraudulent Acima leases\", \"summary\": \"The Upbound Group fintech company disclosed that threat actors who stole data from its systems leveraged it to create $13 million in Acima leases. [...]\", \"link\": \"https://www.bleepingcomputer.com/news/security/upbound-says-hack-caused-13-million-in-fraudulent-acima-leases/\", \"published\": \"Wed, 22 Jul 2026 17:43:39 -0400\"}",
+      "tags_json": "[\"darkweb-indirect\", \"unverified\", \"finance\"]",
+      "is_finance": true,
+      "finance_entities_json": "[{\"key\": \"payments\", \"matched\": \"fintech\", \"tier\": \"payments\"}]",
+      "is_microsoft": false,
+      "ms_entities_json": "[]",
+      "sources": [
+        "BleepingComputer"
+      ],
+      "tw_entities": [],
+      "finance_entities": [
+        {
+          "key": "payments",
+          "matched": "fintech",
+          "tier": "payments"
+        }
+      ],
+      "ms_entities": [],
+      "tags": [
+        "darkweb-indirect",
+        "unverified",
+        "finance"
+      ]
+    }
+  ],
+  "ransomware": [],
+  "other": [
+    {
+      "id": "f013eb4371470b411a34d777",
+      "title": "[未核實 Unverified] 💰 金融相關｜Upbound says hack caused $13 million in fraudulent Acima leases",
+      "title_en": "[Unverified] 💰 Finance｜Upbound says hack caused $13 million in fraudulent Acima leases",
+      "summary": "The Upbound Group fintech company disclosed that threat actors who stole data from its systems leveraged it to create $13 million in Acima leases. [...]\n\n[單來源] 暗網間接情資 — 標示為未核實",
+      "summary_en": "The Upbound Group fintech company disclosed that threat actors who stole data from its systems leveraged it to create $13 million in Acima leases. [...]\n\n[Single source] Indirect dark-web intel — Unverified",
+      "priority": "P3",
+      "verification": "unverified",
+      "layer_id": "L6",
+      "source_name": "Indirect Dark Web (news dual-track)",
+      "sources_json": "[\"BleepingComputer\"]",
+      "cve_id": null,
+      "product": "",
+      "vendor": "",
+      "is_ransomware": false,
+      "is_tw_industry": false,
+      "tw_entities_json": "[]",
+      "known_ransomware_campaign": false,
+      "epss": null,
+      "cvss": null,
+      "date_added": null,
+      "published_at": "Wed, 22 Jul 2026 17:43:39 -0400",
+      "fetched_at": "2026-07-23T20:13:38+08:00",
+      "url": "https://www.bleepingcomputer.com/news/security/upbound-says-hack-caused-13-million-in-fraudulent-acima-leases/",
+      "admiralty": "C3",
+      "raw_json": "{\"title\": \"Upbound says hack caused $13 million in fraudulent Acima leases\", \"summary\": \"The Upbound Group fintech company disclosed that threat actors who stole data from its systems leveraged it to create $13 million in Acima leases. [...]\", \"link\": \"https://www.bleepingcomputer.com/news/security/upbound-says-hack-caused-13-million-in-fraudulent-acima-leases/\", \"published\": \"Wed, 22 Jul 2026 17:43:39 -0400\"}",
+      "tags_json": "[\"darkweb-indirect\", \"unverified\", \"finance\"]",
+      "is_finance": true,
+      "finance_entities_json": "[{\"key\": \"payments\", \"matched\": \"fintech\", \"tier\": \"payments\"}]",
+      "is_microsoft": false,
+      "ms_entities_json": "[]",
+      "sources": [
+        "BleepingComputer"
+      ],
+      "tw_entities": [],
+      "finance_entities": [
+        {
+          "key": "payments",
+          "matched": "fintech",
+          "tier": "payments"
+        }
+      ],
+      "ms_entities": [],
+      "tags": [
+        "darkweb-indirect",
+        "unverified",
+        "finance"
+      ]
+    }
+  ],
+  "kev_items": [],
+  "entity_counts": {
+    "payments": 1
+  },
+  "stats": {
+    "total": 1,
+    "ransomware": 0,
+    "other": 1,
+    "kev": 0
+  }
+}

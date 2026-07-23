@@ -10,6 +10,8 @@ const STATIC_BASE = "data";
 const cache = {
   intel: null,
   tw: null,
+  finance: null,
+  microsoft: null,
   layers: null,
   kpis: null,
   scan: null,
@@ -61,6 +63,14 @@ function cardHTML(item) {
   if (item.is_tw_industry)
     tags.push(
       `<span class="pill" style="background:#4a0028;color:#ff80ab;border-color:#ff4081">TW</span>`
+    );
+  if (item.is_finance)
+    tags.push(
+      `<span class="pill" style="background:#00331a;color:#69f0ae;border-color:#00c853">FIN</span>`
+    );
+  if (item.is_microsoft)
+    tags.push(
+      `<span class="pill" style="background:#0a2540;color:#4fc3f7;border-color:#0288d1">MS</span>`
     );
   if (item.admiralty)
     tags.push(
@@ -181,6 +191,14 @@ async function staticApi(path, opts) {
     if (!cache.tw) cache.tw = await loadStaticJson("tw-dashboard.json");
     return cache.tw;
   }
+  if (path.startsWith("/api/finance-dashboard")) {
+    if (!cache.finance) cache.finance = await loadStaticJson("finance-dashboard.json");
+    return cache.finance;
+  }
+  if (path.startsWith("/api/microsoft-dashboard")) {
+    if (!cache.microsoft) cache.microsoft = await loadStaticJson("microsoft-dashboard.json");
+    return cache.microsoft;
+  }
   if (path.startsWith("/api/intel")) {
     if (!cache.intel) cache.intel = await loadStaticJson("intel.json");
     const u = new URL(path, "http://local");
@@ -189,12 +207,16 @@ async function staticApi(path, opts) {
     const verification = u.searchParams.get("verification");
     const ransomware = u.searchParams.get("ransomware") === "true";
     const tw = u.searchParams.get("tw") === "true";
+    const finance = u.searchParams.get("finance") === "true";
+    const microsoft = u.searchParams.get("microsoft") === "true";
     const q = (u.searchParams.get("q") || "").toLowerCase();
     const limit = parseInt(u.searchParams.get("limit") || "150", 10);
     if (priority) items = items.filter((i) => i.priority === priority);
     if (verification) items = items.filter((i) => i.verification === verification);
     if (ransomware) items = items.filter((i) => i.is_ransomware);
     if (tw) items = items.filter((i) => i.is_tw_industry);
+    if (finance) items = items.filter((i) => i.is_finance);
+    if (microsoft) items = items.filter((i) => i.is_microsoft);
     if (q) {
       items = items.filter((i) =>
         [i.title, i.summary, i.cve_id, i.vendor, i.product]
@@ -272,10 +294,24 @@ async function loadIntelStream() {
   if (v) params.set("verification", v);
   if ($("#filterRansom").checked) params.set("ransomware", "true");
   if ($("#filterTw").checked) params.set("tw", "true");
+  if ($("#filterFinance")?.checked) params.set("finance", "true");
+  if ($("#filterMs")?.checked) params.set("microsoft", "true");
   if (q) params.set("q", q);
   params.set("limit", "80");
   const data = await api(`/api/intel?${params}`);
   renderList($("#intelStream"), data.items, 80);
+}
+
+function renderEntityChips(el, counts) {
+  if (!el) return;
+  const entries = Object.entries(counts || {}).sort((a, b) => b[1] - a[1]);
+  if (!entries.length) {
+    el.innerHTML = `<span>${t("empty")}</span>`;
+    return;
+  }
+  el.innerHTML = entries
+    .map(([k, n]) => `<span>${escapeHtml(k)} · ${n}</span>`)
+    .join("");
 }
 
 async function loadTw() {
@@ -283,20 +319,33 @@ async function loadTw() {
   $("#twStatTotal").textContent = data.stats?.tw_total ?? 0;
   $("#twStatRansom").textContent = data.stats?.tw_ransomware ?? 0;
 
-  const chips = $("#entityChips");
-  const counts = data.entity_counts || {};
-  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  if (!entries.length) {
-    chips.innerHTML = `<span>${t("empty")}</span>`;
-  } else {
-    chips.innerHTML = entries
-      .map(([k, n]) => `<span>${escapeHtml(k)} · ${n}</span>`)
-      .join("");
-  }
+  renderEntityChips($("#entityChips"), data.entity_counts);
 
   renderList($("#twRansomList"), data.tw_ransomware, 40);
   renderList($("#twOtherList"), data.tw_other, 40);
   renderList($("#globalRansomList"), data.global_ransomware_highlight, 30);
+}
+
+async function loadFinance() {
+  const data = await api("/api/finance-dashboard");
+  $("#finStatTotal").textContent = data.stats?.total ?? 0;
+  $("#finStatRansom").textContent = data.stats?.ransomware ?? 0;
+  $("#finStatKev").textContent = data.stats?.kev ?? 0;
+  renderEntityChips($("#financeChips"), data.entity_counts);
+  renderList($("#finRansomList"), data.ransomware, 40);
+  renderList($("#finKevList"), data.kev_items, 40);
+  renderList($("#finOtherList"), data.other, 40);
+}
+
+async function loadMicrosoft() {
+  const data = await api("/api/microsoft-dashboard");
+  $("#msStatTotal").textContent = data.stats?.total ?? 0;
+  $("#msStatRansom").textContent = data.stats?.ransomware ?? 0;
+  $("#msStatKev").textContent = data.stats?.kev ?? 0;
+  renderEntityChips($("#msChips"), data.entity_counts);
+  renderList($("#msRansomList"), data.ransomware, 40);
+  renderList($("#msKevList"), data.kev_items, 50);
+  renderList($("#msOtherList"), data.other, 40);
 }
 
 async function loadLayers() {
@@ -398,6 +447,8 @@ async function refreshAll() {
     if (active === "overview") await loadOverview();
     if (active === "intel") await loadIntelStream();
     if (active === "tw") await loadTw();
+    if (active === "finance") await loadFinance();
+    if (active === "microsoft") await loadMicrosoft();
     if (active === "layers") await loadLayers();
   } catch (e) {
     console.error(e);
@@ -417,6 +468,8 @@ function setupTabs() {
       if (view === "overview") await loadOverview();
       if (view === "intel") await loadIntelStream();
       if (view === "tw") await loadTw();
+      if (view === "finance") await loadFinance();
+      if (view === "microsoft") await loadMicrosoft();
       if (view === "layers") await loadLayers();
     });
   });

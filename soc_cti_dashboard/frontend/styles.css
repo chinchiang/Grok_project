@@ -363,9 +363,19 @@ main { padding: 14px 14px 40px; max-width: 1480px; margin: 0 auto; }
   margin-bottom: 14px;
   box-shadow: 0 0 40px rgba(255, 64, 129, 0.2);
 }
+.tw-banner.finance-banner {
+  background: linear-gradient(120deg, #063a20, #121a2e 55%);
+  border-color: #00c853;
+  box-shadow: 0 0 40px rgba(0, 200, 83, 0.18);
+}
+.tw-banner.ms-banner {
+  background: linear-gradient(120deg, #0a2540, #121a2e 55%);
+  border-color: #0288d1;
+  box-shadow: 0 0 40px rgba(2, 136, 209, 0.2);
+}
 .tw-banner h2 { margin: 0 0 6px; font-size: 1.15rem; }
 .tw-banner p { margin: 0; color: var(--muted); font-size: 0.85rem; }
-.tw-stats { display: flex; gap: 18px; }
+.tw-stats { display: flex; gap: 18px; flex-wrap: wrap; }
 .tw-stats div {
   text-align: center;
   background: #1a0a14;
@@ -374,6 +384,14 @@ main { padding: 14px 14px 40px; max-width: 1480px; margin: 0 auto; }
   padding: 10px 16px;
   min-width: 90px;
 }
+.finance-banner .tw-stats div {
+  background: #0a1f14;
+  border-color: #69f0ae;
+}
+.ms-banner .tw-stats div {
+  background: #0a1624;
+  border-color: #4fc3f7;
+}
 .tw-stats span {
   display: block;
   font-size: 1.8rem;
@@ -381,6 +399,8 @@ main { padding: 14px 14px 40px; max-width: 1480px; margin: 0 auto; }
   font-family: "JetBrains Mono", monospace;
   color: #ff80ab;
 }
+.finance-banner .tw-stats span { color: #69f0ae; }
+.ms-banner .tw-stats span { color: #4fc3f7; }
 .tw-stats .hot span {
   color: var(--p0);
   text-shadow: 0 0 16px rgba(255, 23, 68, 0.6);
@@ -400,6 +420,16 @@ main { padding: 14px 14px 40px; max-width: 1480px; margin: 0 auto; }
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 800;
+}
+#view-finance .entity-chips span {
+  background: #0d2818;
+  border-color: #00c853;
+  color: #b9f6ca;
+}
+#view-microsoft .entity-chips span {
+  background: #0d1f30;
+  border-color: #0288d1;
+  color: #b3e5fc;
 }
 .section-h {
   margin: 18px 0 10px;

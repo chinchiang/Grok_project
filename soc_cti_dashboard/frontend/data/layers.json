@@ -9,21 +9,21 @@
           "source_id": "cisa_kev",
           "layer_id": "L1",
           "name": "CISA KEV",
-          "last_success": "2026-07-23T14:46:01+08:00",
+          "last_success": "2026-07-23T20:13:36+08:00",
           "last_error": null,
-          "last_attempt": "2026-07-23T14:46:01+08:00",
+          "last_attempt": "2026-07-23T20:13:36+08:00",
           "status": "healthy",
           "item_count": 120,
-          "latency_ms": 7180,
+          "latency_ms": 5970,
           "detail": "catalog entries ingested (cap=120)"
         },
         {
           "source_id": "first_epss",
           "layer_id": "L1",
           "name": "FIRST EPSS",
-          "last_success": "2026-07-23T14:45:56+08:00",
+          "last_success": "2026-07-23T20:13:31+08:00",
           "last_error": null,
-          "last_attempt": "2026-07-23T14:45:56+08:00",
+          "last_attempt": "2026-07-23T20:13:31+08:00",
           "status": "healthy",
           "item_count": 79,
           "latency_ms": 0,
@@ -39,20 +39,44 @@
       "name_en": "National CERT / Vendor PSIRT",
       "sources": [
         {
+          "source_id": "twcert_news_rss",
+          "layer_id": "L2",
+          "name": "TWCERT/CC 資安新聞 RSS",
+          "last_success": "2026-07-23T20:16:53+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:16:53+08:00",
+          "status": "healthy",
+          "item_count": 20,
+          "latency_ms": 1789,
+          "detail": "OK"
+        },
+        {
           "source_id": "twcert_rss",
           "layer_id": "L2",
-          "name": "TWCERT/CC RSS",
-          "last_success": null,
-          "last_error": "Client error '404 Not Found' for url 'https://www.twcert.org.tw/tw/rss/rss.xml'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404",
-          "last_attempt": "2026-07-23T14:46:02+08:00",
-          "status": "degraded",
-          "item_count": 0,
-          "latency_ms": 468,
-          "detail": "Client error '404 Not Found' for url 'https://www.twcert.org.tw/tw/rss/rss.xml'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404"
+          "name": "TWCERT/CC RSS (legacy id -> news+TVN)",
+          "last_success": "2026-07-23T20:16:54+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:16:54+08:00",
+          "status": "healthy",
+          "item_count": 40,
+          "latency_ms": 0,
+          "detail": "news=20, tvn=20"
+        },
+        {
+          "source_id": "twcert_tvn_rss",
+          "layer_id": "L2",
+          "name": "TWCERT/CC TVN 漏洞公告 RSS",
+          "last_success": "2026-07-23T20:16:54+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:16:54+08:00",
+          "status": "healthy",
+          "item_count": 20,
+          "latency_ms": 1286,
+          "detail": "OK"
         }
       ],
       "schedule_hint": "daily",
-      "overall": "degraded"
+      "overall": "healthy"
     },
     {
       "id": "L3",
@@ -65,7 +89,7 @@
           "name": "abuse.ch ThreatFox (optional Auth-Key)",
           "last_success": null,
           "last_error": "optional — configure ABUSECH_AUTH_KEY for full IOC feed",
-          "last_attempt": "2026-07-23T14:46:02+08:00",
+          "last_attempt": "2026-07-23T20:13:36+08:00",
           "status": "not_configured",
           "item_count": 0,
           "latency_ms": 0,
@@ -86,7 +110,7 @@
           "name": "Censys (API key required)",
           "last_success": null,
           "last_error": "CENSYS_API_ID/SECRET not configured",
-          "last_attempt": "2026-07-23T14:46:02+08:00",
+          "last_attempt": "2026-07-23T20:13:36+08:00",
           "status": "not_configured",
           "item_count": 0,
           "latency_ms": 0,
@@ -98,7 +122,7 @@
           "name": "Shodan (API key required)",
           "last_success": null,
           "last_error": "SHODAN_API_KEY not configured",
-          "last_attempt": "2026-07-23T14:46:02+08:00",
+          "last_attempt": "2026-07-23T20:13:36+08:00",
           "status": "not_configured",
           "item_count": 0,
           "latency_ms": 0,
@@ -116,18 +140,18 @@
         {
           "source_id": "hibp",
           "layer_id": "L5",
-          "name": "Have I Been Pwned (API key required)",
-          "last_success": null,
-          "last_error": "HIBP_API_KEY not configured",
-          "last_attempt": "2026-07-23T14:46:02+08:00",
-          "status": "not_configured",
-          "item_count": 0,
-          "latency_ms": 0,
-          "detail": "Domain search requires paid HIBP key"
+          "name": "Have I Been Pwned",
+          "last_success": "2026-07-23T20:20:25+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:20:25+08:00",
+          "status": "healthy",
+          "item_count": 40,
+          "latency_ms": 2341,
+          "detail": "recent_days=120; ingested=40; mode=public_catalog; api_key=none (catalog free; domain search optional via HIBP_API_KEY)"
         }
       ],
-      "schedule_hint": "daily",
-      "overall": "not_configured"
+      "schedule_hint": "daily (public catalog free; domain search needs API key)",
+      "overall": "healthy"
     },
     {
       "id": "L6",
@@ -138,41 +162,113 @@
           "source_id": "bleeping_rss",
           "layer_id": "L6",
           "name": "BleepingComputer (indirect DW)",
-          "last_success": "2026-07-23T14:40:17+08:00",
-          "last_error": "Client error '403 Forbidden' for url 'https://www.bleepingcomputer.com/feed/'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
-          "last_attempt": "2026-07-23T14:46:03+08:00",
-          "status": "degraded",
-          "item_count": 0,
-          "latency_ms": 432,
-          "detail": "Client error '403 Forbidden' for url 'https://www.bleepingcomputer.com/feed/'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403"
+          "last_success": "2026-07-23T20:13:39+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:13:39+08:00",
+          "status": "healthy",
+          "item_count": 15,
+          "latency_ms": 2197,
+          "detail": "OK"
         },
         {
           "source_id": "darkweb_dual",
           "layer_id": "L6",
           "name": "Dark Web Dual-Source Verify",
-          "last_success": null,
-          "last_error": "Client error '403 Forbidden' for url 'https://www.bleepingcomputer.com/feed/'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
-          "last_attempt": "2026-07-23T14:46:03+08:00",
-          "status": "degraded",
+          "last_success": "2026-07-23T20:13:39+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:13:39+08:00",
+          "status": "healthy",
           "item_count": 0,
-          "latency_ms": 0,
-          "detail": "Client error '403 Forbidden' for url 'https://www.bleepingcomputer.com/feed/'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403"
+          "latency_ms": 2197,
+          "detail": "dual-elevated=0; feeds A=15 B=50"
+        },
+        {
+          "source_id": "ransom_dual_verify",
+          "layer_id": "L6",
+          "name": "Ransom dual-source (Live∩Look)",
+          "last_success": "2026-07-23T20:31:34+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:31:34+08:00",
+          "status": "healthy",
+          "item_count": 67,
+          "latency_ms": 21032,
+          "detail": "elevated=67"
+        },
+        {
+          "source_id": "ransomlook",
+          "layer_id": "L6",
+          "name": "RansomLook",
+          "last_success": "2026-07-23T20:31:13+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:31:13+08:00",
+          "status": "healthy",
+          "item_count": 60,
+          "latency_ms": 4548,
+          "detail": "api/recent; ingested=60"
+        },
+        {
+          "source_id": "ransomware_live",
+          "layer_id": "L6",
+          "name": "Ransomware.live",
+          "last_success": "2026-07-23T20:31:08+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:31:08+08:00",
+          "status": "healthy",
+          "item_count": 60,
+          "latency_ms": 9795,
+          "detail": "source=data.ransomware.live/victims.json; ingested=60"
         },
         {
           "source_id": "thn_rss",
           "layer_id": "L6",
           "name": "The Hacker News (indirect DW)",
-          "last_success": "2026-07-23T14:46:05+08:00",
+          "last_success": "2026-07-23T20:13:39+08:00",
           "last_error": null,
-          "last_attempt": "2026-07-23T14:46:05+08:00",
+          "last_attempt": "2026-07-23T20:13:39+08:00",
           "status": "healthy",
-          "item_count": 35,
-          "latency_ms": 2363,
+          "item_count": 50,
+          "latency_ms": 2197,
           "detail": "OK"
+        },
+        {
+          "source_id": "x_dailydarkweb",
+          "layer_id": "L6",
+          "name": "@DailyDarkWeb (X)",
+          "last_success": "2026-07-23T20:31:36+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:31:36+08:00",
+          "status": "healthy",
+          "item_count": 13,
+          "latency_ms": 0,
+          "detail": "via=nitter"
+        },
+        {
+          "source_id": "x_darkweb_accounts",
+          "layer_id": "L6",
+          "name": "@DailyDarkWeb / @DarkWebInformer (X)",
+          "last_success": "2026-07-23T20:31:38+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:31:38+08:00",
+          "status": "healthy",
+          "item_count": 33,
+          "latency_ms": 3425,
+          "detail": "@DailyDarkWeb:13:nitter; @DarkWebInformer:20:nitter"
+        },
+        {
+          "source_id": "x_darkwebinformer",
+          "layer_id": "L6",
+          "name": "@DarkWebInformer (X)",
+          "last_success": "2026-07-23T20:31:38+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:31:38+08:00",
+          "status": "healthy",
+          "item_count": 20,
+          "latency_ms": 0,
+          "detail": "via=nitter"
         }
       ],
       "schedule_hint": "07:00 & 15:00 + dual-source verify",
-      "overall": "partial"
+      "overall": "healthy"
     },
     {
       "id": "L7",
@@ -182,18 +278,18 @@
         {
           "source_id": "cisa_ics_rss",
           "layer_id": "L7",
-          "name": "CISA Advisories RSS",
-          "last_success": null,
-          "last_error": "Client error '403 Forbidden' for url 'https://www.cisa.gov/cybersecurity-advisories/all.xml'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403",
-          "last_attempt": "2026-07-23T14:46:06+08:00",
-          "status": "degraded",
-          "item_count": 0,
-          "latency_ms": 452,
-          "detail": "Client error '403 Forbidden' for url 'https://www.cisa.gov/cybersecurity-advisories/all.xml'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403"
+          "name": "CISA ICS Advisories",
+          "last_success": "2026-07-23T20:23:40+08:00",
+          "last_error": null,
+          "last_attempt": "2026-07-23T20:23:40+08:00",
+          "status": "healthy",
+          "item_count": 40,
+          "latency_ms": 4411,
+          "detail": "source=ICS-Advisory-Project CSV mirror; official RSS blocked (https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml -> 0 entries; https://www.cisa.gov/cybersecurity-advisories/all.xml -> 0 entries)"
         }
       ],
-      "schedule_hint": "daily",
-      "overall": "degraded"
+      "schedule_hint": "daily (RSS or GitHub CSV fallback)",
+      "overall": "healthy"
     }
   ],
   "schedule": {
@@ -205,6 +301,6 @@
     "description_zh": "每日 07:00、15:00（臺灣時間）由 GitHub Actions 自動更新",
     "description_en": "Auto-updated daily at 07:00 & 15:00 Asia/Taipei via GitHub Actions"
   },
-  "last_scheduled_scan": "2026-07-23T14:46:06+08:00",
+  "last_scheduled_scan": "2026-07-23T20:13:39+08:00",
   "last_manual_scan": null
 }

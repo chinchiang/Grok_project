@@ -34,6 +34,8 @@
     <button class="tab active" data-view="overview" data-i18n="tabOverview">總覽</button>
     <button class="tab" data-view="intel" data-i18n="tabIntel">情資串流</button>
     <button class="tab" data-view="tw" data-i18n="tabTw">🇹🇼 電子／半導體</button>
+    <button class="tab" data-view="finance" data-i18n="tabFinance">💰 金融相關</button>
+    <button class="tab" data-view="microsoft" data-i18n="tabMicrosoft">🪟 微軟相關</button>
     <button class="tab" data-view="layers" data-i18n="tabLayers">七層健康</button>
   </nav>
 
@@ -114,6 +116,8 @@
         </select>
         <label class="chk"><input type="checkbox" id="filterRansom" /> <span data-i18n="filterRansom">僅勒索</span></label>
         <label class="chk"><input type="checkbox" id="filterTw" /> <span data-i18n="filterTw">僅台灣產業</span></label>
+        <label class="chk"><input type="checkbox" id="filterFinance" /> <span data-i18n="filterFinance">僅金融</span></label>
+        <label class="chk"><input type="checkbox" id="filterMs" /> <span data-i18n="filterMs">僅微軟</span></label>
         <input type="search" id="filterQ" placeholder="CVE / 關鍵字…" data-i18n-placeholder="searchPh" />
         <button type="button" class="btn" id="applyFilters" data-i18n="apply">套用</button>
       </div>
@@ -138,6 +142,48 @@
       <div class="card-list" id="twOtherList"></div>
       <h3 class="section-h" data-i18n="globalRansomSection">全球高優先勒索（供應鏈風險）</h3>
       <div class="card-list" id="globalRansomList"></div>
+    </section>
+
+    <section class="view" id="view-finance">
+      <div class="tw-banner finance-banner">
+        <div>
+          <h2 data-i18n="financeTitle">金融／銀行／支付威脅情資</h2>
+          <p data-i18n="financeDesc">依關鍵字與實體比對：銀行、支付、SWIFT、金融業受害與相關 KEV；僅顯示分類命中項目。</p>
+        </div>
+        <div class="tw-stats">
+          <div><span id="finStatTotal">0</span><small data-i18n="finStatTotal">金融相關</small></div>
+          <div class="hot"><span id="finStatRansom">0</span><small data-i18n="finStatRansom">勒索強調</small></div>
+          <div><span id="finStatKev">0</span><small data-i18n="finStatKev">KEV</small></div>
+        </div>
+      </div>
+      <div class="entity-chips" id="financeChips"></div>
+      <h3 class="section-h ransom-h" data-i18n="finRansomSection">🔐 金融＋勒索（優先關注）</h3>
+      <div class="card-list" id="finRansomList"></div>
+      <h3 class="section-h" data-i18n="finKevSection">KEV 金融相關</h3>
+      <div class="card-list" id="finKevList"></div>
+      <h3 class="section-h" data-i18n="finOtherSection">其他金融情資</h3>
+      <div class="card-list" id="finOtherList"></div>
+    </section>
+
+    <section class="view" id="view-microsoft">
+      <div class="tw-banner ms-banner">
+        <div>
+          <h2 data-i18n="msTitle">微軟產品／生態系威脅情資</h2>
+          <p data-i18n="msDesc">Microsoft、Windows Server／10／11、Exchange、Azure／Entra、M365、Active Directory 等；廠商欄位為 Microsoft 者優先納入。</p>
+        </div>
+        <div class="tw-stats">
+          <div><span id="msStatTotal">0</span><small data-i18n="msStatTotal">微軟相關</small></div>
+          <div class="hot"><span id="msStatRansom">0</span><small data-i18n="msStatRansom">勒索強調</small></div>
+          <div><span id="msStatKev">0</span><small data-i18n="msStatKev">KEV</small></div>
+        </div>
+      </div>
+      <div class="entity-chips" id="msChips"></div>
+      <h3 class="section-h ransom-h" data-i18n="msRansomSection">🔐 微軟＋勒索（優先關注）</h3>
+      <div class="card-list" id="msRansomList"></div>
+      <h3 class="section-h" data-i18n="msKevSection">KEV 微軟產品</h3>
+      <div class="card-list" id="msKevList"></div>
+      <h3 class="section-h" data-i18n="msOtherSection">其他微軟情資</h3>
+      <div class="card-list" id="msOtherList"></div>
     </section>
 
     <section class="view" id="view-layers">

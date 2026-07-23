@@ -17,7 +17,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from backend.collectors import run_full_harvest
-from backend.config import MANUAL_SCAN_COOLDOWN_SEC, SCHEDULE_HOURS, TW_ELECTRONICS_WATCHLIST
+from backend.config import (
+    FINANCE_WATCHLIST,
+    MANUAL_SCAN_COOLDOWN_SEC,
+    MICROSOFT_WATCHLIST,
+    SCHEDULE_HOURS,
+    TW_ELECTRONICS_WATCHLIST,
+)
 from backend.database import (
     get_kpis,
     get_meta,
@@ -30,6 +36,21 @@ from backend.database import (
 from backend.config import LAYERS
 
 OUT_DIR = ROOT / "frontend" / "data"
+
+
+def _entity_counts(items: list, entities_key: str) -> dict[str, int]:
+    by_entity: dict[str, int] = {}
+    for item in items:
+        for ent in item.get(entities_key) or []:
+            k = ent.get("key") or "unknown"
+            by_entity[k] = by_entity.get(k, 0) + 1
+    return by_entity
+
+
+def _split_ransom(items: list) -> tuple[list, list]:
+    ransom = [i for i in items if i.get("is_ransomware")]
+    other = [i for i in items if not i.get("is_ransomware")]
+    return ransom, other
 
 
 async def export() -> None:
@@ -56,14 +77,16 @@ async def export() -> None:
     }
 
     all_tw = await query_intel(tw_only=True, limit=200)
-    ransom = [i for i in all_tw if i.get("is_ransomware")]
-    non_ransom = [i for i in all_tw if not i.get("is_ransomware")]
+    ransom, non_ransom = _split_ransom(all_tw)
     global_ransom = await query_intel(ransomware_only=True, limit=80)
-    by_entity: dict[str, int] = {}
-    for item in all_tw:
-        for ent in item.get("tw_entities") or []:
-            k = ent.get("key") or "unknown"
-            by_entity[k] = by_entity.get(k, 0) + 1
+
+    finance_items = await query_intel(finance_only=True, limit=200)
+    fin_ransom, fin_other = _split_ransom(finance_items)
+    fin_kev = [i for i in finance_items if i.get("source_name") and "KEV" in i["source_name"]]
+
+    ms_items = await query_intel(microsoft_only=True, limit=200)
+    ms_ransom, ms_other = _split_ransom(ms_items)
+    ms_kev = [i for i in ms_items if i.get("source_name") and "KEV" in i["source_name"]]
 
     health = await get_source_health()
     by_layer: dict[str, list] = {L["id"]: [] for L in LAYERS}
@@ -96,11 +119,41 @@ async def export() -> None:
             "global_ransomware_highlight": [
                 g for g in global_ransom if g.get("priority") in ("P0", "P1")
             ][:40],
-            "entity_counts": by_entity,
+            "entity_counts": _entity_counts(all_tw, "tw_entities"),
             "stats": {
                 "tw_total": len(all_tw),
                 "tw_ransomware": len(ransom),
                 "tw_other": len(non_ransom),
+            },
+        },
+        "finance-dashboard.json": {
+            "watchlist": FINANCE_WATCHLIST,
+            "items": finance_items,
+            "ransomware": fin_ransom,
+            "other": fin_other,
+            "kev_items": fin_kev[:40],
+            "entity_counts": _entity_counts(finance_items, "finance_entities"),
+            "stats": {
+                "total": len(finance_items),
+                "ransomware": len(fin_ransom),
+                "other": len(fin_other),
+                "kev": len(fin_kev),
+            },
+        },
+        "microsoft-dashboard.json": {
+            "watchlist": MICROSOFT_WATCHLIST,
+            "items": ms_items,
+            "ransomware": ms_ransom,
+            "other": ms_other,
+            "kev_items": ms_kev[:60],
+            "kev_ransomware": [i for i in ms_kev if i.get("is_ransomware")][:40],
+            "kev_other": [i for i in ms_kev if not i.get("is_ransomware")][:40],
+            "entity_counts": _entity_counts(ms_items, "ms_entities"),
+            "stats": {
+                "total": len(ms_items),
+                "ransomware": len(ms_ransom),
+                "other": len(ms_other),
+                "kev": len(ms_kev),
             },
         },
         "layers.json": {

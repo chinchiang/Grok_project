@@ -28,6 +28,10 @@ CREATE TABLE IF NOT EXISTS intel_items (
     is_ransomware INTEGER NOT NULL DEFAULT 0,
     is_tw_industry INTEGER NOT NULL DEFAULT 0,
     tw_entities_json TEXT DEFAULT '[]',
+    is_finance INTEGER NOT NULL DEFAULT 0,
+    finance_entities_json TEXT DEFAULT '[]',
+    is_microsoft INTEGER NOT NULL DEFAULT 0,
+    ms_entities_json TEXT DEFAULT '[]',
     known_ransomware_campaign INTEGER NOT NULL DEFAULT 0,
     epss REAL,
     cvss REAL,
@@ -65,6 +69,14 @@ CREATE TABLE IF NOT EXISTS scan_meta (
 );
 """
 
+# Columns added after initial schema (safe to re-run)
+_MIGRATIONS = [
+    "ALTER TABLE intel_items ADD COLUMN is_finance INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE intel_items ADD COLUMN finance_entities_json TEXT DEFAULT '[]'",
+    "ALTER TABLE intel_items ADD COLUMN is_microsoft INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE intel_items ADD COLUMN ms_entities_json TEXT DEFAULT '[]'",
+]
+
 
 def now_iso() -> str:
     return datetime.now(TZ_TAIPEI).isoformat(timespec="seconds")
@@ -74,10 +86,28 @@ async def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(DB_PATH) as db:
         await db.executescript(SCHEMA)
+        for sql in _MIGRATIONS:
+            try:
+                await db.execute(sql)
+            except Exception:
+                # column already exists
+                pass
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_intel_finance ON intel_items(is_finance)"
+        )
+        await db.execute(
+            "CREATE INDEX IF NOT EXISTS idx_intel_ms ON intel_items(is_microsoft)"
+        )
         await db.commit()
 
 
 async def upsert_intel(item: dict[str, Any]) -> None:
+    # Defaults for optional category fields (older callers)
+    item.setdefault("is_finance", 0)
+    item.setdefault("finance_entities_json", "[]")
+    item.setdefault("is_microsoft", 0)
+    item.setdefault("ms_entities_json", "[]")
+
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             """
@@ -85,12 +115,14 @@ async def upsert_intel(item: dict[str, Any]) -> None:
                 id, title, title_en, summary, summary_en, priority, verification,
                 layer_id, source_name, sources_json, cve_id, product, vendor,
                 is_ransomware, is_tw_industry, tw_entities_json,
+                is_finance, finance_entities_json, is_microsoft, ms_entities_json,
                 known_ransomware_campaign, epss, cvss, date_added, published_at,
                 fetched_at, url, admiralty, raw_json, tags_json
             ) VALUES (
                 :id, :title, :title_en, :summary, :summary_en, :priority, :verification,
                 :layer_id, :source_name, :sources_json, :cve_id, :product, :vendor,
                 :is_ransomware, :is_tw_industry, :tw_entities_json,
+                :is_finance, :finance_entities_json, :is_microsoft, :ms_entities_json,
                 :known_ransomware_campaign, :epss, :cvss, :date_added, :published_at,
                 :fetched_at, :url, :admiralty, :raw_json, :tags_json
             )
@@ -110,6 +142,10 @@ async def upsert_intel(item: dict[str, Any]) -> None:
                 is_ransomware=excluded.is_ransomware,
                 is_tw_industry=excluded.is_tw_industry,
                 tw_entities_json=excluded.tw_entities_json,
+                is_finance=excluded.is_finance,
+                finance_entities_json=excluded.finance_entities_json,
+                is_microsoft=excluded.is_microsoft,
+                ms_entities_json=excluded.ms_entities_json,
                 known_ransomware_campaign=excluded.known_ransomware_campaign,
                 epss=excluded.epss,
                 cvss=excluded.cvss,
@@ -174,18 +210,15 @@ async def get_meta(key: str) -> str | None:
 
 def _row_to_item(r: aiosqlite.Row) -> dict[str, Any]:
     d = dict(r)
-    for k in ("sources_json", "tw_entities_json", "tags_json"):
-        try:
-            d[k.replace("_json", "s" if k.startswith("source") else "")] = json.loads(
-                d.get(k) or "[]"
-            )
-        except json.JSONDecodeError:
-            d[k.replace("_json", "")] = []
     d["sources"] = json.loads(d.get("sources_json") or "[]")
     d["tw_entities"] = json.loads(d.get("tw_entities_json") or "[]")
+    d["finance_entities"] = json.loads(d.get("finance_entities_json") or "[]")
+    d["ms_entities"] = json.loads(d.get("ms_entities_json") or "[]")
     d["tags"] = json.loads(d.get("tags_json") or "[]")
     d["is_ransomware"] = bool(d.get("is_ransomware"))
     d["is_tw_industry"] = bool(d.get("is_tw_industry"))
+    d["is_finance"] = bool(d.get("is_finance"))
+    d["is_microsoft"] = bool(d.get("is_microsoft"))
     d["known_ransomware_campaign"] = bool(d.get("known_ransomware_campaign"))
     return d
 
@@ -196,6 +229,8 @@ async def query_intel(
     verification: str | None = None,
     ransomware_only: bool = False,
     tw_only: bool = False,
+    finance_only: bool = False,
+    microsoft_only: bool = False,
     layer_id: str | None = None,
     q: str | None = None,
     limit: int = 200,
@@ -212,6 +247,10 @@ async def query_intel(
         clauses.append("is_ransomware = 1")
     if tw_only:
         clauses.append("is_tw_industry = 1")
+    if finance_only:
+        clauses.append("is_finance = 1")
+    if microsoft_only:
+        clauses.append("is_microsoft = 1")
     if layer_id:
         clauses.append("layer_id = ?")
         params.append(layer_id)
@@ -263,6 +302,8 @@ async def get_kpis() -> dict[str, Any]:
         tw_ransom = await one(
             "SELECT COUNT(*) FROM intel_items WHERE is_tw_industry=1 AND is_ransomware=1"
         )
+        finance_total = await one("SELECT COUNT(*) FROM intel_items WHERE is_finance=1")
+        ms_total = await one("SELECT COUNT(*) FROM intel_items WHERE is_microsoft=1")
         ransom_all = await one("SELECT COUNT(*) FROM intel_items WHERE is_ransomware=1")
         healthy = await one(
             "SELECT COUNT(*) FROM source_health WHERE status='healthy'"
@@ -278,6 +319,8 @@ async def get_kpis() -> dict[str, Any]:
             "kev_recent_7d": recent_kev,
             "tw_industry_count": tw_total,
             "tw_ransomware_count": tw_ransom,
+            "finance_count": finance_total,
+            "microsoft_count": ms_total,
             "ransomware_count": ransom_all,
             "source_health_pct": health_pct,
             "sources_healthy": healthy,

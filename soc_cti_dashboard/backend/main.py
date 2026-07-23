@@ -16,8 +16,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import (
+    FINANCE_WATCHLIST,
     LAYERS,
     MANUAL_SCAN_COOLDOWN_SEC,
+    MICROSOFT_WATCHLIST,
     SCHEDULE_HOURS,
     TZ_TAIPEI,
     TW_ELECTRONICS_WATCHLIST,
@@ -118,6 +120,8 @@ async def api_intel(
     ),
     ransomware: bool = False,
     tw: bool = False,
+    finance: bool = False,
+    microsoft: bool = False,
     layer: str | None = None,
     q: str | None = None,
     limit: int = Query(150, ge=1, le=500),
@@ -127,6 +131,8 @@ async def api_intel(
         verification=verification,
         ransomware_only=ransomware,
         tw_only=tw,
+        finance_only=finance,
+        microsoft_only=microsoft,
         layer_id=layer,
         q=q,
         limit=limit,
@@ -134,19 +140,29 @@ async def api_intel(
     return {"count": len(items), "items": items}
 
 
+def _entity_counts(items: list[dict[str, Any]], entities_key: str) -> dict[str, int]:
+    by_entity: dict[str, int] = {}
+    for item in items:
+        for ent in item.get(entities_key) or []:
+            k = ent.get("key") or "unknown"
+            by_entity[k] = by_entity.get(k, 0) + 1
+    return by_entity
+
+
+def _split_ransom(items: list[dict[str, Any]]) -> tuple[list, list]:
+    ransom = [i for i in items if i.get("is_ransomware")]
+    other = [i for i in items if not i.get("is_ransomware")]
+    return ransom, other
+
+
 @app.get("/api/tw-dashboard")
 async def api_tw_dashboard() -> dict[str, Any]:
     """Dedicated Taiwan electronics / semiconductor victim & ransomware view."""
     all_tw = await query_intel(tw_only=True, limit=200)
-    ransom = [i for i in all_tw if i.get("is_ransomware")]
-    non_ransom = [i for i in all_tw if not i.get("is_ransomware")]
+    ransom, non_ransom = _split_ransom(all_tw)
     # Also surface global ransomware that may affect supply chain (P0/P1)
     global_ransom = await query_intel(ransomware_only=True, limit=80)
-    by_entity: dict[str, int] = {}
-    for item in all_tw:
-        for ent in item.get("tw_entities") or []:
-            k = ent.get("key") or "unknown"
-            by_entity[k] = by_entity.get(k, 0) + 1
+    by_entity = _entity_counts(all_tw, "tw_entities")
     return {
         "watchlist": TW_ELECTRONICS_WATCHLIST,
         "tw_items": all_tw,
@@ -160,6 +176,55 @@ async def api_tw_dashboard() -> dict[str, Any]:
             "tw_total": len(all_tw),
             "tw_ransomware": len(ransom),
             "tw_other": len(non_ransom),
+        },
+    }
+
+
+@app.get("/api/finance-dashboard")
+async def api_finance_dashboard() -> dict[str, Any]:
+    """Dedicated financial-sector / banking / payments threat view."""
+    items = await query_intel(finance_only=True, limit=200)
+    ransom, other = _split_ransom(items)
+    kev_fin = [i for i in items if i.get("source_name") and "KEV" in i["source_name"]]
+    return {
+        "watchlist": FINANCE_WATCHLIST,
+        "items": items,
+        "ransomware": ransom,
+        "other": other,
+        "kev_items": kev_fin[:40],
+        "entity_counts": _entity_counts(items, "finance_entities"),
+        "stats": {
+            "total": len(items),
+            "ransomware": len(ransom),
+            "other": len(other),
+            "kev": len(kev_fin),
+        },
+    }
+
+
+@app.get("/api/microsoft-dashboard")
+async def api_microsoft_dashboard() -> dict[str, Any]:
+    """Dedicated Microsoft product / ecosystem vulnerability & threat view."""
+    items = await query_intel(microsoft_only=True, limit=200)
+    ransom, other = _split_ransom(items)
+    kev_ms = [i for i in items if i.get("source_name") and "KEV" in i["source_name"]]
+    # Prefer KEV / high priority in primary lists for SOC focus
+    kev_ransom = [i for i in kev_ms if i.get("is_ransomware")]
+    kev_other = [i for i in kev_ms if not i.get("is_ransomware")]
+    return {
+        "watchlist": MICROSOFT_WATCHLIST,
+        "items": items,
+        "ransomware": ransom,
+        "other": other,
+        "kev_items": kev_ms[:60],
+        "kev_ransomware": kev_ransom[:40],
+        "kev_other": kev_other[:40],
+        "entity_counts": _entity_counts(items, "ms_entities"),
+        "stats": {
+            "total": len(items),
+            "ransomware": len(ransom),
+            "other": len(other),
+            "kev": len(kev_ms),
         },
     }
 
