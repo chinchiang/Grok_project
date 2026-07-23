@@ -101,7 +101,8 @@ python scripts/export_static.py
 | L6 | **Ransomware.live** | `data.ransomware.live/victims.json` 近期受駭 | 可選 `RANSOMWARE_LIVE_API_KEY`（PRO） |
 | L6 | **RansomLook** | `ransomlook.io/api/recent` | 無需金鑰 |
 | L6 | **@DailyDarkWeb / @DarkWebInformer** | Nitter RSS，失敗則用官網 blog RSS | 無需 X API 金鑰 |
-| L4 | Shodan / Censys | `not_configured` | `SHODAN_API_KEY`、`CENSYS_API_ID` / `CENSYS_API_SECRET`（尚未接線） |
+| L4 | **Shodan** | **InternetDB 免金鑰**（需監控 IP） | `EASM_WATCH_IPS` / `EASM_WATCH_HOSTS`；可選 `SHODAN_API_KEY` |
+| L4 | **Censys** | Host lookup（需金鑰 + 監控 IP） | `CENSYS_API_ID` + `CENSYS_API_SECRET` + 上述監控目標 |
 | L3 | abuse.ch | `not_configured` | `ABUSECH_AUTH_KEY`（尚未接線） |
 
 ```powershell
@@ -110,7 +111,17 @@ $env:HIBP_API_KEY = "your-key"
 $env:HIBP_WATCH_DOMAINS = "inventec.com,example.com"
 $env:HIBP_RECENT_DAYS = "120"   # 預設 120
 $env:HIBP_MAX_ITEMS = "40"      # 預設 40
+
+# L4 EASM：Shodan InternetDB 免金鑰（必填監控目標才會有資料）
+$env:EASM_WATCH_IPS = "203.0.113.10,198.51.100.20"
+$env:EASM_WATCH_HOSTS = "vpn.example.com,mail.example.com"
+# 可選進階
+$env:SHODAN_API_KEY = "..."
+$env:CENSYS_API_ID = "..."
+$env:CENSYS_API_SECRET = "..."
 ```
+
+GitHub Actions 可於 repo **Settings → Secrets** 設定同名變數（workflow 已接線）。
 
 ## 免責
 

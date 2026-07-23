@@ -103,8 +103,8 @@ LAYERS = [
         "id": "L4",
         "name_zh": "外部攻擊面 (EASM)",
         "name_en": "External Attack Surface",
-        "sources": ["Shodan", "Censys"],
-        "schedule_hint": "daily (API key required)",
+        "sources": ["Shodan InternetDB / API", "Censys host lookup"],
+        "schedule_hint": "daily (InternetDB free with EASM_WATCH_IPS; keys optional)",
     },
     {
         "id": "L5",
@@ -382,3 +382,26 @@ HIBP_WATCH_DOMAINS = [
 # Ingest breaches whose AddedDate is within this many days (catalog is large)
 HIBP_RECENT_DAYS = int(os.environ.get("HIBP_RECENT_DAYS") or "120")
 HIBP_MAX_ITEMS = int(os.environ.get("HIBP_MAX_ITEMS") or "40")
+
+# --- L4 External Attack Surface (EASM) ---
+# Free path: Shodan InternetDB (no API key) — needs watch IPs/hosts
+# https://internetdb.shodan.io/
+SHODAN_INTERNETDB_URL = "https://internetdb.shodan.io"
+SHODAN_API_KEY = (os.environ.get("SHODAN_API_KEY") or "").strip()
+SHODAN_API_HOST = "https://api.shodan.io/shodan/host"
+# Censys free/platform lookup (requires API ID + Secret)
+CENSYS_API_ID = (os.environ.get("CENSYS_API_ID") or "").strip()
+CENSYS_API_SECRET = (os.environ.get("CENSYS_API_SECRET") or "").strip()
+CENSYS_HOST_API = "https://search.censys.io/api/v2/hosts"
+# Comma-separated public IPs and/or hostnames to monitor (e.g. edge VPN, mail, web)
+EASM_WATCH_IPS = [
+    ip.strip()
+    for ip in (os.environ.get("EASM_WATCH_IPS") or "").split(",")
+    if ip.strip()
+]
+EASM_WATCH_HOSTS = [
+    h.strip().lower()
+    for h in (os.environ.get("EASM_WATCH_HOSTS") or "").split(",")
+    if h.strip()
+]
+EASM_MAX_TARGETS = int(os.environ.get("EASM_MAX_TARGETS") or "30")
