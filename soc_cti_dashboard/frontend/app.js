@@ -339,13 +339,23 @@ async function loadFinance() {
 
 async function loadMicrosoft() {
   const data = await api("/api/microsoft-dashboard");
-  $("#msStatTotal").textContent = data.stats?.total ?? 0;
-  $("#msStatRansom").textContent = data.stats?.ransomware ?? 0;
-  $("#msStatKev").textContent = data.stats?.kev ?? 0;
+  const s = data.stats || {};
+  $("#msStatTotal").textContent = s.total ?? 0;
+  if ($("#msStatP1")) $("#msStatP1").textContent = s.p1 ?? 0;
+  $("#msStatKev").textContent = s.kev ?? 0;
+  if ($("#msStatConfirmed")) $("#msStatConfirmed").textContent = s.confirmed ?? 0;
+  if ($("#msStatWindows")) $("#msStatWindows").textContent = s.windows_os ?? 0;
+  if ($("#msStatEnterprise")) $("#msStatEnterprise").textContent = s.enterprise_platform ?? 0;
+  if ($("#msStatTi")) $("#msStatTi").textContent = s.threat_intel ?? 0;
   renderEntityChips($("#msChips"), data.entity_counts);
-  renderList($("#msRansomList"), data.ransomware, 40);
-  renderList($("#msKevList"), data.kev_items, 50);
-  renderList($("#msOtherList"), data.other, 40);
+  renderList($("#msP1List"), data.p1_items, 30);
+  renderList($("#msKevList"), data.kev_items, 40);
+  renderList($("#msConfirmedList"), data.confirmed_items, 30);
+  renderList($("#msWindowsList"), data.windows_os, 40);
+  renderList($("#msEnterpriseList"), data.enterprise_platform, 40);
+  renderList($("#msTiList"), data.threat_intel, 30);
+  renderList($("#msRansomList"), data.ransomware, 30);
+  renderList($("#msOtherList"), data.other, 30);
 }
 
 async function loadLayers() {

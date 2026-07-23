@@ -353,11 +353,24 @@ async def collect_rss_layer(
             cve_m = re.findall(r"CVE-\d{4}-\d{4,7}", f"{title} {summary}", flags=re.I)
             cve_id = cve_m[0].upper() if cve_m else None
 
-            flags = enrich_flags(title, summary)
+            # Include source name so MS Security Blog / MSRC / Defender TI classify correctly
+            flags = enrich_flags(title, f"{summary} {name}")
             is_ransom = flags["is_ransomware"]
             is_tw = flags["is_tw_industry"]
             is_finance = flags["is_finance"]
             is_ms = flags["is_microsoft"]
+            # Force Microsoft flag for dedicated MS official feeds
+            if not is_ms and any(
+                k in name.lower()
+                for k in ("microsoft", "msrc", "defender ti")
+            ):
+                is_ms = True
+                flags = {
+                    **flags,
+                    "is_microsoft": True,
+                    "ms_entities": flags.get("ms_entities")
+                    or [{"key": "microsoft", "matched": name, "tier": "source"}],
+                }
             if (
                 not force_ransomware_scan
                 and not is_ransom

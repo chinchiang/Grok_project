@@ -19,12 +19,12 @@ from .config import (
     FINANCE_WATCHLIST,
     LAYERS,
     MANUAL_SCAN_COOLDOWN_SEC,
-    MICROSOFT_WATCHLIST,
     OBSOLETE_SOURCE_IDS,
     SCHEDULE_HOURS,
     TZ_TAIPEI,
     TW_ELECTRONICS_WATCHLIST,
 )
+from .ms_dashboard import build_microsoft_dashboard
 from .collectors import run_full_harvest
 from .database import (
     get_kpis,
@@ -205,29 +205,13 @@ async def api_finance_dashboard() -> dict[str, Any]:
 
 @app.get("/api/microsoft-dashboard")
 async def api_microsoft_dashboard() -> dict[str, Any]:
-    """Dedicated Microsoft product / ecosystem vulnerability & threat view."""
-    items = await query_intel(microsoft_only=True, limit=200)
-    ransom, other = _split_ransom(items)
-    kev_ms = [i for i in items if i.get("source_name") and "KEV" in i["source_name"]]
-    # Prefer KEV / high priority in primary lists for SOC focus
-    kev_ransom = [i for i in kev_ms if i.get("is_ransomware")]
-    kev_other = [i for i in kev_ms if not i.get("is_ransomware")]
-    return {
-        "watchlist": MICROSOFT_WATCHLIST,
-        "items": items,
-        "ransomware": ransom,
-        "other": other,
-        "kev_items": kev_ms[:60],
-        "kev_ransomware": kev_ransom[:40],
-        "kev_other": kev_other[:40],
-        "entity_counts": _entity_counts(items, "ms_entities"),
-        "stats": {
-            "total": len(items),
-            "ransomware": len(ransom),
-            "other": len(other),
-            "kev": len(kev_ms),
-        },
-    }
+    """
+    Dedicated Microsoft tab:
+    Windows OS, enterprise platforms (Defender/SharePoint/Exchange/Entra),
+    Microsoft TI campaigns/IOCs, P1, CISA KEV exploited, official corroboration.
+    """
+    items = await query_intel(microsoft_only=True, limit=300)
+    return build_microsoft_dashboard(items)
 
 
 @app.get("/api/layers")

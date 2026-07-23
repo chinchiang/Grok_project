@@ -35,7 +35,7 @@
     <button class="tab" data-view="intel" data-i18n="tabIntel">情資串流</button>
     <button class="tab" data-view="tw" data-i18n="tabTw">🇹🇼 電子／半導體</button>
     <button class="tab" data-view="finance" data-i18n="tabFinance">💰 金融相關</button>
-    <button class="tab" data-view="microsoft" data-i18n="tabMicrosoft">🪟 微軟相關</button>
+    <button class="tab" data-view="microsoft" data-i18n="tabMicrosoft">🪟 微軟／Microsoft</button>
     <button class="tab" data-view="layers" data-i18n="tabLayers">七層健康</button>
   </nav>
 
@@ -168,20 +168,34 @@
     <section class="view" id="view-microsoft">
       <div class="tw-banner ms-banner">
         <div>
-          <h2 data-i18n="msTitle">微軟產品／生態系威脅情資</h2>
-          <p data-i18n="msDesc">Microsoft、Windows Server／10／11、Exchange、Azure／Entra、M365、Active Directory 等；廠商欄位為 Microsoft 者優先納入。</p>
+          <h2 data-i18n="msTitle">微軟／Microsoft 威脅情資中心</h2>
+          <p data-i18n="msDesc">Windows 重大漏洞、Defender／SharePoint／Exchange／Entra 企業平台、Microsoft Threat Intelligence 預警與 IOC；彙整 P1、CISA KEV 已遭利用與官方旁證。</p>
         </div>
         <div class="tw-stats">
-          <div><span id="msStatTotal">0</span><small data-i18n="msStatTotal">微軟相關</small></div>
-          <div class="hot"><span id="msStatRansom">0</span><small data-i18n="msStatRansom">勒索強調</small></div>
-          <div><span id="msStatKev">0</span><small data-i18n="msStatKev">KEV</small></div>
+          <div><span id="msStatTotal">0</span><small data-i18n="msStatTotal">總計</small></div>
+          <div class="hot"><span id="msStatP1">0</span><small data-i18n="msStatP1">P1</small></div>
+          <div class="hot"><span id="msStatKev">0</span><small data-i18n="msStatKev">KEV 已利用</small></div>
+          <div><span id="msStatConfirmed">0</span><small data-i18n="msStatConfirmed">官方旁證</small></div>
+          <div><span id="msStatWindows">0</span><small data-i18n="msStatWindows">Windows</small></div>
+          <div><span id="msStatEnterprise">0</span><small data-i18n="msStatEnterprise">企業平台</small></div>
+          <div><span id="msStatTi">0</span><small data-i18n="msStatTi">MS TI</small></div>
         </div>
       </div>
       <div class="entity-chips" id="msChips"></div>
-      <h3 class="section-h ransom-h" data-i18n="msRansomSection">🔐 微軟＋勒索（優先關注）</h3>
-      <div class="card-list" id="msRansomList"></div>
-      <h3 class="section-h" data-i18n="msKevSection">KEV 微軟產品</h3>
+      <h3 class="section-h ransom-h" data-i18n="msP1Section">🟠 P1 優先（KEV 在野利用路徑）</h3>
+      <div class="card-list" id="msP1List"></div>
+      <h3 class="section-h ransom-h" data-i18n="msKevSection">⚠️ CISA KEV／已遭利用</h3>
       <div class="card-list" id="msKevList"></div>
+      <h3 class="section-h" data-i18n="msConfirmedSection">✅ 官方旁證（Confirmed／MSRC／MS Blog）</h3>
+      <div class="card-list" id="msConfirmedList"></div>
+      <h3 class="section-h" data-i18n="msWindowsSection">💻 Windows 作業系統重大漏洞</h3>
+      <div class="card-list" id="msWindowsList"></div>
+      <h3 class="section-h" data-i18n="msEnterpriseSection">🏢 Defender／SharePoint／Exchange／Entra 等企業平台</h3>
+      <div class="card-list" id="msEnterpriseList"></div>
+      <h3 class="section-h" data-i18n="msTiSection">🛰️ Microsoft Threat Intelligence 預警／攻擊活動／IOC</h3>
+      <div class="card-list" id="msTiList"></div>
+      <h3 class="section-h ransom-h" data-i18n="msRansomSection">🔐 微軟生態＋勒索</h3>
+      <div class="card-list" id="msRansomList"></div>
       <h3 class="section-h" data-i18n="msOtherSection">其他微軟情資</h3>
       <div class="card-list" id="msOtherList"></div>
     </section>

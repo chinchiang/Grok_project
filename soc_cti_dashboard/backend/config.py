@@ -190,6 +190,48 @@ INTEL_FEEDS: list[dict] = [
         "max_items": 20,
         "darkweb_indirect": False,
     },
+    # Microsoft official / TI (feeds into is_microsoft classification)
+    {
+        "source_id": "ms_security_blog",
+        "layer_id": "L2",
+        "name": "Microsoft Security Blog",
+        "url": "https://www.microsoft.com/en-us/security/blog/feed/",
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "msrc_update_guide",
+        "layer_id": "L1",
+        "name": "MSRC Update Guide",
+        "url": "https://api.msrc.microsoft.com/update-guide/rss",
+        "force_all": True,
+        "max_items": 40,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "ms_defender_ti_blog",
+        "layer_id": "L2",
+        "name": "Microsoft Defender TI Blog",
+        "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftThreatProtectionBlog",
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
+    {
+        "source_id": "ms_vuln_gnews",
+        "layer_id": "L6",
+        "name": "Microsoft Vuln (Google News)",
+        "url": (
+            "https://news.google.com/rss/search?"
+            "q=Microsoft+(Windows+OR+Exchange+OR+SharePoint+OR+Defender+OR+Entra+OR+Azure)"
+            "+(vulnerability+OR+exploit+OR+KEV+OR+zero-day)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+    },
 ]
 
 # --- L6 ransomware / dark-web indirect trackers ---
@@ -448,7 +490,7 @@ FINANCE_WATCHLIST = [
 MICROSOFT_WATCHLIST = [
     {
         "key": "microsoft",
-        "aliases": ["microsoft", "微軟"],
+        "aliases": ["microsoft", "微軟", "msrc", "patch tuesday"],
         "tier": "vendor",
     },
     {
@@ -462,6 +504,11 @@ MICROSOFT_WATCHLIST = [
             "microsoft windows",
             "win32k",
             "ntoskrnl",
+            "windows kernel",
+            "print spooler",
+            "smbv1",
+            "rdp ",
+            "remote desktop",
         ],
         "tier": "os",
     },
@@ -473,6 +520,9 @@ MICROSOFT_WATCHLIST = [
             "outlook web",
             "owa ",
             "exchange online",
+            "proxy logon",
+            "proxyshell",
+            "proxynotshell",
         ],
         "tier": "mail",
     },
@@ -486,6 +536,7 @@ MICROSOFT_WATCHLIST = [
             "microsoft entra",
             "azure devops",
             "azure portal",
+            "azure arc",
         ],
         "tier": "cloud",
     },
@@ -498,6 +549,7 @@ MICROSOFT_WATCHLIST = [
             "m365",
             "microsoft office",
             "sharepoint",
+            "sharepoint online",
             "onedrive",
             "microsoft teams",
             "teams phishing",
@@ -514,6 +566,7 @@ MICROSOFT_WATCHLIST = [
             "ad fs",
             "adfs",
             "group policy",
+            "entra ",
         ],
         "tier": "identity",
     },
@@ -523,12 +576,32 @@ MICROSOFT_WATCHLIST = [
             "microsoft defender",
             "defender for endpoint",
             "defender atp",
+            "defender for identity",
+            "defender for cloud",
             "microsoft intune",
             "sccm",
             "configmgr",
             "system center",
+            "sentinel ",
+            "microsoft sentinel",
         ],
         "tier": "security",
+    },
+    {
+        "key": "threat_intel",
+        "aliases": [
+            "microsoft threat intelligence",
+            "mstic",
+            "threat actor",
+            "nation-state",
+            "storm-",
+            "midnight blizzard",
+            "nobelium",
+            "apt29",
+            "ioc ",
+            "indicators of compromise",
+        ],
+        "tier": "ti",
     },
     {
         "key": "server_apps",

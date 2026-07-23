@@ -20,11 +20,11 @@ from backend.collectors import run_full_harvest
 from backend.config import (
     FINANCE_WATCHLIST,
     MANUAL_SCAN_COOLDOWN_SEC,
-    MICROSOFT_WATCHLIST,
     OBSOLETE_SOURCE_IDS,
     SCHEDULE_HOURS,
     TW_ELECTRONICS_WATCHLIST,
 )
+from backend.ms_dashboard import build_microsoft_dashboard
 from backend.database import (
     get_kpis,
     get_meta,
@@ -85,9 +85,8 @@ async def export() -> None:
     fin_ransom, fin_other = _split_ransom(finance_items)
     fin_kev = [i for i in finance_items if i.get("source_name") and "KEV" in i["source_name"]]
 
-    ms_items = await query_intel(microsoft_only=True, limit=200)
-    ms_ransom, ms_other = _split_ransom(ms_items)
-    ms_kev = [i for i in ms_items if i.get("source_name") and "KEV" in i["source_name"]]
+    ms_items = await query_intel(microsoft_only=True, limit=300)
+    ms_payload = build_microsoft_dashboard(ms_items)
 
     health = await get_source_health()
     by_layer: dict[str, list] = {L["id"]: [] for L in LAYERS}
@@ -143,22 +142,7 @@ async def export() -> None:
                 "kev": len(fin_kev),
             },
         },
-        "microsoft-dashboard.json": {
-            "watchlist": MICROSOFT_WATCHLIST,
-            "items": ms_items,
-            "ransomware": ms_ransom,
-            "other": ms_other,
-            "kev_items": ms_kev[:60],
-            "kev_ransomware": [i for i in ms_kev if i.get("is_ransomware")][:40],
-            "kev_other": [i for i in ms_kev if not i.get("is_ransomware")][:40],
-            "entity_counts": _entity_counts(ms_items, "ms_entities"),
-            "stats": {
-                "total": len(ms_items),
-                "ransomware": len(ms_ransom),
-                "other": len(ms_other),
-                "kev": len(ms_kev),
-            },
-        },
+        "microsoft-dashboard.json": ms_payload,
         "layers.json": {
             "layers": layers_out,
             "schedule": {
