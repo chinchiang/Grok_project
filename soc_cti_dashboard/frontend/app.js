@@ -98,21 +98,54 @@ function cardHTML(item) {
   const owner = item.owner || "—";
   const sla = item.sla_hours != null ? `${item.sla_hours}h` : "—";
 
-  const meta = [];
-  if (item.cve_id) meta.push(item.cve_id);
-  if (item.source_name) meta.push(item.source_name);
-  if (item.layer_id) meta.push(item.layer_id);
-  if (item.epss != null) meta.push(`EPSS ${(Number(item.epss) * 100).toFixed(1)}%`);
-  if (item.date_added) meta.push(item.date_added);
-  else if (item.fetched_at) meta.push(formatTs(item.fetched_at));
+  const metaChips = [];
+  if (item.cve_id) {
+    metaChips.push(cveCopyChip(item.cve_id));
+  }
+  if (item.source_name) {
+    metaChips.push(
+      metaChip("source", t("sources"), item.source_name, "meta-source")
+    );
+  }
+  if (item.layer_id) {
+    metaChips.push(
+      metaChip("layer", t("layer"), item.layer_id, "meta-layer")
+    );
+  }
+  if (item.epss != null) {
+    const epssPct = Number(item.epss) * 100;
+    const epssTier =
+      epssPct >= 70 ? "epss-high" : epssPct >= 50 ? "epss-mid" : "epss-low";
+    metaChips.push(
+      metaChip(
+        "epss",
+        t("metaEpss"),
+        `${epssPct.toFixed(1)}%`,
+        `meta-epss ${epssTier}`
+      )
+    );
+  }
+
+  // Time always top-right: prefer date_added, else fetched_at
+  const dateVal = item.date_added
+    ? String(item.date_added)
+    : item.fetched_at
+      ? formatTs(item.fetched_at)
+      : "";
+  const timeHtml = dateVal
+    ? `<time class="card-time" datetime="${escapeHtml(String(item.date_added || item.fetched_at || ""))}" title="${escapeHtml(t("metaDate"))}">${escapeHtml(dateVal)}</time>`
+    : `<span class="card-time card-time-empty" aria-hidden="true"></span>`;
 
   const link = item.url
-    ? `<a href="${item.url}" target="_blank" rel="noopener">${t("openLink")}</a>`
+    ? `<a class="meta-link" href="${item.url}" target="_blank" rel="noopener">${t("openLink")} ↗</a>`
     : "";
 
   return `
     <article class="${classes.join(" ")}">
-      <div class="card-top">${tags.join("")}</div>
+      <div class="card-top">
+        <div class="card-tags">${tags.join("")}</div>
+        ${timeHtml}
+      </div>
       <h4>${escapeHtml(titleOf(item))}</h4>
       <p>${escapeHtml(summaryOf(item) || "")}</p>
       ${
@@ -132,11 +165,64 @@ function cardHTML(item) {
           : ""
       }
       <div class="card-meta">
-        ${meta.map((m) => `<span>${escapeHtml(String(m))}</span>`).join("")}
+        ${metaChips.join("")}
         ${link}
       </div>
     </article>
   `;
+}
+
+/** Labeled meta chip for card footer (source / layer / EPSS). */
+function metaChip(kind, label, value, extraClass = "") {
+  const k = escapeHtml(String(label));
+  const v = escapeHtml(String(value));
+  return `<span class="meta-chip ${extraClass}" data-kind="${escapeHtml(kind)}" title="${k}: ${v}"><span class="meta-k">${k}</span><span class="meta-v">${v}</span></span>`;
+}
+
+/** Clickable CVE chip — one-click copy to clipboard. */
+function cveCopyChip(cveId) {
+  const v = escapeHtml(String(cveId));
+  const tip = escapeHtml(t("copyCve"));
+  return `<button type="button" class="meta-chip meta-cve meta-cve-btn" data-copy-cve="${v}" title="${tip}" aria-label="${tip}: ${v}"><span class="meta-k">${escapeHtml(t("metaCve"))}</span><span class="meta-v">${v}</span><span class="meta-copy-icon" aria-hidden="true">⎘</span></button>`;
+}
+
+async function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.setAttribute("readonly", "");
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  document.body.removeChild(ta);
+}
+
+function setupCardActions() {
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-copy-cve]");
+    if (!btn) return;
+    e.preventDefault();
+    const cve = btn.getAttribute("data-copy-cve");
+    if (!cve) return;
+    try {
+      await copyText(cve);
+      btn.classList.add("copied");
+      const label = btn.querySelector(".meta-copy-icon");
+      if (label) label.textContent = "✓";
+      showToast(t("cveCopied").replace("{cve}", cve));
+      setTimeout(() => {
+        btn.classList.remove("copied");
+        if (label) label.textContent = "⎘";
+      }, 1400);
+    } catch {
+      showToast(t("cveCopyFail"), true);
+    }
+  });
 }
 
 function drawSpark(canvas, series, color) {
@@ -1092,6 +1178,7 @@ function setupTabs() {
 document.addEventListener("DOMContentLoaded", async () => {
   applyI18n();
   setupTabs();
+  setupCardActions();
   $("#langToggle")?.addEventListener("click", () => toggleLang());
   $("#manualScanBtn")?.addEventListener("click", () => manualScan());
   $("#scanModalClose")?.addEventListener("click", () => {
