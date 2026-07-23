@@ -320,7 +320,7 @@ X_NITTER_MIRRORS = (
     "https://xcancel.com",
 )
 X_OSINT_ACCOUNTS = [
-    # —— 暗網／地下活動監測 ——
+    # —— 一、暗網／勒索／地下威脅專攻 ——
     {
         "handle": "DailyDarkWeb",
         "category": "darkweb",
@@ -343,6 +343,46 @@ X_OSINT_ACCOUNTS = [
             "&hl=en-US&gl=US&ceid=US:en"
         ),
         "profile": "https://x.com/DarkWebInformer",
+        "max_items": 25,
+    },
+    {
+        "handle": "vxunderground",
+        "category": "darkweb",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(vx-underground+OR+vxunderground+OR+%22@vxunderground%22)"
+            "+(malware+OR+ransomware+OR+threat+OR+sample+OR+forum)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/vxunderground",
+        "max_items": 15,
+    },
+    {
+        "handle": "Gi7w0rm",
+        "category": "darkweb",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(Gi7w0rm+OR+Gitworm+OR+%22@Gi7w0rm%22)"
+            "+(malware+OR+ransomware+OR+telegram+OR+dark+OR+threat+OR+breach)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/Gi7w0rm",
+        "max_items": 20,
+    },
+    {
+        # Automated ransomware leak-site bot (complements Ransomware.live / RansomLook APIs)
+        "handle": "ransomistan",
+        "category": "darkweb",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(ransomistan+OR+%22@ransomistan%22+OR+%22Ransomware+Map%22)"
+            "+(ransomware+OR+lockbit+OR+blackbasta+OR+victim+OR+leak)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/ransomistan",
         "max_items": 25,
     },
     {
@@ -371,7 +411,20 @@ X_OSINT_ACCOUNTS = [
         "profile": "https://x.com/Bank_Security",
         "max_items": 15,
     },
-    # —— 資安新聞／CVE／DFIR（無官方 RSS 或僅 X 為主）——
+    # —— 二、頂尖記者／獨立研究員（X 為主）——
+    {
+        "handle": "campuscodi",
+        "category": "news",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(%22Catalin+Cimpanu%22+OR+campuscodi)"
+            "+(cyber+OR+ransomware+OR+breach+OR+vulnerability+OR+hack)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/campuscodi",
+        "max_items": 12,
+    },
     {
         "handle": "GossiTheDog",
         "category": "news",
@@ -386,16 +439,16 @@ X_OSINT_ACCOUNTS = [
         "max_items": 15,
     },
     {
-        "handle": "vxunderground",
+        "handle": "cyb3rops",
         "category": "news",
         "blog_rss": None,
         "gnews_rss": (
             "https://news.google.com/rss/search?q="
-            "(vx-underground+OR+vxunderground+OR+%22@vxunderground%22)"
-            "+(malware+OR+ransomware+OR+threat+OR+sample)"
+            "(%22Florian+Roth%22+OR+cyb3rops+OR+Nextron)"
+            "+(detection+OR+sigma+OR+malware+OR+DFIR+OR+threat)"
             "&hl=en-US&gl=US&ceid=US:en"
         ),
-        "profile": "https://x.com/vxunderground",
+        "profile": "https://x.com/cyb3rops",
         "max_items": 12,
     },
     {
@@ -411,32 +464,7 @@ X_OSINT_ACCOUNTS = [
         "profile": "https://x.com/troyhunt",
         "max_items": 12,
     },
-    {
-        "handle": "campuscodi",
-        "category": "news",
-        "blog_rss": None,
-        "gnews_rss": (
-            "https://news.google.com/rss/search?q="
-            "(%22Catalin+Cimpanu%22+OR+campuscodi)"
-            "+(cyber+OR+ransomware+OR+breach+OR+vulnerability+OR+hack)"
-            "&hl=en-US&gl=US&ceid=US:en"
-        ),
-        "profile": "https://x.com/campuscodi",
-        "max_items": 12,
-    },
-    {
-        "handle": "cyb3rops",
-        "category": "news",
-        "blog_rss": None,
-        "gnews_rss": (
-            "https://news.google.com/rss/search?q="
-            "(%22Florian+Roth%22+OR+cyb3rops+OR+Nextron)"
-            "+(detection+OR+sigma+OR+malware+OR+DFIR+OR+threat)"
-            "&hl=en-US&gl=US&ceid=US:en"
-        ),
-        "profile": "https://x.com/cyb3rops",
-        "max_items": 12,
-    },
+    # —— 三、專業媒體：BleepingComputer / DFIR Report 已用官方 RSS（見 INTEL_FEEDS）——
 ]
 # Backward-compatible alias
 X_DARKWEB_ACCOUNTS = X_OSINT_ACCOUNTS
@@ -523,10 +551,10 @@ LAYERS = [
             "SecurityWeek",
             "Cyber Security News",
             "Reuters (Google News)",
-            "@DailyDarkWeb / @DarkWebInformer (X)",
-            "@MonThreat / @Bank_Security (X)",
-            "@GossiTheDog / @vxunderground / @troyhunt (X)",
-            "@campuscodi / @cyb3rops (X)",
+            "BleepingComputer / The DFIR Report (RSS)",
+            "@DailyDarkWeb / @DarkWebInformer / @Gi7w0rm / @ransomistan (X)",
+            "@vxunderground / @MonThreat / @Bank_Security (X)",
+            "@campuscodi / @GossiTheDog / @cyb3rops / @troyhunt (X)",
         ],
         "schedule_hint": "07:00 & 15:00 + dual-source verify; X via Nitter/blog (no API key)",
     },
