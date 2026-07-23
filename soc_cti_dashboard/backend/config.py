@@ -206,22 +206,38 @@ RANSOMLOOK_RECENT_URL = "https://www.ransomlook.io/api/recent"
 RANSOMLOOK_RSS_URL = "https://www.ransomlook.io/rss.xml"
 RANSOMLOOK_MAX_ITEMS = int(os.environ.get("RANSOMLOOK_MAX_ITEMS") or "60")
 
-# X accounts: prefer Nitter RSS (no X API key); blog RSS as fallback
+# X accounts: multi-mirror Nitter → blog RSS → Google News (no X API key)
+# Nitter instances are flaky; always keep blog/gnews fallbacks.
+X_NITTER_MIRRORS = (
+    "https://nitter.net",
+    "https://nitter.privacyredirect.com",
+    "https://xcancel.com",
+)
 X_DARKWEB_ACCOUNTS = [
     {
         "handle": "DailyDarkWeb",
-        "nitter_rss": "https://nitter.net/DailyDarkWeb/rss",
         "blog_rss": "https://dailydarkweb.net/feed/",
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q=site:dailydarkweb.net"
+            "+(breach+OR+ransomware+OR+leak+OR+hack+OR+dark)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
         "profile": "https://x.com/DailyDarkWeb",
     },
     {
         "handle": "DarkWebInformer",
-        "nitter_rss": "https://nitter.net/DarkWebInformer/rss",
         "blog_rss": "https://darkwebinformer.com/rss/",
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q=site:darkwebinformer.com"
+            "+(breach+OR+ransomware+OR+leak+OR+hack+OR+dark)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
         "profile": "https://x.com/DarkWebInformer",
     },
 ]
 X_DARKWEB_MAX_ITEMS = int(os.environ.get("X_DARKWEB_MAX_ITEMS") or "25")
+# Obsolete source_health rows to strip from layer dashboard
+OBSOLETE_SOURCE_IDS = frozenset({"x_darkweb_accounts"})
 # TWCERT/CC public RSS (official channels; old /tw/rss/rss.xml is 404)
 # See https://www.twcert.org.tw/tw/cp-40-2835-507dc-1.html
 TWCERT_NEWS_RSS = "https://www.twcert.org.tw/tw/rss-104-1.xml"  # 資安新聞

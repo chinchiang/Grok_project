@@ -21,6 +21,7 @@ from backend.config import (
     FINANCE_WATCHLIST,
     MANUAL_SCAN_COOLDOWN_SEC,
     MICROSOFT_WATCHLIST,
+    OBSOLETE_SOURCE_IDS,
     SCHEDULE_HOURS,
     TW_ELECTRONICS_WATCHLIST,
 )
@@ -91,6 +92,8 @@ async def export() -> None:
     health = await get_source_health()
     by_layer: dict[str, list] = {L["id"]: [] for L in LAYERS}
     for h in health:
+        if h.get("source_id") in OBSOLETE_SOURCE_IDS:
+            continue
         by_layer.setdefault(h["layer_id"], []).append(h)
     layers_out = []
     for L in LAYERS:

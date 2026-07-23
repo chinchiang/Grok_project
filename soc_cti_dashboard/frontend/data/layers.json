@@ -366,37 +366,25 @@
           "source_id": "x_dailydarkweb",
           "layer_id": "L6",
           "name": "@DailyDarkWeb (X)",
-          "last_success": "2026-07-23T20:31:36+08:00",
+          "last_success": "2026-07-23T21:47:43+08:00",
           "last_error": null,
-          "last_attempt": "2026-07-23T20:31:36+08:00",
+          "last_attempt": "2026-07-23T21:47:43+08:00",
           "status": "healthy",
           "item_count": 13,
-          "latency_ms": 0,
-          "detail": "via=nitter"
-        },
-        {
-          "source_id": "x_darkweb_accounts",
-          "layer_id": "L6",
-          "name": "@DailyDarkWeb / @DarkWebInformer (X)",
-          "last_success": "2026-07-23T20:31:38+08:00",
-          "last_error": null,
-          "last_attempt": "2026-07-23T20:31:38+08:00",
-          "status": "healthy",
-          "item_count": 33,
-          "latency_ms": 3425,
-          "detail": "@DailyDarkWeb:13:nitter; @DarkWebInformer:20:nitter"
+          "latency_ms": 2276,
+          "detail": "via=nitter:https://nitter.net; tried=5"
         },
         {
           "source_id": "x_darkwebinformer",
           "layer_id": "L6",
           "name": "@DarkWebInformer (X)",
-          "last_success": "2026-07-23T20:31:38+08:00",
+          "last_success": "2026-07-23T21:47:46+08:00",
           "last_error": null,
-          "last_attempt": "2026-07-23T20:31:38+08:00",
+          "last_attempt": "2026-07-23T21:47:46+08:00",
           "status": "healthy",
           "item_count": 20,
-          "latency_ms": 0,
-          "detail": "via=nitter"
+          "latency_ms": 4549,
+          "detail": "via=nitter:https://nitter.net; tried=5"
         }
       ],
       "schedule_hint": "07:00 & 15:00 + dual-source verify",

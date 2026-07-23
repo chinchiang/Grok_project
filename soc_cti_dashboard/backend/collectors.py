@@ -62,6 +62,8 @@ from .config import (
     RANSOMLOOK_RSS_URL,
     X_DARKWEB_ACCOUNTS,
     X_DARKWEB_MAX_ITEMS,
+    X_NITTER_MIRRORS,
+    OBSOLETE_SOURCE_IDS,
     USER_AGENT,
     HTTP_TIMEOUT,
     LAYERS,
@@ -2529,15 +2531,56 @@ async def collect_ransomlook(max_items: int | None = None) -> int:
         return 0
 
 
+def _parse_rss_entries(
+    content: bytes | str, *, profile: str, limit: int
+) -> list[dict[str, str]]:
+    feed = feedparser.parse(content)
+    out: list[dict[str, str]] = []
+    for e in feed.entries[:limit]:
+        title = (e.get("title") or "").strip()
+        if not title:
+            continue
+        # Drop non-intel Google News noise (privacy policy, about, etc.)
+        tl = title.lower()
+        if any(
+            bad in tl
+            for bad in ("privacy policy", "terms of service", "cookie policy", "about us")
+        ):
+            continue
+        out.append(
+            {
+                "title": title,
+                "summary": re.sub(
+                    r"<[^>]+>",
+                    " ",
+                    e.get("summary") or e.get("description") or "",
+                ).strip()[:1200],
+                "link": e.get("link") or profile,
+                "published": e.get("published") or "",
+            }
+        )
+    return out
+
+
 async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
     """
-    L6 — @DailyDarkWeb / @DarkWebInformer via Nitter RSS (no X API key).
-    Falls back to each account's public blog RSS when Nitter is down.
+    L6 — @DailyDarkWeb and @DarkWebInformer (no X API key).
+
+    Order: Nitter mirrors → official blog RSS → Google News site: search.
+    Health rows are per-handle only (no aggregate line).
     """
     t0 = time.perf_counter()
     per = max_items if max_items is not None else X_DARKWEB_MAX_ITEMS
     total = 0
-    details: list[str] = []
+
+    rss_headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/rss+xml, application/xml, text/xml, */*",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
 
     threat_kw = (
         "ransom",
@@ -2560,7 +2603,17 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
         "actor",
         "forum",
         "market",
+        "cyber",
+        "database",
+        "credential",
     )
+
+    # Always remove obsolete aggregate row first
+    for obsolete in OBSOLETE_SOURCE_IDS:
+        try:
+            await delete_source_health(obsolete)
+        except Exception:
+            pass
 
     for acct in X_DARKWEB_ACCOUNTS:
         handle = acct["handle"]
@@ -2568,74 +2621,62 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
         name = f"@{handle} (X)"
         count = 0
         used = ""
-        try:
-            entries: list[dict[str, str]] = []
-            async with await _client() as client:
-                # 1) Nitter
-                try:
-                    nr = await client.get(
-                        acct["nitter_rss"],
-                        headers={
-                            "User-Agent": USER_AGENT,
-                            "Accept": "application/rss+xml,application/xml,text/xml,*/*",
-                        },
-                    )
-                    if nr.status_code == 200 and (
-                        "xml" in (nr.headers.get("content-type") or "")
-                        or nr.text.lstrip().startswith("<?xml")
-                    ):
-                        feed = feedparser.parse(nr.text)
-                        for e in feed.entries[:per]:
-                            entries.append(
-                                {
-                                    "title": (e.get("title") or "").strip(),
-                                    "summary": re.sub(
-                                        r"<[^>]+>",
-                                        " ",
-                                        e.get("summary") or e.get("description") or "",
-                                    ).strip()[:1200],
-                                    "link": e.get("link") or acct["profile"],
-                                    "published": e.get("published") or "",
-                                }
-                            )
-                        used = "nitter"
-                except Exception:
-                    entries = []
+        errors: list[str] = []
+        entries: list[dict[str, str]] = []
 
-                # 2) Blog RSS fallback
-                if not entries and acct.get("blog_rss"):
-                    br = await client.get(
-                        acct["blog_rss"],
-                        headers={
-                            "User-Agent": USER_AGENT,
-                            "Accept": "application/rss+xml,application/xml,text/xml,*/*",
-                        },
-                    )
-                    br.raise_for_status()
-                    feed = feedparser.parse(br.text)
-                    for e in feed.entries[:per]:
-                        entries.append(
-                            {
-                                "title": (e.get("title") or "").strip(),
-                                "summary": re.sub(
-                                    r"<[^>]+>",
-                                    " ",
-                                    e.get("summary") or e.get("description") or "",
-                                ).strip()[:1200],
-                                "link": e.get("link") or acct["profile"],
-                                "published": e.get("published") or "",
-                            }
+        # Candidate feed URLs in priority order
+        candidates: list[tuple[str, str]] = []
+        for mirror in X_NITTER_MIRRORS:
+            candidates.append((f"{mirror}/{handle}/rss", f"nitter:{mirror}"))
+        if acct.get("blog_rss"):
+            candidates.append((acct["blog_rss"], "blog-rss"))
+        if acct.get("gnews_rss"):
+            candidates.append((acct["gnews_rss"], "gnews"))
+
+        try:
+            async with await _client() as client:
+                for url, label in candidates:
+                    try:
+                        r = await client.get(
+                            url, headers=rss_headers, timeout=HTTP_TIMEOUT
                         )
-                    used = "blog-rss"
+                        if r.status_code != 200:
+                            errors.append(f"{label}:HTTP{r.status_code}")
+                            continue
+                        ct = (r.headers.get("content-type") or "").lower()
+                        body = r.content
+                        text_head = r.text.lstrip()[:200].lower()
+                        if not (
+                            "xml" in ct
+                            or text_head.startswith("<?xml")
+                            or "<rss" in text_head
+                            or "<feed" in text_head
+                        ):
+                            errors.append(f"{label}:not-xml")
+                            continue
+                        parsed = _parse_rss_entries(
+                            body, profile=acct["profile"], limit=per
+                        )
+                        if not parsed:
+                            errors.append(f"{label}:0-entries")
+                            continue
+                        entries = parsed
+                        used = label
+                        break
+                    except Exception as e:
+                        errors.append(f"{label}:{type(e).__name__}")
+                        continue
 
             for e in entries:
                 title = e["title"]
                 summary = e["summary"]
                 blob = f"{title} {summary}".lower()
-                if not any(k in blob for k in threat_kw):
-                    # keep account signal if title is non-empty (intel accounts are curated)
-                    if len(title) < 12:
-                        continue
+                # Curated intel accounts: keep most posts; only drop ultra-short noise
+                if len(title) < 8:
+                    continue
+                if not any(k in blob for k in threat_kw) and used.startswith("gnews"):
+                    # GNews can be noisy — require threat keywords
+                    continue
 
                 flags = enrich_flags(title, summary)
                 is_ransom = flags["is_ransomware"] or any(
@@ -2650,7 +2691,6 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
                     source_count=1,
                     layer_id="L6",
                 )
-                # X is always single-source unverified for dark-web claims
                 verification, admiralty = "unverified", "C3"
 
                 title_zh = f"[X @{handle}] {title}"
@@ -2668,11 +2708,11 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
                         "title_en": title_en,
                         "summary": (
                             f"{summary}\n\n"
-                            f"[單來源] X/@{handle} via {used or 'rss'} — 暗網間接，標示未核實"
+                            f"[單來源] @{handle} via {used or 'rss'} — 暗網間接，標示未核實"
                         ),
                         "summary_en": (
                             f"{summary}\n\n"
-                            f"[Single source] X/@{handle} via {used or 'rss'} — "
+                            f"[Single source] @{handle} via {used or 'rss'} — "
                             "indirect dark-web intel, Unverified"
                         ),
                         "priority": priority,
@@ -2722,18 +2762,27 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
                 count += 1
 
             total += count
-            details.append(f"@{handle}:{count}:{used or 'none'}")
-            await _mark(
-                source_id,
-                "L6",
-                name,
-                ok=True,
-                count=count,
-                latency_ms=int((time.perf_counter() - t0) * 1000),
-                detail=f"via={used or 'none'}; nitter/blog RSS",
-            )
+            ms = int((time.perf_counter() - t0) * 1000)
+            if count > 0:
+                await _mark(
+                    source_id,
+                    "L6",
+                    name,
+                    ok=True,
+                    count=count,
+                    latency_ms=ms,
+                    detail=f"via={used}; tried={len(candidates)}",
+                )
+            else:
+                await _mark(
+                    source_id,
+                    "L6",
+                    name,
+                    ok=False,
+                    latency_ms=ms,
+                    error=("no feed worked: " + "; ".join(errors))[:500],
+                )
         except Exception as ex:
-            details.append(f"@{handle}:err")
             await _mark(
                 source_id,
                 "L6",
@@ -2742,11 +2791,6 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
                 error=str(ex)[:400],
             )
 
-    # Drop obsolete aggregate row (was double-counting 13+20 as a third line)
-    try:
-        await delete_source_health("x_darkweb_accounts")
-    except Exception:
-        pass
     return total
 
 
