@@ -16,6 +16,7 @@ Inventec / GSMD 相關資安研究與 SOC 工具集。
 | P0–P3 | 互斥優先級（P1 不混入其他級） |
 | 七層情資 | 來源健康與排程狀態 |
 | 暗網間接 | 雙來源核實；單源標「未核實」且強制 P3 複核（含 X OSINT） |
+| OT／ICS 四層來源 | ① CISA ICS＋KEV 每日必查 ② Dragos／Claroty／Nozomi／SANS ③ 專題媒體 ④ ATT&CK for ICS |
 | 🇹🇼 電子／半導體 | 電子五哥、上市櫃半導體受害與**勒索**強調 |
 | 語系 | 正體中文 ／ English 可切換 |
 | 時區 | Asia/Taipei（每日 07:00、15:00 自動更新） |

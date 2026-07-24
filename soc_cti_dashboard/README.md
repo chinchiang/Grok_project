@@ -98,6 +98,7 @@ python scripts/export_static.py
 |------|------|------|----------|
 | L5 | **Have I Been Pwned** | **公開外洩目錄免金鑰**（近期 `AddedDate`） | 可選 `HIBP_API_KEY` + `HIBP_WATCH_DOMAINS`（公司網域信箱監控，付費） |
 | L7 | **CISA ICS Advisories** | 先試官方 RSS；若 WAF 403 則改用 [ICS Advisory Project](https://github.com/icsadvprj/ICS-Advisory-Project) CSV 鏡像 | 無需金鑰 |
+| L1/L2/L7 | **OT/IT 官方政府級預警（優先）** | CISA Alerts／CSA／News／ICS Medical；TWCERT；UK NCSC；JPCERT；CIS；ACSC／CCCS／CERT-EU／NSA／BSI（GNews 備援） | 無需金鑰 |
 | L6 | **Ransomware.live** | `data.ransomware.live/victims.json` 近期受駭 | 可選 `RANSOMWARE_LIVE_API_KEY`（PRO） |
 | L6 | **RansomLook** | `ransomlook.io/api/recent` | 無需金鑰 |
 | L6 | **X OSINT 帳號** | Nitter → blog RSS → Google News；已排除與 THN／BC／HIBP／Krebs／Dark Reading／DFIR／SANS 重複 | 無需 X API 金鑰 |
@@ -110,6 +111,18 @@ python scripts/export_static.py
 | L5 | **DataBreaches.net** | RSS | 無需金鑰 |
 | L6 | **資安媒體** | THN / BC / Record / SecurityWeek / CSN / Reuters(GNews) | 無需金鑰 |
 | L7 | **Dragos (OT)** | RSS 或 Google News 備援 | 無需金鑰 |
+
+### OT／ICS 來源四層（訂閱指南）
+
+| 類 | 來源 | 建議用法 | 採集 |
+|----|------|----------|------|
+| **① 官方政府級（優先／每日必查）** | [CISA ICS Advisories](https://www.cisa.gov/news-events/ics-advisories)、[CISA KEV](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)、[CISA ICS 專區](https://www.cisa.gov/topics/industrial-control-systems)、[ICS Advisory Project](https://www.icsadvisoryproject.com/)、ICS Medical、TWCERT | ICS 與 KEV 交叉比對；CSV 鏡像做資產對應 | RSS／JSON／CSV |
+| **② 專業研究** | [Dragos](https://www.dragos.com/blog)、[Claroty Team82](https://claroty.com/team82)、[Nozomi Labs](https://www.nozominetworks.com/blog)、[SANS ICS](https://www.sans.org) + @SANSICS | 威脅建模、ATT&CK for ICS mapping | RSS／GNews／X |
+| **③ 專題媒體** | [SecurityWeek ICS/OT](https://www.securityweek.com/category/ics-ot/)、[Industrial Cyber](https://industrialcyber.co/)、[Dark Reading ICS/OT](https://www.darkreading.com/ics-ot-security)、[THN ICS](https://thehackernews.com/search/label/ICS%20Security)、Infosecurity | 高頻事件與會議 | RSS／GNews |
+| **④ 框架知識庫** | [MITRE ATT&CK for ICS](https://attack.mitre.org/matrices/ics/) | 非即時；偵測／狩獵對照 | 參考連結 |
+
+> CISA ICS Advisory 為目前全球最權威、更新最即時的公開 OT／ICS 漏洞預警，建議設為**每日必查**。  
+> API：`GET /api/ot-catalog` · 靜態：`frontend/data/ot-catalog.json`
 
 ```powershell
 # 可選：HIBP 付費網域搜尋（否則仍會抓公開 breaches 目錄）

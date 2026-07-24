@@ -965,6 +965,78 @@ button.meta-cve-btn.copied .meta-copy-icon {
   box-shadow: 0 0 20px rgba(224, 64, 251, 0.12);
 }
 
+/* OT/ICS source catalog */
+.ot-catalog {
+  margin: 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ot-cat-heading {
+  margin: 8px 0 4px;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--p3);
+}
+.ot-cat-block {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+.ot-cat-block summary {
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text);
+  list-style: none;
+}
+.ot-cat-block summary::-webkit-details-marker { display: none; }
+.ot-cat-block[open] {
+  border-color: #3d5a80;
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.08);
+}
+.ot-cat-note {
+  margin: 8px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.ot-cat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ot-cat-list li {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.4;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.ot-cat-list a {
+  color: var(--p3);
+  text-decoration: none;
+}
+.ot-cat-list a:hover { text-decoration: underline; }
+.ot-cat-role {
+  margin-top: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.ot-cat-usage {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7a90b0;
+}
+.ot-cat-usage .muted { color: #5a7090; }
+
 .method-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

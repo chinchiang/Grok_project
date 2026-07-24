@@ -147,10 +147,14 @@
 
     <!-- ========== OT/ICS ========== -->
     <section class="view" id="view-ot">
-      <div class="panel-head">
+      <div class="principle-banner">
         <h2 data-i18n="tabOt">⚙️ OT／ICS</h2>
-        <p class="panel-sub" data-i18n="otZoneHint">僅顯示 OT／ICS／工業控制相關情資</p>
+        <div class="principle-box" data-i18n="otPrinciple">
+          ① 官方政府級（每日必查）：CISA ICS Advisories + KEV 交叉比對、ICS Advisory Project、TWCERT。② 研究：Dragos／Claroty Team82／Nozomi／SANS ICS。③ 媒體：SecurityWeek ICS、Industrial Cyber、Dark Reading ICS、THN ICS。④ 框架：MITRE ATT&CK for ICS（非即時，威脅建模必備）。
+        </div>
+        <p class="panel-sub" data-i18n="otZoneHint">僅顯示 OT／ICS／工業控制與政府級預警相關情資</p>
       </div>
+      <div id="otCatalog" class="ot-catalog" aria-label="OT/IT source catalog"></div>
       <div class="card-list" id="otList"></div>
     </section>
 
@@ -265,6 +269,10 @@
         <article class="method-card">
           <h4 data-i18n="methodDarkTitle">暗網雙來源核實</h4>
           <p data-i18n="methodDarkBody">Ransomware.live × RansomLook 交叉比對。雙源→可信；單源（含 X OSINT）→未核實且僅 P3 人工複核，不得自動升 P0。</p>
+        </article>
+        <article class="method-card">
+          <h4 data-i18n="methodOtTitle">OT／IT 官方政府級預警</h4>
+          <p data-i18n="methodOtBody">優先訂閱：CISA（KEV／ICS／Alerts）、TWCERT、NCSC、JPCERT、CIS、ACSC、CCCS、CERT-EU、NSA、BSI。官方來源標 official-gov，OT 分頁置頂。</p>
         </article>
       </div>
     </section>

@@ -357,6 +357,8 @@ async def collect_rss_layer(
     max_items: int = 40,
     fallback_url: str | None = None,
     fallback_urls: list[str] | None = None,
+    extra_tags: list[str] | None = None,
+    title_prefix: str | None = None,
 ) -> int:
     t0 = time.perf_counter()
     count = 0
@@ -503,9 +505,14 @@ async def collect_rss_layer(
 
             title_zh = title
             title_en = title
+            if title_prefix:
+                # Avoid double-prefix on re-ingest of already-tagged titles
+                if not title.startswith(title_prefix):
+                    title_zh = f"{title_prefix}｜{title}"
+                    title_en = f"{title_prefix}｜{title}"
             if is_ransom:
-                title_zh = f"🔐 勒索相關｜{title}"
-                title_en = f"🔐 Ransomware｜{title}"
+                title_zh = f"🔐 勒索相關｜{title_zh}"
+                title_en = f"🔐 Ransomware｜{title_en}"
             if is_tw:
                 title_zh = f"🇹🇼 台灣電子／半導體｜{title_zh}"
                 title_en = f"🇹🇼 TW Electronics/Semi｜{title_en}"
@@ -515,6 +522,23 @@ async def collect_rss_layer(
             if is_ms:
                 title_zh = f"🪟 微軟相關｜{title_zh}"
                 title_en = f"🪟 Microsoft｜{title_en}"
+
+            tags_raw = (
+                (["ransomware"] if is_ransom else [])
+                + (["tw-industry"] if is_tw else [])
+                + (["finance"] if is_finance else [])
+                + (["microsoft"] if is_ms else [])
+                + (["darkweb-indirect"] if darkweb_indirect else [])
+                + (["unverified"] if verification == "unverified" else [])
+                + list(extra_tags or [])
+            )
+            # Deduplicate tags while preserving order
+            seen_t: set[str] = set()
+            tags: list[str] = []
+            for tg in tags_raw:
+                if tg and tg not in seen_t:
+                    seen_t.add(tg)
+                    tags.append(tg)
 
             await upsert_intel(
                 {
@@ -551,14 +575,7 @@ async def collect_rss_layer(
                     "raw_json": json.dumps(
                         {"title": title, "link": link}, ensure_ascii=False
                     )[:4000],
-                    "tags_json": json.dumps(
-                        (["ransomware"] if is_ransom else [])
-                        + (["tw-industry"] if is_tw else [])
-                        + (["finance"] if is_finance else [])
-                        + (["microsoft"] if is_ms else [])
-                        + (["darkweb-indirect"] if darkweb_indirect else [])
-                        + (["unverified"] if verification == "unverified" else [])
-                    ),
+                    "tags_json": json.dumps(tags),
                 }
             )
             count += 1
@@ -586,7 +603,7 @@ async def collect_rss_layer(
 
 
 async def collect_registered_intel_feeds() -> dict[str, Any]:
-    """Harvest all INTEL_FEEDS (Unit 42, news, Fortinet PSIRT, Dragos, …)."""
+    """Harvest all INTEL_FEEDS (Unit 42, news, Fortinet PSIRT, Dragos, gov CERTs, …)."""
     out: dict[str, Any] = {}
     total = 0
     for feed in INTEL_FEEDS:
@@ -601,6 +618,8 @@ async def collect_registered_intel_feeds() -> dict[str, Any]:
                 darkweb_indirect=bool(feed.get("darkweb_indirect")),
                 force_ransomware_scan=bool(feed.get("force_all", True)),
                 max_items=int(feed.get("max_items") or 20),
+                extra_tags=list(feed.get("extra_tags") or []),
+                title_prefix=feed.get("title_prefix"),
             )
             out[feed["source_id"]] = {"ok": True, "count": n, "name": feed["name"]}
             total += n
@@ -967,6 +986,8 @@ async def collect_cisa_ics(max_items: int | None = None) -> int:
                 darkweb_indirect=False,
                 force_ransomware_scan=False,
                 max_items=limit,
+                extra_tags=["ot", "ot-gov", "official-gov", "ot-it", "cisa", "ics"],
+                title_prefix="🏭 CISA ICS",
             )
             if n > 0:
                 return n
@@ -1200,7 +1221,7 @@ async def _collect_cisa_ics_from_github_csv(*, limit: int = 40) -> int:
                 "admiralty": admiralty,
                 "raw_json": json.dumps(row, ensure_ascii=False)[:4000],
                 "tags_json": json.dumps(
-                    ["cisa", "ics", "ot"]
+                    ["cisa", "ics", "ot", "ot-gov", "official-gov", "ot-it"]
                     + (["critical"] if (severity or "").lower() == "critical" else [])
                     + (["tw-industry"] if flags["is_tw_industry"] else [])
                     + (["finance"] if flags["is_finance"] else [])
@@ -2905,6 +2926,11 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                     tags.append("ransomware")
                 if flags["is_tw_industry"]:
                     tags.append("tw-industry")
+                if category in ("ot-research", "ot", "ics") or handle.lower() in (
+                    "sansics",
+                    "dragos",
+                ):
+                    tags.extend(["ot", "ot-research"])
 
                 await upsert_intel(
                     {
@@ -3470,6 +3496,8 @@ async def run_full_harvest() -> dict[str, Any]:
         darkweb_indirect=False,
         force_ransomware_scan=True,
         max_items=25,
+        extra_tags=["ot-it", "ot-gov", "official-gov", "twcert", "tw"],
+        title_prefix="🇹🇼 TWCERT",
     )
     if n_news == 0:
         n_news = await collect_rss_layer(
@@ -3480,6 +3508,8 @@ async def run_full_harvest() -> dict[str, Any]:
             darkweb_indirect=False,
             force_ransomware_scan=True,
             max_items=25,
+            extra_tags=["ot-it", "ot-gov", "official-gov", "twcert", "tw"],
+            title_prefix="🇹🇼 TWCERT",
         )
     n_tvn = await collect_rss_layer(
         source_id="twcert_tvn_rss",
@@ -3490,6 +3520,8 @@ async def run_full_harvest() -> dict[str, Any]:
         darkweb_indirect=False,
         force_ransomware_scan=True,
         max_items=25,
+        extra_tags=["ot-it", "ot-gov", "official-gov", "twcert", "tw", "tvn"],
+        title_prefix="🇹🇼 TWCERT TVN",
     )
     if n_tvn == 0:
         n_tvn = await collect_rss_layer(
@@ -3500,6 +3532,8 @@ async def run_full_harvest() -> dict[str, Any]:
             darkweb_indirect=False,
             force_ransomware_scan=True,
             max_items=25,
+            extra_tags=["ot-it", "ot-gov", "official-gov", "twcert", "tw", "tvn"],
+            title_prefix="🇹🇼 TWCERT TVN",
         )
     # Keep legacy source_id healthy for existing dashboards that still list it
     await _mark(

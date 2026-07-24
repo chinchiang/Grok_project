@@ -27,7 +27,16 @@ const I18N = {
     highRiskFullHint: "完整高風險情資列表（不含 P2／P3）",
     viewAll: "查看全部",
     taiwanZoneHint: "僅顯示與臺灣產業／本地相關之情資列表",
-    otZoneHint: "僅顯示 OT／ICS／工業控制相關情資",
+    otZoneHint: "僅顯示 OT／ICS／工業控制與政府級預警相關情資",
+    otPrinciple:
+      "① 官方政府級（每日必查）：CISA ICS Advisories + KEV 交叉比對、ICS Advisory Project、TWCERT。② 研究：Dragos／Claroty Team82／Nozomi／SANS ICS。③ 媒體：SecurityWeek ICS、Industrial Cyber、Dark Reading ICS、THN ICS。④ 框架：MITRE ATT&CK for ICS（非即時，威脅建模必備）。",
+    otCatalogTitle: "OT／ICS 來源目錄（建議訂閱）",
+    otCat1: "① 官方與政府級預警（優先）",
+    otCat2: "② 專業研究機構",
+    otCat3: "③ 產業新聞與專題媒體",
+    otCat4: "④ 框架與知識庫",
+    otUsage: "建議用法",
+    otLiveFeed: "情資列表",
     darkPrinciple:
       "暗網雙來源核實原則：Ransomware.live 與 RansomLook 交叉比對；雙源命中標「可信」。單一來源（含 X OSINT）一律「未核實」，且僅進入 P3 人工複核佇列，不得因監控名單關鍵字自動升 P0，亦不得單獨開立 IR 工單。",
     // 電子製造看板
@@ -68,6 +77,9 @@ const I18N = {
     methodDarkTitle: "暗網雙來源核實",
     methodDarkBody:
       "Ransomware.live × RansomLook 交叉比對。雙源→可信；單源（含 X OSINT）→未核實且僅 P3 人工複核，不得自動升 P0。",
+    methodOtTitle: "OT／ICS 四層來源",
+    methodOtBody:
+      "① CISA ICS＋KEV 每日必查；② Dragos／Claroty／Nozomi／SANS ICS 研究；③ SecurityWeek／Industrial Cyber／Dark Reading／THN ICS 媒體；④ MITRE ATT&CK for ICS 框架（非即時）。官方／研究優先排序。",
     // 共用
     colP0: "緊急",
     colP1: "KEV 在野利用",
@@ -130,7 +142,16 @@ const I18N = {
     highRiskFullHint: "Full high-risk list (no P2 / P3)",
     viewAll: "View all",
     taiwanZoneHint: "Taiwan industry / local-related intel only",
-    otZoneHint: "OT / ICS / industrial control intel only",
+    otZoneHint: "OT / ICS / industrial control and official government early-warning intel",
+    otPrinciple:
+      "① Official gov (daily must): CISA ICS Advisories + KEV cross-check, ICS Advisory Project, TWCERT. ② Research: Dragos / Claroty Team82 / Nozomi / SANS ICS. ③ Media: SecurityWeek ICS, Industrial Cyber, Dark Reading ICS, THN ICS. ④ Framework: MITRE ATT&CK for ICS (not live news; modeling baseline).",
+    otCatalogTitle: "OT/ICS source catalog (subscribe guide)",
+    otCat1: "① Official / government (priority)",
+    otCat2: "② Specialist research",
+    otCat3: "③ Industry news & media",
+    otCat4: "④ Frameworks & knowledge bases",
+    otUsage: "Suggested use",
+    otLiveFeed: "Live intel list",
     darkPrinciple:
       "Dark-web dual-source rule: cross-check Ransomware.live × RansomLook. Dual hit = Credible. Single-source (incl. X OSINT) = Unverified, P3 human-review queue only — watchlist keywords alone cannot auto-P0; never open an IR ticket alone.",
     // EMS board
@@ -171,6 +192,9 @@ const I18N = {
     methodDarkTitle: "Dark-web dual-source verify",
     methodDarkBody:
       "Ransomware.live × RansomLook. Dual → Credible; single (incl. X OSINT) → Unverified P3 review only, no auto-P0.",
+    methodOtTitle: "OT/ICS four source tiers",
+    methodOtBody:
+      "① CISA ICS + KEV daily must-check; ② Dragos/Claroty/Nozomi/SANS ICS research; ③ SecurityWeek/Industrial Cyber/Dark Reading/THN ICS media; ④ MITRE ATT&CK for ICS (not live). Official/research sort first.",
     // Shared
     colP0: "Critical",
     colP1: "KEV in-the-wild",

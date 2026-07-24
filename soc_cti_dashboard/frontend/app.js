@@ -483,6 +483,10 @@ async function staticApi(path, opts) {
     if (!cache.microsoft) cache.microsoft = await loadStaticJson("microsoft-dashboard.json");
     return cache.microsoft;
   }
+  if (path.startsWith("/api/ot-catalog")) {
+    if (!cache.otCatalog) cache.otCatalog = await loadStaticJson("ot-catalog.json");
+    return cache.otCatalog;
+  }
   if (path.startsWith("/api/intel")) {
     if (!cache.intel) cache.intel = await loadStaticJson("intel.json");
     const u = new URL(path, "http://local");
@@ -586,13 +590,7 @@ async function loadOverview() {
   await loadKpis();
   // OT tile count
   const items = await ensureIntel();
-  const otN = items.filter(
-    (i) =>
-      i.layer_id === "L7" ||
-      /cisa ics|dragos|icsa-|icsma-|scada|\bot\b|industrial/i.test(
-        `${i.title} ${i.source_name}`
-      )
-  ).length;
+  const otN = items.filter((i) => isOtItem(i)).length;
   if ($("#tileOt")) $("#tileOt").textContent = otN;
 
   // 最新高風險 P0+P1 前 8（P0 優先）
@@ -784,16 +782,111 @@ async function loadFinance() {
   renderList($("#finOtherList"), other, 60);
 }
 
-async function loadOt() {
-  const items = await ensureIntel();
-  const ot = items.filter(
-    (i) =>
-      i.layer_id === "L7" ||
-      /cisa ics|dragos|icsa-|icsma-|scada|\bot\b|industrial control|plc /i.test(
-        `${i.title} ${i.summary} ${i.source_name}`
+function isOtItem(i) {
+  const tags = Array.isArray(i.tags)
+    ? i.tags
+    : typeof i.tags === "string"
+      ? (() => {
+          try {
+            return JSON.parse(i.tags);
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+  if (
+    tags.some((t) =>
+      /^(ot|ot-gov|ot-it|ot-vendor|ot-research|ot-media|ics|icsma|scada|plc|claroty|nozomi|dragos|sans-ics)$/i.test(
+        String(t)
       )
+    )
+  ) {
+    return true;
+  }
+  if (i.layer_id === "L7") return true;
+  const blob = `${i.title || ""} ${i.summary || ""} ${i.source_name || ""}`;
+  return /cisa ics|icsma|icsa-|dragos|claroty|nozomi|sans ics|industrial cyber|scada|\bot\b|industrial control|plc |jpcert|ncsc|twcert|acsc|cccs|cert-eu|\bbsi\b|nsa csa|cis advisory|official-gov|securityweek ics|dark reading ics/i.test(
+    blob
   );
-  renderList($("#otList"), ot, 60);
+}
+
+function otSortRank(i) {
+  const blob = `${(i.tags || []).join(" ")} ${i.source_name || ""} ${i.title || ""}`.toLowerCase();
+  if (/official-gov|ot-gov|cisa ics|cisa kev|twcert|ics advisory/.test(blob)) return 0;
+  if (/ot-research|dragos|claroty|nozomi|sans ics|sansics/.test(blob)) return 1;
+  if (/ot-media|securityweek|industrial cyber|dark reading|thn ics|infosec/.test(blob))
+    return 2;
+  return 3;
+}
+
+async function loadOtCatalog() {
+  const el = $("#otCatalog");
+  if (!el) return;
+  let data = null;
+  try {
+    data = await api("/api/ot-catalog");
+  } catch {
+    data = null;
+  }
+  if (!data || !data.categories) {
+    el.innerHTML = "";
+    return;
+  }
+  const zh = currentLang === "zh";
+  const catTitle = (c) => (zh ? c.name_zh : c.name_en);
+  const role = (s) => (zh ? s.role_zh : s.role_en);
+  const usage = (s) => (zh ? s.usage_zh : s.usage_en);
+  const parts = [`<h3 class="ot-cat-heading">${t("otCatalogTitle")}</h3>`];
+  for (const c of data.categories) {
+    const srcs = (data.by_category && data.by_category[String(c.id)]) || [];
+    parts.push(`<details class="ot-cat-block" ${c.id === 1 ? "open" : ""}>`);
+    parts.push(`<summary><strong>${catTitle(c)}</strong> · ${srcs.length}</summary>`);
+    if (c.note_zh || c.note_en) {
+      parts.push(
+        `<p class="ot-cat-note">${zh ? c.note_zh || "" : c.note_en || ""}</p>`
+      );
+    }
+    parts.push(`<ul class="ot-cat-list">`);
+    for (const s of srcs) {
+      const link = s.url
+        ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer">${s.name}</a>`
+        : s.name;
+      const badge = s.ingest === "reference" || s.priority === "framework"
+        ? `<span class="pill p3">ref</span>`
+        : s.priority === "daily_must"
+          ? `<span class="pill p0">must</span>`
+          : s.ingest
+            ? `<span class="pill p2">${s.ingest}</span>`
+            : "";
+      parts.push(
+        `<li>${badge} ${link}` +
+          `<div class="ot-cat-role">${role(s) || ""}</div>` +
+          (usage(s)
+            ? `<div class="ot-cat-usage"><span class="muted">${t("otUsage")}:</span> ${usage(s)}</div>`
+            : "") +
+          `</li>`
+      );
+    }
+    parts.push(`</ul></details>`);
+  }
+  parts.push(`<h3 class="ot-cat-heading">${t("otLiveFeed")}</h3>`);
+  el.innerHTML = parts.join("");
+}
+
+async function loadOt() {
+  await loadOtCatalog();
+  const items = await ensureIntel();
+  const ot = items.filter((i) => isOtItem(i)).sort((a, b) => {
+    const ar = otSortRank(a);
+    const br = otSortRank(b);
+    if (ar !== br) return ar - br;
+    if (a.priority !== b.priority) {
+      const order = { P0: 0, P1: 1, P2: 2, P3: 3 };
+      return (order[a.priority] ?? 9) - (order[b.priority] ?? 9);
+    }
+    return 0;
+  });
+  renderList($("#otList"), ot, 80);
 }
 
 async function loadDark() {

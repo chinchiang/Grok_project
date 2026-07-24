@@ -37,9 +37,55 @@ CISA_KEV_MIRRORS = (
 EPSS_API = "https://api.first.org/data/v1/epss"
 # Official CISA advisory RSS (often blocked by Akamai/WAF from some networks)
 CISA_ICS_RSS = "https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml"
+CISA_ICS_MEDICAL_RSS = (
+    "https://www.cisa.gov/cybersecurity-advisories/ics-medical-advisories.xml"
+)
+CISA_ALERTS_RSS = "https://www.cisa.gov/cybersecurity-advisories/alerts.xml"
+CISA_CYBER_ADVISORIES_RSS = (
+    "https://www.cisa.gov/cybersecurity-advisories/cybersecurity-advisories.xml"
+)
+CISA_NEWS_RSS = "https://www.cisa.gov/news.xml"
 CISA_ADVISORIES_RSS_CANDIDATES = (
     "https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml",
     "https://www.cisa.gov/cybersecurity-advisories/all.xml",
+    CISA_ICS_MEDICAL_RSS,
+)
+
+# --- OT/IT 官方與政府級預警來源（優先訂閱）---
+# National CERTs / civil cyber agencies. Prefer official RSS; Google News site:
+# mirrors for WAF / cloud-egress blocks (GitHub Actions).
+NCSC_UK_ALL_RSS = "https://www.ncsc.gov.uk/api/1/services/v1/all-rss-feed.xml"
+NCSC_UK_REPORT_RSS = "https://www.ncsc.gov.uk/api/1/services/v1/report-rss-feed.xml"
+NCSC_UK_NEWS_RSS = "https://www.ncsc.gov.uk/api/1/services/v1/news-rss-feed.xml"
+JPCERT_EN_RSS = "https://www.jpcert.or.jp/english/rss/jpcert-en.rdf"
+JPCERT_JA_RSS = "https://www.jpcert.or.jp/rss/jpcert.rdf"
+CIS_ADVISORIES_RSS = "https://www.cisecurity.org/feed/advisories"
+CIS_ALERTS_RSS = "https://www.cisecurity.org/feed/alert"
+# ACSC / CCCS / CERT-EU / NSA often lack stable public RSS → GNews site mirrors
+ACSC_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:cyber.gov.au+(advisory+OR+alert+OR+vulnerability+OR+ransomware+OR+OT+OR+ICS)"
+    "&hl=en-AU&gl=AU&ceid=AU:en"
+)
+CCCS_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:cyber.gc.ca+(advisory+OR+alert+OR+vulnerability+OR+ransomware+OR+ICS)"
+    "&hl=en-CA&gl=CA&ceid=CA:en"
+)
+CERT_EU_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:cert.europa.eu+(advisory+OR+alert+OR+vulnerability+OR+threat)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+NSA_CYBER_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:nsa.gov+(cybersecurity+advisory+OR+%22Cybersecurity+Advisory%22+OR+CSA)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+BSI_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:bsi.bund.de+(Cyber-Sicherheitswarnung+OR+advisory+OR+Schwachstelle+OR+ICS)"
+    "&hl=de&gl=DE&ceid=DE:de"
 )
 # Community mirror of CISA ICS advisories (CSV) — used when official RSS returns 403
 # https://github.com/icsadvprj/ICS-Advisory-Project
@@ -82,6 +128,59 @@ DRAGOS_RSS_CANDIDATES = (
 DRAGOS_GNEWS_RSS = (
     "https://news.google.com/rss/search?"
     "q=site:dragos.com+(OT+OR+ICS+OR+industrial+OR+advisory+OR+threat)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+# —— 2. 專業 OT／ICS 威脅研究機構 ——
+CLAROTY_RSS_CANDIDATES = (
+    "https://claroty.com/feed",
+    "https://claroty.com/blog/feed",
+    "https://claroty.com/team82/research/rss",
+)
+CLAROTY_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:claroty.com+(Team82+OR+OT+OR+ICS+OR+SCADA+OR+CPS+OR+vulnerability)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+NOZOMI_RSS_CANDIDATES = (
+    "https://www.nozominetworks.com/blog/feed",
+    "https://www.nozominetworks.com/feed",
+)
+NOZOMI_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:nozominetworks.com+(OT+OR+ICS+OR+IoT+OR+vulnerability+OR+report)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+SANS_ICS_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:sans.org+(ICS+OR+%22industrial+control%22+OR+%22OT+security%22+OR+SCADA)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+# —— 3. 產業新聞與專題媒體（ICS/OT 專區）——
+SECURITYWEEK_ICS_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:securityweek.com+(ICS+OR+OT+OR+SCADA+OR+%22industrial+control%22+OR+PLC)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+INDUSTRIAL_CYBER_RSS = "https://industrialcyber.co/feed/"
+INDUSTRIAL_CYBER_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:industrialcyber.co+(OT+OR+ICS+OR+SCADA+OR+vulnerability)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+DARKREADING_ICS_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:darkreading.com+(ICS+OR+OT+OR+SCADA+OR+%22industrial+control%22"
+    "+OR+path:/ics-ot-security)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+THN_ICS_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:thehackernews.com+(ICS+OR+SCADA+OR+%22industrial+control%22+OR+PLC+OR+OT+security)"
+    "&hl=en-US&gl=US&ceid=US:en"
+)
+INFOSECURITY_ICS_GNEWS_RSS = (
+    "https://news.google.com/rss/search?"
+    "q=site:infosecurity-magazine.com+(ICS+OR+OT+OR+SCADA+OR+%22industrial+control%22)"
     "&hl=en-US&gl=US&ceid=US:en"
 )
 # Fortinet PSIRT / FortiGuard IR advisories
@@ -240,10 +339,279 @@ INTEL_FEEDS: list[dict] = [
         "layer_id": "L7",
         "name": "Dragos (OT)",
         "url": DRAGOS_RSS_CANDIDATES[0],
-        "fallback_url": DRAGOS_GNEWS_RSS,
+        "fallback_url": DRAGOS_RSS_CANDIDATES[1],
+        "fallback_urls": [DRAGOS_GNEWS_RSS],
         "force_all": True,
         "max_items": 20,
         "darkweb_indirect": False,
+        "extra_tags": ["ot", "ot-research", "ot-vendor", "dragos"],
+        "title_prefix": "🔬 Dragos",
+    },
+    # —— 2. 專業 OT／ICS 威脅研究機構 ——
+    {
+        "source_id": "claroty_team82_rss",
+        "layer_id": "L7",
+        "name": "Claroty Team82",
+        "url": CLAROTY_RSS_CANDIDATES[0],
+        "fallback_url": CLAROTY_RSS_CANDIDATES[1],
+        "fallback_urls": [CLAROTY_RSS_CANDIDATES[2], CLAROTY_GNEWS_RSS],
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot", "ot-research", "ot-vendor", "claroty", "cps"],
+        "title_prefix": "🔬 Claroty",
+    },
+    {
+        "source_id": "nozomi_labs_rss",
+        "layer_id": "L7",
+        "name": "Nozomi Networks Labs",
+        "url": NOZOMI_RSS_CANDIDATES[0],
+        "fallback_url": NOZOMI_RSS_CANDIDATES[1],
+        "fallback_urls": [NOZOMI_GNEWS_RSS],
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot", "ot-research", "ot-vendor", "nozomi"],
+        "title_prefix": "🔬 Nozomi",
+    },
+    {
+        "source_id": "sans_ics_gnews",
+        "layer_id": "L7",
+        "name": "SANS ICS (Google News)",
+        "url": SANS_ICS_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 15,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot", "ot-research", "sans-ics"],
+        "title_prefix": "📚 SANS ICS",
+    },
+    # —— 3. 產業新聞與專題媒體（ICS/OT）——
+    {
+        "source_id": "securityweek_ics_gnews",
+        "layer_id": "L7",
+        "name": "SecurityWeek ICS/OT",
+        "url": SECURITYWEEK_ICS_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot", "ot-media", "securityweek", "ics"],
+        "title_prefix": "📰 SW ICS/OT",
+    },
+    {
+        "source_id": "industrial_cyber_rss",
+        "layer_id": "L7",
+        "name": "Industrial Cyber",
+        "url": INDUSTRIAL_CYBER_RSS,
+        "fallback_url": INDUSTRIAL_CYBER_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 25,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot", "ot-media", "industrial-cyber"],
+        "title_prefix": "📰 Industrial Cyber",
+    },
+    {
+        "source_id": "darkreading_ics_gnews",
+        "layer_id": "L7",
+        "name": "Dark Reading ICS/OT",
+        "url": DARKREADING_ICS_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot", "ot-media", "darkreading", "ics"],
+        "title_prefix": "📰 DR ICS/OT",
+    },
+    {
+        "source_id": "thn_ics_gnews",
+        "layer_id": "L7",
+        "name": "The Hacker News ICS",
+        "url": THN_ICS_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 15,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot", "ot-media", "thn", "ics"],
+        "title_prefix": "📰 THN ICS",
+    },
+    {
+        "source_id": "infosecurity_ics_gnews",
+        "layer_id": "L7",
+        "name": "Infosecurity Magazine ICS",
+        "url": INFOSECURITY_ICS_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 12,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot", "ot-media", "infosecurity", "ics"],
+        "title_prefix": "📰 Infosec ICS",
+    },
+    # —— 1. 官方與政府級預警來源（優先訂閱）OT/IT ——
+    # CISA family (US) — ICS / alerts / cyber advisories / news
+    {
+        "source_id": "cisa_ics_medical_rss",
+        "layer_id": "L7",
+        "name": "CISA ICS Medical Advisories",
+        "url": CISA_ICS_MEDICAL_RSS,
+        "fallback_url": (
+            "https://news.google.com/rss/search?"
+            "q=site:cisa.gov+(ICSMA+OR+%22ICS+Medical%22+OR+medical+device)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "force_all": True,
+        "max_items": 25,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot", "ot-gov", "official-gov", "cisa", "ics", "medical"],
+        "title_prefix": "🏥 CISA ICSMA",
+    },
+    {
+        "source_id": "cisa_alerts_rss",
+        "layer_id": "L1",
+        "name": "CISA Alerts",
+        "url": CISA_ALERTS_RSS,
+        "fallback_url": (
+            "https://news.google.com/rss/search?"
+            "q=site:cisa.gov+(Alert+OR+AA2+OR+%22Cybersecurity+Alert%22)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "force_all": True,
+        "max_items": 25,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "ot-gov", "official-gov", "cisa", "alert"],
+        "title_prefix": "🚨 CISA Alert",
+    },
+    {
+        "source_id": "cisa_cyber_advisories_rss",
+        "layer_id": "L1",
+        "name": "CISA Cybersecurity Advisories",
+        "url": CISA_CYBER_ADVISORIES_RSS,
+        "fallback_url": (
+            "https://news.google.com/rss/search?"
+            "q=site:cisa.gov+%22Cybersecurity+Advisory%22"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "force_all": True,
+        "max_items": 30,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "ot-gov", "official-gov", "cisa", "advisory"],
+        "title_prefix": "🇺🇸 CISA CSA",
+    },
+    {
+        "source_id": "cisa_news_rss",
+        "layer_id": "L1",
+        "name": "CISA News",
+        "url": CISA_NEWS_RSS,
+        "fallback_url": (
+            "https://news.google.com/rss/search?"
+            "q=site:cisa.gov/news+(cyber+OR+critical+infrastructure+OR+ICS)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "official-gov", "cisa", "news"],
+        "title_prefix": "🇺🇸 CISA News",
+    },
+    # UK NCSC
+    {
+        "source_id": "ncsc_uk_all_rss",
+        "layer_id": "L2",
+        "name": "UK NCSC (all)",
+        "url": NCSC_UK_ALL_RSS,
+        "fallback_url": NCSC_UK_REPORT_RSS,
+        "fallback_urls": [NCSC_UK_NEWS_RSS],
+        "force_all": True,
+        "max_items": 25,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "ot-gov", "official-gov", "ncsc", "uk"],
+        "title_prefix": "🇬🇧 NCSC",
+    },
+    # JPCERT/CC (Japan — electronics supply-chain adjacent)
+    {
+        "source_id": "jpcert_en_rss",
+        "layer_id": "L2",
+        "name": "JPCERT/CC (EN)",
+        "url": JPCERT_EN_RSS,
+        "fallback_url": JPCERT_JA_RSS,
+        "fallback_urls": [
+            "https://news.google.com/rss/search?"
+            "q=site:jpcert.or.jp+(advisory+OR+alert+OR+vulnerability+OR+ICS)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ],
+        "force_all": True,
+        "max_items": 25,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "ot-gov", "official-gov", "jpcert", "jp"],
+        "title_prefix": "🇯🇵 JPCERT",
+    },
+    # CIS (Multi-State ISAC / critical infrastructure alerts — US state/local)
+    {
+        "source_id": "cis_advisories_rss",
+        "layer_id": "L2",
+        "name": "CIS Advisories",
+        "url": CIS_ADVISORIES_RSS,
+        "fallback_url": CIS_ALERTS_RSS,
+        "force_all": True,
+        "max_items": 20,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "ot-gov", "official-gov", "cis", "ms-isac"],
+        "title_prefix": "🛡️ CIS",
+    },
+    # ACSC Australia (GNews mirror — stable public RSS varies)
+    {
+        "source_id": "acsc_gnews",
+        "layer_id": "L2",
+        "name": "ACSC Australia (Google News)",
+        "url": ACSC_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 15,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "ot-gov", "official-gov", "acsc", "au"],
+        "title_prefix": "🇦🇺 ACSC",
+    },
+    # CCCS Canada
+    {
+        "source_id": "cccs_gnews",
+        "layer_id": "L2",
+        "name": "CCCS Canada (Google News)",
+        "url": CCCS_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 15,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "ot-gov", "official-gov", "cccs", "ca"],
+        "title_prefix": "🇨🇦 CCCS",
+    },
+    # CERT-EU
+    {
+        "source_id": "cert_eu_gnews",
+        "layer_id": "L2",
+        "name": "CERT-EU (Google News)",
+        "url": CERT_EU_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 15,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "ot-gov", "official-gov", "cert-eu", "eu"],
+        "title_prefix": "🇪🇺 CERT-EU",
+    },
+    # NSA Cybersecurity Advisories
+    {
+        "source_id": "nsa_cyber_gnews",
+        "layer_id": "L1",
+        "name": "NSA Cybersecurity Advisories (Google News)",
+        "url": NSA_CYBER_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 12,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "ot-gov", "official-gov", "nsa"],
+        "title_prefix": "🇺🇸 NSA CSA",
+    },
+    # BSI Germany
+    {
+        "source_id": "bsi_gnews",
+        "layer_id": "L2",
+        "name": "BSI Germany (Google News)",
+        "url": BSI_GNEWS_RSS,
+        "force_all": True,
+        "max_items": 12,
+        "darkweb_indirect": False,
+        "extra_tags": ["ot-it", "ot-gov", "official-gov", "bsi", "de"],
+        "title_prefix": "🇩🇪 BSI",
     },
     # Microsoft official / TI (feeds into is_microsoft classification)
     {
@@ -481,6 +849,20 @@ X_OSINT_ACCOUNTS = [
         "max_items": 12,
     },
     # —— 三、專業媒體：BleepingComputer / DFIR Report 已用官方 RSS（見 INTEL_FEEDS）——
+    # —— 四、OT／ICS 研究（SANS ICS 公開帳號）——
+    {
+        "handle": "SANSICS",
+        "category": "ot-research",
+        "blog_rss": None,
+        "gnews_rss": (
+            "https://news.google.com/rss/search?q="
+            "(%22SANS+ICS%22+OR+SANSICS+OR+%22@SANSICS%22)"
+            "+(ICS+OR+OT+OR+SCADA+OR+industrial+OR+security)"
+            "&hl=en-US&gl=US&ceid=US:en"
+        ),
+        "profile": "https://x.com/SANSICS",
+        "max_items": 15,
+    },
 ]
 # Backward-compatible alias
 X_DARKWEB_ACCOUNTS = X_OSINT_ACCOUNTS
@@ -514,7 +896,13 @@ LAYERS = [
         "id": "L1",
         "name_zh": "官方權威漏洞",
         "name_en": "Official / Authority Vuln",
-        "sources": ["CISA KEV", "FIRST EPSS top scores", "CVE/NVD"],
+        "sources": [
+            "CISA KEV",
+            "CISA Alerts / Cybersecurity Advisories / News",
+            "NSA Cybersecurity Advisories",
+            "FIRST EPSS top scores",
+            "CVE/NVD",
+        ],
         "schedule_hint": "hourly / daily",
     },
     {
@@ -522,12 +910,16 @@ LAYERS = [
         "name_zh": "國家 CERT／廠商 PSIRT",
         "name_en": "National CERT / Vendor PSIRT",
         "sources": [
-            "TWCERT/CC",
+            "TWCERT/CC（優先）",
+            "UK NCSC",
+            "JPCERT/CC",
+            "CIS Advisories / MS-ISAC",
+            "ACSC / CCCS / CERT-EU / BSI",
             "Fortinet PSIRT",
             "Palo Alto Unit 42",
             "Vendor PSIRT",
         ],
-        "schedule_hint": "daily",
+        "schedule_hint": "daily (gov CERTs = priority subscribe)",
     },
     {
         "id": "L3",
@@ -579,13 +971,249 @@ LAYERS = [
         "name_zh": "OT／ICS 專屬",
         "name_en": "OT / ICS Specialized",
         "sources": [
-            "CISA ICS Advisories",
-            "Dragos (OT)",
-            "ICS Advisory Project mirror",
+            "① CISA ICS／KEV／ICS 專區（優先，每日必查）",
+            "ICS Advisory Project mirror + KEV 關聯",
+            "② Dragos／Claroty Team82／Nozomi／SANS ICS",
+            "③ SecurityWeek ICS／Industrial Cyber／Dark Reading ICS／THN ICS",
+            "④ MITRE ATT&CK for ICS（知識庫）",
+            "National CERTs (TWCERT／NCSC／JPCERT…)",
         ],
-        "schedule_hint": "daily (RSS or GitHub CSV / Google News fallback)",
+        "schedule_hint": "daily (gov + research + media; frameworks = reference)",
     },
 ]
+
+# Full OT/IT source catalog (4 categories) for UI / docs / API
+# cat: 1=gov priority, 2=research, 3=media, 4=framework (reference only)
+OT_IT_SOURCE_CATALOG: list[dict] = [
+    # —— 1. 官方與政府級預警（優先訂閱）——
+    {
+        "cat": 1,
+        "id": "cisa_ics",
+        "name": "CISA ICS Advisories",
+        "url": "https://www.cisa.gov/news-events/ics-advisories",
+        "role_zh": "美國 CISA 最核心 ICS／OT 漏洞預警（PLC、SCADA、HMI、工程軟體等），含 CVE 與緩解措施；幾乎每日更新。建議訂閱 RSS／Email，設為每日必查。",
+        "role_en": "Core US CISA ICS/OT advisories (PLC/SCADA/HMI). Near-daily; CVE + mitigations. Subscribe RSS/email; daily must-check.",
+        "usage_zh": "訂閱 RSS 或 Email；搭配 ICS Advisory Project 做視覺化與 CSV 匯出",
+        "usage_en": "Subscribe RSS/Email; pair with ICS Advisory Project for dashboard/CSV",
+        "layer": "L7",
+        "ingest": "rss+csv_mirror",
+        "priority": "daily_must",
+    },
+    {
+        "cat": 1,
+        "id": "cisa_kev",
+        "name": "CISA Known Exploited Vulnerabilities (KEV)",
+        "url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog",
+        "role_zh": "已確認遭實際利用的漏洞清單，含大量 ICS 相關項目；作為優先修補清單，與 ICS Advisories 交叉比對。",
+        "role_en": "Confirmed in-the-wild vulns (many ICS-relevant). Patch priority list; cross-check with ICS Advisories.",
+        "usage_zh": "優先修補清單；與 ICS Advisories 交叉比對",
+        "usage_en": "Priority patch list; cross-check ICS Advisories",
+        "layer": "L1",
+        "ingest": "json",
+        "priority": "daily_must",
+    },
+    {
+        "cat": 1,
+        "id": "cisa_ics_topic",
+        "name": "CISA Industrial Control Systems 專區",
+        "url": "https://www.cisa.gov/topics/industrial-control-systems",
+        "role_zh": "彙整 ICS 指導文件、醫療設備建議、最佳實務；政策與框架參考。",
+        "role_en": "ICS guidance hub: medical device advice, best practices, policy frameworks.",
+        "usage_zh": "政策與框架參考（非即時 feed）",
+        "usage_en": "Policy/framework reference (not a live feed)",
+        "layer": "L7",
+        "ingest": "reference",
+        "priority": "reference",
+    },
+    {
+        "cat": 1,
+        "id": "ics_advisory_project",
+        "name": "ICS Advisory Project",
+        "url": "https://www.icsadvisoryproject.com/",
+        "role_zh": "開源專案，將 CISA ICS Advisories 轉成 Dashboard + CSV，並提供 KEV 關聯分析。",
+        "role_en": "Open project: CISA ICS → dashboard/CSV + KEV correlation.",
+        "usage_zh": "內部資產漏洞對應與優先排序；本系統 CSV 鏡像備援",
+        "usage_en": "Asset-to-vuln mapping; used as CSV mirror fallback",
+        "layer": "L7",
+        "ingest": "csv_mirror",
+        "priority": "daily",
+    },
+    {
+        "cat": 1,
+        "id": "cisa_icsma",
+        "name": "CISA ICS Medical Advisories",
+        "url": "https://www.cisa.gov/news-events/ics-medical-advisories",
+        "role_zh": "醫療器材／ICS 醫療安全公告",
+        "role_en": "ICS medical device advisories",
+        "usage_zh": "醫療／生命科學 OT 環境優先關注",
+        "usage_en": "Priority for medical/life-science OT",
+        "layer": "L7",
+        "ingest": "rss",
+        "priority": "daily",
+    },
+    {
+        "cat": 1,
+        "id": "twcert",
+        "name": "TWCERT/CC",
+        "url": "https://www.twcert.org.tw/",
+        "role_zh": "台灣 CERT：資安新聞 + TVN 漏洞公告",
+        "role_en": "Taiwan CERT: news + TVN",
+        "usage_zh": "本地法規／供應鏈相關必訂",
+        "usage_en": "Must-subscribe for local/regulatory context",
+        "layer": "L2",
+        "ingest": "rss",
+        "priority": "daily",
+    },
+    # —— 2. 專業 OT／ICS 威脅研究機構 ——
+    {
+        "cat": 2,
+        "id": "dragos",
+        "name": "Dragos",
+        "url": "https://www.dragos.com/blog",
+        "role_zh": "工業控制系統威脅情報；Year in Review、威脅群體（PIPEDREAM、KAMACITE 等）、勒索對工業影響；常結合 MITRE ATT&CK for ICS。",
+        "role_en": "ICS TI: Year in Review, groups (PIPEDREAM/KAMACITE), industrial ransomware; ATT&CK for ICS mapping.",
+        "usage_zh": "威脅建模與 ATT&CK mapping 輸入",
+        "usage_en": "Threat modeling & ATT&CK mapping input",
+        "layer": "L7",
+        "ingest": "rss",
+        "priority": "high",
+    },
+    {
+        "cat": 2,
+        "id": "claroty",
+        "name": "Claroty Team82",
+        "url": "https://claroty.com/team82",
+        "role_zh": "漏洞研究與 CPS 攻擊鏈分析；遠端存取協議濫用、HMI／SCADA 暴露。",
+        "role_en": "Vuln research & CPS kill-chains; remote-access abuse, HMI/SCADA exposure.",
+        "usage_zh": "外網暴露與遠端存取風險評估",
+        "usage_en": "Internet exposure & remote-access risk",
+        "layer": "L7",
+        "ingest": "rss",
+        "priority": "high",
+    },
+    {
+        "cat": 2,
+        "id": "nozomi",
+        "name": "Nozomi Networks Labs",
+        "url": "https://www.nozominetworks.com/blog",
+        "role_zh": "OT／IoT Security Report：協議漏洞、攻擊趨勢、實際案例。",
+        "role_en": "OT/IoT reports: protocol vulns, trends, case studies.",
+        "usage_zh": "協議面威脅與趨勢研判",
+        "usage_en": "Protocol-level threat & trends",
+        "layer": "L7",
+        "ingest": "rss",
+        "priority": "high",
+    },
+    {
+        "cat": 2,
+        "id": "sans_ics",
+        "name": "SANS ICS",
+        "url": "https://www.sans.org",
+        "role_zh": "State of ICS/OT Security 調查、白皮書、5 Critical Controls；X @SANSICS。",
+        "role_en": "State of ICS/OT surveys, whitepapers, 5 Critical Controls; X @SANSICS.",
+        "usage_zh": "實務控制框架與年度態勢",
+        "usage_en": "Practical controls & annual posture",
+        "layer": "L7",
+        "ingest": "gnews+x",
+        "priority": "high",
+    },
+    # —— 3. 產業新聞與專題媒體 ——
+    {
+        "cat": 3,
+        "id": "securityweek_ics",
+        "name": "SecurityWeek ICS/OT",
+        "url": "https://www.securityweek.com/category/ics-ot/",
+        "role_zh": "長期追蹤 ICS 漏洞、事件與會議（含 ICS Cybersecurity Conference）。",
+        "role_en": "ICS vulns, incidents, conferences (ICS Cybersecurity Conference).",
+        "usage_zh": "專題媒體掃描",
+        "usage_en": "Specialist media scan",
+        "layer": "L7",
+        "ingest": "gnews",
+        "priority": "media",
+    },
+    {
+        "cat": 3,
+        "id": "industrial_cyber",
+        "name": "Industrial Cyber",
+        "url": "https://industrialcyber.co/",
+        "role_zh": "專注 OT／ICS／SCADA 新聞、報告與社群；更新頻率高。",
+        "role_en": "OT/ICS/SCADA news, reports, community; high cadence.",
+        "usage_zh": "高頻 OT 新聞流",
+        "usage_en": "High-frequency OT news stream",
+        "layer": "L7",
+        "ingest": "rss",
+        "priority": "media",
+    },
+    {
+        "cat": 3,
+        "id": "darkreading_ics",
+        "name": "Dark Reading ICS/OT Security",
+        "url": "https://www.darkreading.com/ics-ot-security",
+        "role_zh": "實際攻擊案例、國家級威脅與技術分析。",
+        "role_en": "Attack cases, nation-state threats, technical analysis.",
+        "usage_zh": "案例與國家級威脅",
+        "usage_en": "Cases & nation-state OT threats",
+        "layer": "L7",
+        "ingest": "gnews",
+        "priority": "media",
+    },
+    {
+        "cat": 3,
+        "id": "thn_ics",
+        "name": "The Hacker News (ICS Security)",
+        "url": "https://thehackernews.com/search/label/ICS%20Security",
+        "role_zh": "快速掌握重大 ICS 漏洞與事件。",
+        "role_en": "Fast take on major ICS vulns/incidents.",
+        "usage_zh": "重大事件快訊",
+        "usage_en": "Breaking major ICS events",
+        "layer": "L7",
+        "ingest": "gnews",
+        "priority": "media",
+    },
+    {
+        "cat": 3,
+        "id": "infosecurity_ics",
+        "name": "Infosecurity Magazine (ICS)",
+        "url": "https://www.infosecurity-magazine.com/",
+        "role_zh": "轉載重要 ICS 漏洞統計與趨勢。",
+        "role_en": "ICS vulnerability stats and trend coverage.",
+        "usage_zh": "趨勢與統計補強",
+        "usage_en": "Trend/stats reinforcement",
+        "layer": "L7",
+        "ingest": "gnews",
+        "priority": "media",
+    },
+    # —— 4. 框架與知識庫（非即時，但極重要）——
+    {
+        "cat": 4,
+        "id": "mitre_attack_ics",
+        "name": "MITRE ATT&CK for ICS",
+        "url": "https://attack.mitre.org/matrices/ics/",
+        "role_zh": "ICS 專用戰術與技術矩陣（含 Inhibit Response Function 等 ICS 特有技術）；威脅建模與偵測對照基準。",
+        "role_en": "ICS tactics/techniques matrix (e.g. Inhibit Response Function); baseline for threat modeling & detection mapping.",
+        "usage_zh": "非即時新聞；威脅建模、偵測規則與報告對照必備",
+        "usage_en": "Not live news; required for modeling, detection mapping, report alignment",
+        "layer": "L7",
+        "ingest": "reference",
+        "priority": "framework",
+    },
+    {
+        "cat": 4,
+        "id": "mitre_attack_ics_techniques",
+        "name": "MITRE ATT&CK for ICS — Techniques",
+        "url": "https://attack.mitre.org/techniques/ics/",
+        "role_zh": "ICS 技術清單（細項 T-codes），供 SIEM／狩獵規則映射。",
+        "role_en": "ICS technique catalog for SIEM/hunt rule mapping.",
+        "usage_zh": "對應 playbook 與偵測工程",
+        "usage_en": "Map playbooks & detection engineering",
+        "layer": "L7",
+        "ingest": "reference",
+        "priority": "framework",
+    },
+]
+
+# Backward-compatible alias
+OT_IT_GOV_PRIORITY_SOURCES = [s for s in OT_IT_SOURCE_CATALOG if s.get("cat") == 1]
 
 # Taiwan electronics "Big 5" ODM/EMS + listed semiconductor / electronics manufacturing
 TW_ELECTRONICS_WATCHLIST = [
