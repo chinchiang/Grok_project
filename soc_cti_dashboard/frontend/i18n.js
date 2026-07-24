@@ -29,7 +29,7 @@ const I18N = {
     taiwanZoneHint: "僅顯示與臺灣產業／本地相關之情資列表",
     otZoneHint: "僅顯示 OT／ICS／工業控制相關情資",
     darkPrinciple:
-      "暗網雙來源核實原則：Ransomware.live 與 RansomLook 交叉比對；雙源命中標「可信」。單一來源一律「未核實」，且僅進入 P3 人工複核佇列，不得單獨開立 IR 工單。",
+      "暗網雙來源核實原則：Ransomware.live 與 RansomLook 交叉比對；雙源命中標「可信」。單一來源（含 X OSINT）一律「未核實」，且僅進入 P3 人工複核佇列，不得因監控名單關鍵字自動升 P0，亦不得單獨開立 IR 工單。",
     // 電子製造看板
     emsTitle: "🏭 臺灣電子製造監控看板",
     emsDesc:
@@ -67,7 +67,7 @@ const I18N = {
     methodConfC: "單源／暗網間接 · C3 · 不得單獨開單",
     methodDarkTitle: "暗網雙來源核實",
     methodDarkBody:
-      "Ransomware.live × RansomLook 交叉比對。雙源→可信；單源→未核實且僅 P3 人工複核。",
+      "Ransomware.live × RansomLook 交叉比對。雙源→可信；單源（含 X OSINT）→未核實且僅 P3 人工複核，不得自動升 P0。",
     // 共用
     colP0: "緊急",
     colP1: "KEV 在野利用",
@@ -132,7 +132,7 @@ const I18N = {
     taiwanZoneHint: "Taiwan industry / local-related intel only",
     otZoneHint: "OT / ICS / industrial control intel only",
     darkPrinciple:
-      "Dark-web dual-source rule: cross-check Ransomware.live × RansomLook. Dual hit = Credible. Single-source = Unverified, P3 human-review queue only — never open an IR ticket alone.",
+      "Dark-web dual-source rule: cross-check Ransomware.live × RansomLook. Dual hit = Credible. Single-source (incl. X OSINT) = Unverified, P3 human-review queue only — watchlist keywords alone cannot auto-P0; never open an IR ticket alone.",
     // EMS board
     emsTitle: "🏭 TW electronics manufacturing watchboard",
     emsDesc:
@@ -170,7 +170,7 @@ const I18N = {
     methodConfC: "Single-source / indirect dark web · C3 · no solo ticket",
     methodDarkTitle: "Dark-web dual-source verify",
     methodDarkBody:
-      "Ransomware.live × RansomLook. Dual → Credible; single → Unverified P3 human review only.",
+      "Ransomware.live × RansomLook. Dual → Credible; single (incl. X OSINT) → Unverified P3 review only, no auto-P0.",
     // Shared
     colP0: "Critical",
     colP1: "KEV in-the-wild",

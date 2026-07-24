@@ -2,11 +2,17 @@
 P0–P3 exclusive priority assignment (first match wins, no mixing).
 
   P0  KEV + known ransomware campaign
-      OR TW electronics/semi watchlist + ransomware
+      OR TW electronics/semi watchlist + ransomware (multi-source / not forced-P3)
       OR TW industry + KEV
   P1  In CISA KEV and not already P0  (never mixed into P2/P3)
   P2  Not KEV; EPSS >= 0.5 OR multi-source credible
-  P3  Everything else (incl. single-source dark-web review queue)
+  P3  Everything else, AND single-source unverified OSINT/dark-web
+      (force_p3_review=True) — never elevate to P0/P1 on keyword alone
+
+Important:
+  Unverified single-source X / leak-site / dual-track news MUST pass
+  force_p3_review=True so Acer+ransomware-style watchlist hits stay P3
+  until dual-sourced. Priority is not proof; verification is separate.
 
 Verification:
   confirmed / credible / unverified + Admiralty hint
@@ -178,7 +184,7 @@ def assign_priority(
     force_p3_review: bool = False,
 ) -> str:
     """Return exactly one of P0|P1|P2|P3 — exclusive, first match wins."""
-    # Spec: single-source dark-web → P3 review queue only
+    # Spec: single-source unverified OSINT/dark-web → P3 review queue only
     if force_p3_review:
         return "P3"
 

@@ -112,8 +112,10 @@ def explain_priority(
     """Return (rationale_zh, rationale_en) for card display 判定依據."""
     if forced_p3_review:
         return (
-            "判定依據：暗網／洩漏站單一來源 → 強制 P3 人工複核佇列（未核實）",
-            "Rationale: single-source dark-web/leak → forced P3 human review (Unverified)",
+            "判定依據：單一來源未核實（X OSINT／暗網間接／洩漏站）→ 強制 P3 人工複核佇列；"
+            "即使命中台灣監控名單＋勒索關鍵字亦不得單獨升 P0",
+            "Rationale: single-source Unverified (X OSINT / dark-web / leak-site) → "
+            "forced P3 human review; TW watchlist + ransomware keywords alone cannot auto-P0",
         )
     if priority == "P0":
         if in_kev and known_ransomware_campaign:

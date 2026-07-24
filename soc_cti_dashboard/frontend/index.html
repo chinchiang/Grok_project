@@ -159,7 +159,7 @@
       <div class="principle-banner">
         <h2 data-i18n="tabDark">🌑 暗網／外洩</h2>
         <div class="principle-box" data-i18n="darkPrinciple">
-          暗網雙來源核實原則：Ransomware.live 與 RansomLook 交叉比對；雙源命中標「可信」。單一來源一律「未核實」，且僅進入 P3 人工複核佇列，不得單獨開立 IR 工單。
+          暗網雙來源核實原則：Ransomware.live 與 RansomLook 交叉比對；雙源命中標「可信」。單一來源（含 X OSINT）一律「未核實」，且僅進入 P3 人工複核佇列，不得因監控名單關鍵字自動升 P0，亦不得單獨開立 IR 工單。
         </div>
       </div>
       <div class="card-list" id="darkList"></div>
@@ -264,7 +264,7 @@
         </article>
         <article class="method-card">
           <h4 data-i18n="methodDarkTitle">暗網雙來源核實</h4>
-          <p data-i18n="methodDarkBody">Ransomware.live × RansomLook 交叉比對。雙源→可信；單源→未核實且僅 P3 人工複核。</p>
+          <p data-i18n="methodDarkBody">Ransomware.live × RansomLook 交叉比對。雙源→可信；單源（含 X OSINT）→未核實且僅 P3 人工複核，不得自動升 P0。</p>
         </article>
       </div>
     </section>

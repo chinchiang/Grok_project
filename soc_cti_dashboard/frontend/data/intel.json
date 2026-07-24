@@ -287,7 +287,7 @@
       "title_en": "[Unverified] 🇹🇼 TW Electronics/Semi｜🔐 Ransom victim｜Velum — claimed by the gentlemen",
       "summary": "受害組織：Velum\n勒索集團：the gentlemen\n國家：—｜產業：—\n網站：—\n發現/公布：2026-07-23 11:21:16.529418 / 2026-07-23 11:21:16.529418\nvelum.biz zoominfo.com/c/velum-inc/372599932 We are making some files publicly available. We have hundreds of gigabytes of your files, including database projects, client contracts, personal data, and documents. If you do not want to face the consequences of a data breach, please contact us; otherwise, everything will be published. VELUM is a French manufacturer of professional lighting solutions based in Bischoffsheim, Alsace, operating since 1975. The company specializes in designing, developing, and manufacturing custom LED lighting fixtures for both indoor and outdoor environments. As a family-owned business, VELUM provides comprehensive support, including lighting studies, technical advice, and tailored solutions for professionals across various sectors\n來源：RansomLook（暗網洩漏站間接 — 單源未核實）",
       "summary_en": "Victim: Velum\nGroup: the gentlemen\nCountry: — | Sector: —\nWebsite: —\nDiscovered/Published: 2026-07-23 11:21:16.529418 / 2026-07-23 11:21:16.529418\nvelum.biz zoominfo.com/c/velum-inc/372599932 We are making some files publicly available. We have hundreds of gigabytes of your files, including database projects, client contracts, personal data, and documents. If you do not want to face the consequences of a data breach, please contact us; otherwise, everything will be published. VELUM is a French manufacturer of professional lighting solutions based in Bischoffsheim, Alsace, operating since 1975. The company specializes in designing, developing, and manufacturing custom LED lighting fixtures for both indoor and outdoor environments. As a family-owned business, VELUM provides comprehensive support, including lighting studies, technical advice, and tailored solutions for professionals across various sectors\nSource: RansomLook (indirect leak-site — single-source unverified)",
-      "priority": "P0",
+      "priority": "P3",
       "verification": "unverified",
       "layer_id": "L6",
       "source_name": "RansomLook",
@@ -330,11 +330,19 @@
         "leak-site",
         "darkweb-indirect",
         "unverified",
-        "tw-industry"
+        "tw-industry",
+        "p3-review"
       ],
       "assets": [],
       "evidence_count": 1,
-      "is_live": false
+      "is_live": false,
+      "priority_rationale": "判定依據：單一來源未核實（X OSINT／暗網間接／洩漏站）→ 強制 P3 人工複核佇列；即使命中台灣監控名單＋勒索關鍵字亦不得單獨升 P0",
+      "priority_rationale_en": "Rationale: single-source Unverified (X OSINT / dark-web / leak-site) → forced P3 human review; TW watchlist + ransomware keywords alone cannot auto-P0",
+      "sop_id": "T-07",
+      "sop_zh": "T-07 未核實暗網：雙源複核佇列 → 不得單獨開立工單",
+      "sop_en": "T-07 Unverified dark-web: dual-source review queue — no ticket alone",
+      "owner": "CTI Analyst",
+      "sla_hours": 72
     },
     {
       "id": "93ad3cdc8917ad2b596b60d4",
@@ -342,7 +350,7 @@
       "title_en": "[Unverified] 🇹🇼 TW Electronics/Semi｜🔐 Ransom victim｜menlosystems.com — claimed by settra",
       "summary": "受害組織：menlosystems.com\n勒索集團：settra\n國家：—｜產業：—\n網站：/leaks/353af8f9-6b42-422a-b973-53d3118bd680\n發現/公布：2026-07-23 10:17:38 / 2026-07-23 10:17:38\nRevenue: 20,000,000 Size: 240GB | FREQUENCY COMB ON TWO FRONTS A German company synchronizes time for the Pentagon while simultaneously supplying the same technology to Chinese military universities prohibited under American law. --- PROLOGUE We have an archive of data from Menlo Systems GmbH — a small German company based in Planegg, near Munich, whose products sit at the heart of American military satellites, international atomic clocks, and the radar systems of German defense contractor Hensoldt. The company receives no coverage in the business press, sells nothing to retail customers, and has no public equity — it is known only to metrological physicists and officers within the U.S. Department of Defense's advanced research division. The archive spans 235 gigabytes : more than a decade\n來源：RansomLook（暗網洩漏站間接 — 單源未核實）",
       "summary_en": "Victim: menlosystems.com\nGroup: settra\nCountry: — | Sector: —\nWebsite: /leaks/353af8f9-6b42-422a-b973-53d3118bd680\nDiscovered/Published: 2026-07-23 10:17:38 / 2026-07-23 10:17:38\nRevenue: 20,000,000 Size: 240GB | FREQUENCY COMB ON TWO FRONTS A German company synchronizes time for the Pentagon while simultaneously supplying the same technology to Chinese military universities prohibited under American law. --- PROLOGUE We have an archive of data from Menlo Systems GmbH — a small German company based in Planegg, near Munich, whose products sit at the heart of American military satellites, international atomic clocks, and the radar systems of German defense contractor Hensoldt. The company receives no coverage in the business press, sells nothing to retail customers, and has no public equity — it is known only to metrological physicists and officers within the U.S. Department of Defense's advanced research division. The archive spans 235 gigabytes : more than a decade\nSource: RansomLook (indirect leak-site — single-source unverified)",
-      "priority": "P0",
+      "priority": "P3",
       "verification": "unverified",
       "layer_id": "L6",
       "source_name": "RansomLook",
@@ -385,11 +393,19 @@
         "leak-site",
         "darkweb-indirect",
         "unverified",
-        "tw-industry"
+        "tw-industry",
+        "p3-review"
       ],
       "assets": [],
       "evidence_count": 1,
-      "is_live": false
+      "is_live": false,
+      "priority_rationale": "判定依據：單一來源未核實（X OSINT／暗網間接／洩漏站）→ 強制 P3 人工複核佇列；即使命中台灣監控名單＋勒索關鍵字亦不得單獨升 P0",
+      "priority_rationale_en": "Rationale: single-source Unverified (X OSINT / dark-web / leak-site) → forced P3 human review; TW watchlist + ransomware keywords alone cannot auto-P0",
+      "sop_id": "T-07",
+      "sop_zh": "T-07 未核實暗網：雙源複核佇列 → 不得單獨開立工單",
+      "sop_en": "T-07 Unverified dark-web: dual-source review queue — no ticket alone",
+      "owner": "CTI Analyst",
+      "sla_hours": 72
     },
     {
       "id": "d0601572b0d51c016d2e9230",
@@ -397,7 +413,7 @@
       "title_en": "[Unverified] 🇹🇼 TW Electronics/Semi｜🔐 Ransom victim｜Wunschkind Klinik Dr Brunbauer — claimed by the gentlemen",
       "summary": "受害組織：Wunschkind Klinik Dr Brunbauer\n勒索集團：the gentlemen\n國家：—｜產業：—\n網站：—\n發現/公布：2026-07-23 12:40:26.110262 / 2026-07-23 12:40:26.110262\nwunschkind.at zoominfo.com/c/wunschkind-klinik-dr-brunbauer/1320140781 We have hundreds of gigabytes of your files, including database projects, client contracts, \npersonal data and documents, medical data, medical histories, treatment records, medical reports, and more—all of which constitute critically important information. \nIf you do not want to face the consequences of a data breach, please contact us; otherwise, everything will be published. fertility clinic in Vienna, Austria, led by Dr. Brunbauer. Located in the city center, the clinic specializes in fertility treatments including IVF, insemination, diagnostics, hormone therapy, egg donation, and cryopreservation. It is a recognized partner clinic of Austria's IVF-Fonds program.\n來源：RansomLook（暗網洩漏站間接 — 單源未核實）",
       "summary_en": "Victim: Wunschkind Klinik Dr Brunbauer\nGroup: the gentlemen\nCountry: — | Sector: —\nWebsite: —\nDiscovered/Published: 2026-07-23 12:40:26.110262 / 2026-07-23 12:40:26.110262\nwunschkind.at zoominfo.com/c/wunschkind-klinik-dr-brunbauer/1320140781 We have hundreds of gigabytes of your files, including database projects, client contracts, \npersonal data and documents, medical data, medical histories, treatment records, medical reports, and more—all of which constitute critically important information. \nIf you do not want to face the consequences of a data breach, please contact us; otherwise, everything will be published. fertility clinic in Vienna, Austria, led by Dr. Brunbauer. Located in the city center, the clinic specializes in fertility treatments including IVF, insemination, diagnostics, hormone therapy, egg donation, and cryopreservation. It is a recognized partner clinic of Austria's IVF-Fonds program.\nSource: RansomLook (indirect leak-site — single-source unverified)",
-      "priority": "P0",
+      "priority": "P3",
       "verification": "unverified",
       "layer_id": "L6",
       "source_name": "RansomLook",
@@ -440,11 +456,19 @@
         "leak-site",
         "darkweb-indirect",
         "unverified",
-        "tw-industry"
+        "tw-industry",
+        "p3-review"
       ],
       "assets": [],
       "evidence_count": 1,
-      "is_live": false
+      "is_live": false,
+      "priority_rationale": "判定依據：單一來源未核實（X OSINT／暗網間接／洩漏站）→ 強制 P3 人工複核佇列；即使命中台灣監控名單＋勒索關鍵字亦不得單獨升 P0",
+      "priority_rationale_en": "Rationale: single-source Unverified (X OSINT / dark-web / leak-site) → forced P3 human review; TW watchlist + ransomware keywords alone cannot auto-P0",
+      "sop_id": "T-07",
+      "sop_zh": "T-07 未核實暗網：雙源複核佇列 → 不得單獨開立工單",
+      "sop_en": "T-07 Unverified dark-web: dual-source review queue — no ticket alone",
+      "owner": "CTI Analyst",
+      "sla_hours": 72
     },
     {
       "id": "bc0d27f82aba306ffb07b4e9",

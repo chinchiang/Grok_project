@@ -479,6 +479,8 @@ async def collect_rss_layer(
                     sources.append("secondary-media-citation")
                     source_count = 2
 
+            # Dark-web-indirect single source → forced P3 (no watchlist auto-P0)
+            force_p3 = bool(darkweb_indirect and source_count < 2)
             priority = assign_priority(
                 in_kev=False,
                 known_ransomware_campaign=False,
@@ -487,6 +489,7 @@ async def collect_rss_layer(
                 epss=None,
                 source_count=source_count,
                 layer_id=layer_id,
+                force_p3_review=force_p3,
             )
             verification, admiralty = assign_verification(
                 in_kev=False,
@@ -2833,6 +2836,8 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                 is_ransom = flags["is_ransomware"] or any(
                     k in blob for k in ("ransom", "勒索", "extortion", "lockbit")
                 )
+                # Spec: single-source X OSINT is always Unverified → P3 review only.
+                # Watchlist + ransomware keywords must NOT auto-elevate to P0.
                 priority = assign_priority(
                     in_kev=False,
                     known_ransomware_campaign=False,
@@ -2841,8 +2846,24 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                     epss=None,
                     source_count=1,
                     layer_id="L6",
+                    force_p3_review=True,
+                )
+                rz, re_ = explain_priority(
+                    priority=priority,
+                    is_ransomware=is_ransom,
+                    is_tw_industry=flags["is_tw_industry"],
+                    source_count=1,
+                    forced_p3_review=True,
                 )
                 verification, admiralty = "unverified", "C3"
+                sop = pick_sop(
+                    priority=priority,
+                    is_ransomware=is_ransom,
+                    is_tw_industry=flags["is_tw_industry"],
+                    is_microsoft=flags["is_microsoft"],
+                    verification=verification,
+                    is_darkweb=True,
+                )
 
                 title_zh = f"[X @{handle}] {title}"
                 title_en = title_zh
@@ -2858,20 +2879,23 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                 )
                 note_zh = (
                     f"[單來源] @{handle} via {used or 'rss'}"
-                    + (" — 暗網間接，標示未核實" if is_dark else " — OSINT 社群，標示未核實")
+                    + (" — 暗網間接，標示未核實 → P3 複核" if is_dark else " — OSINT 社群，標示未核實 → P3 複核")
+                    + f"\n{rz}"
                 )
                 note_en = (
                     f"[Single source] @{handle} via {used or 'rss'}"
                     + (
-                        " — indirect dark-web intel, Unverified"
+                        " — indirect dark-web intel, Unverified → P3 review"
                         if is_dark
-                        else " — OSINT community post, Unverified"
+                        else " — OSINT community post, Unverified → P3 review"
                     )
+                    + f"\n{re_}"
                 )
 
                 tags = [
                     "x-twitter",
                     "unverified",
+                    "p3-review",
                     handle.lower(),
                     f"cat-{category}",
                 ]
@@ -2879,6 +2903,8 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                     tags.append("darkweb-indirect")
                 if is_ransom:
                     tags.append("ransomware")
+                if flags["is_tw_industry"]:
+                    tags.append("tw-industry")
 
                 await upsert_intel(
                     {
@@ -2888,6 +2914,8 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                         "summary": f"{summary}\n\n{note_zh}",
                         "summary_en": f"{summary}\n\n{note_en}",
                         "priority": priority,
+                        "priority_rationale": rz,
+                        "priority_rationale_en": re_,
                         "verification": verification,
                         "layer_id": "L6",
                         "source_name": name,
@@ -2921,6 +2949,11 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                         "admiralty": admiralty,
                         "raw_json": json.dumps(e, ensure_ascii=False)[:3000],
                         "tags_json": json.dumps(tags),
+                        "sop_id": sop["sop_id"],
+                        "sop_zh": sop["sop_zh"],
+                        "sop_en": sop["sop_en"],
+                        "owner": sop["owner"],
+                        "sla_hours": sop["sla_hours"],
                     }
                 )
                 count += 1
@@ -3208,6 +3241,8 @@ async def dual_source_darkweb_verify() -> int:
             source_count = 2
             elevated += 1
 
+        # Single-source dual-track news → P3 review; dual-source may elevate.
+        force_p3 = source_count < 2
         priority = assign_priority(
             in_kev=False,
             known_ransomware_campaign=False,
@@ -3216,6 +3251,7 @@ async def dual_source_darkweb_verify() -> int:
             epss=None,
             source_count=source_count,
             layer_id="L6",
+            force_p3_review=force_p3,
         )
         verification, admiralty = assign_verification(
             in_kev=False,
@@ -3329,8 +3365,14 @@ async def dual_source_darkweb_verify() -> int:
                 "title_en": f"[Unverified] 🔐 {b['title']}"
                 if flags["is_ransomware"]
                 else f"[Unverified] {b['title']}",
-                "summary": (b["summary"][:1200] + "\n\n[單來源] The Hacker News"),
-                "summary_en": (b["summary"][:1200] + "\n\n[Single source] The Hacker News"),
+                "summary": (
+                    b["summary"][:1200]
+                    + "\n\n[單來源] The Hacker News — 未核實 → P3 複核佇列"
+                ),
+                "summary_en": (
+                    b["summary"][:1200]
+                    + "\n\n[Single source] The Hacker News — Unverified → P3 review"
+                ),
                 "priority": assign_priority(
                     in_kev=False,
                     known_ransomware_campaign=False,
@@ -3339,6 +3381,7 @@ async def dual_source_darkweb_verify() -> int:
                     epss=None,
                     source_count=1,
                     layer_id="L6",
+                    force_p3_review=True,
                 ),
                 "verification": "unverified",
                 "layer_id": "L6",
