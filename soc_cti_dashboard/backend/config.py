@@ -205,6 +205,9 @@ OTX_MAX_PULSES = int(os.environ.get("OTX_MAX_PULSES") or "25")
 EPSS_TOP_URL = "https://api.first.org/data/v1/epss"
 EPSS_TOP_LIMIT = int(os.environ.get("EPSS_TOP_LIMIT") or "30")
 EPSS_TOP_MIN = float(os.environ.get("EPSS_TOP_MIN") or "0.5")
+# Independent P2 scoring threshold (R2-3). Defaults to EPSS_TOP_MIN so behaviour
+# is unchanged unless operator sets EPSS_P2_THRESHOLD explicitly.
+EPSS_P2_THRESHOLD = float(os.environ.get("EPSS_P2_THRESHOLD") or EPSS_TOP_MIN)
 
 # abuse.ch ThreatFox — free recent JSON export; Auth-Key optional for API
 # https://threatfox.abuse.ch/export/ / https://threatfox.abuse.ch/api/
