@@ -9,12 +9,15 @@ const STATIC_BASE = "data";
 
 const cache = {
   intel: null,
+  intelHigh: null,
   tw: null,
   finance: null,
   microsoft: null,
   layers: null,
   kpis: null,
   scan: null,
+  reviewQueue: null,
+  ruleAccuracy: null,
 };
 
 function titleOf(item) {
@@ -227,94 +230,6 @@ function setupCardActions() {
   });
 }
 
-function drawSpark(canvas, series, color) {
-  if (!canvas || !series || !series.length) return;
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width;
-  const h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-  const vals = series.map((s) => s.count || 0);
-  const max = Math.max(1, ...vals);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  vals.forEach((v, i) => {
-    const x = (i / Math.max(1, vals.length - 1)) * (w - 4) + 2;
-    const y = h - 2 - (v / max) * (h - 6);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-}
-
-function drawTrendChart(seriesMap) {
-  const canvas = $("#trendChart");
-  if (!canvas || !seriesMap) return;
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width;
-  const h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-  const keys = ["breach", "big5", "semi", "ems"];
-  const colors = {
-    breach: "#ff1744",
-    big5: "#ff4081",
-    semi: "#ff9100",
-    ems: "#00e5ff",
-  };
-  const labels = {
-    breach: t("kpiBreach"),
-    big5: t("kpiBig5"),
-    semi: t("kpiSemi"),
-    ems: t("kpiEms"),
-  };
-  let max = 1;
-  keys.forEach((k) => {
-    (seriesMap[k] || []).forEach((s) => {
-      if ((s.count || 0) > max) max = s.count;
-    });
-  });
-  keys.forEach((k) => {
-    const series = seriesMap[k] || [];
-    if (!series.length) return;
-    ctx.strokeStyle = colors[k];
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    series.forEach((s, i) => {
-      const x = (i / Math.max(1, series.length - 1)) * (w - 20) + 10;
-      const y = h - 12 - ((s.count || 0) / max) * (h - 24);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  });
-  // hover tooltip via title on legend only; simple day readout on mousemove
-  canvas.onmousemove = (ev) => {
-    const rect = canvas.getBoundingClientRect();
-    const x = ev.clientX - rect.left;
-    const series = seriesMap.breach || [];
-    if (!series.length) return;
-    const idx = Math.min(
-      series.length - 1,
-      Math.max(0, Math.round((x / rect.width) * (series.length - 1)))
-    );
-    const d = series[idx]?.date || "";
-    const parts = keys.map(
-      (k) => `${labels[k]}: ${(seriesMap[k] || [])[idx]?.count ?? 0}${t("unitJian")}`
-    );
-    canvas.title = `${d}\n${parts.join("\n")}`;
-  };
-  const leg = $("#trendLegend");
-  if (leg) {
-    leg.innerHTML = keys
-      .map(
-        (k) =>
-          `<span style="color:${colors[k]}">● ${escapeHtml(labels[k])}</span>`
-      )
-      .join(" ");
-  }
-}
-
-// 電子五哥 = ODM 五家（不含鴻海）
 const WATCH_BIG5 = [
   "廣達 2382 Quanta",
   "仁寶 2324 Compal",
@@ -322,6 +237,7 @@ const WATCH_BIG5 = [
   "緯創 3231 Wistron",
   "和碩 4938 Pegatron",
 ];
+
 const WATCH_SEMI = [
   "台積電 2330 TSMC",
   "聯電 2303 UMC",
@@ -508,9 +424,39 @@ async function staticApi(path, opts) {
     if (!cache.otCatalog) cache.otCatalog = await loadStaticJson("ot-catalog.json");
     return cache.otCatalog;
   }
+  if (path.startsWith("/api/review-queue")) {
+    if (!cache.reviewQueue)
+      cache.reviewQueue = await loadStaticJson("review-queue.json");
+    return cache.reviewQueue;
+  }
+  if (path.startsWith("/api/rule-accuracy")) {
+    if (!cache.ruleAccuracy)
+      cache.ruleAccuracy = await loadStaticJson("rule-accuracy.json");
+    return cache.ruleAccuracy;
+  }
   if (path.startsWith("/api/intel")) {
-    if (!cache.intel) cache.intel = await loadStaticJson("intel.json");
     const u = new URL(path, "http://local");
+    // First paint only needs P0/P1, which ships as its own small file — the
+    // full stream is several MB and is fetched only when a view needs it.
+    const wantsPriority = u.searchParams.get("priority");
+    const highRiskOnly = wantsPriority === "P0" || wantsPriority === "P1";
+    if (highRiskOnly && !cache.intel) {
+      if (!cache.intelHigh) {
+        try {
+          cache.intelHigh = await loadStaticJson("intel-highrisk.json");
+        } catch {
+          cache.intelHigh = null; // older export without the split
+        }
+      }
+      if (cache.intelHigh) {
+        const items = (cache.intelHigh.items || []).filter(
+          (i) => i.priority === wantsPriority
+        );
+        const limit = parseInt(u.searchParams.get("limit") || "150", 10);
+        return { count: items.length, items: items.slice(0, limit) };
+      }
+    }
+    if (!cache.intel) cache.intel = await loadStaticJson("intel.json");
     let items = [...(cache.intel.items || [])];
     const priority = u.searchParams.get("priority");
     const verification = u.searchParams.get("verification");
@@ -871,6 +817,95 @@ async function loadMicrosoft() {
   renderList($("#msTiList"), data.threat_intel || [], 40);
   renderList($("#msConfirmedList"), data.confirmed_items || [], 40);
   renderList($("#msOtherList"), data.other || [], 40);
+}
+
+/** Review queue + rule accuracy — the analyst feedback loop (2.9). */
+async function loadReview() {
+  const hint = $("#reviewModeHint");
+  if (hint) hint.textContent = USE_STATIC ? t("reviewStaticHint") : t("reviewLiveHint");
+
+  let acc = {};
+  try {
+    acc = await api("/api/rule-accuracy");
+  } catch (e) {
+    console.warn("rule-accuracy", e);
+  }
+  const body = $("#ruleAccuracyBody");
+  if (body) {
+    const dims = acc.dimensions || {};
+    const rows = Object.entries(dims);
+    body.innerHTML = rows.length
+      ? rows
+          .map(([name, d]) => {
+            const pct =
+              d.precision == null
+                ? `<span class="muted">—</span>`
+                : `<b class="${d.precision >= 0.8 ? "acc-good" : d.precision >= 0.5 ? "acc-mid" : "acc-bad"}">${Math.round(d.precision * 100)}%</b>`;
+            return `<tr>
+              <td>${escapeHtml(name)}</td>
+              <td>${d.total ?? 0}</td>
+              <td>${d.reviewed ?? 0}</td>
+              <td>${d.true_positive ?? 0}</td>
+              <td>${d.false_positive ?? 0}</td>
+              <td>${pct}</td>
+            </tr>`;
+          })
+          .join("")
+      : `<tr><td colspan="6">${escapeHtml(t("accNoData"))}</td></tr>`;
+  }
+
+  let queue = { items: [] };
+  try {
+    queue = await api("/api/review-queue?limit=100");
+  } catch (e) {
+    console.warn("review-queue", e);
+  }
+  const list = $("#reviewList");
+  if (!list) return;
+  const items = queue.items || [];
+  if (!items.length) {
+    list.innerHTML = `<p class="empty">${escapeHtml(t("empty"))}</p>`;
+    return;
+  }
+  list.innerHTML = items
+    .map((item) => {
+      const card = cardHTML(item);
+      if (USE_STATIC) return card;
+      const id = escapeHtml(String(item.id || ""));
+      const buttons = `
+        <div class="verdict-bar" data-verdict-for="${id}">
+          <button type="button" class="btn verdict-btn v-tp" data-verdict="true_positive">${escapeHtml(t("markTp"))}</button>
+          <button type="button" class="btn verdict-btn v-fp" data-verdict="false_positive">${escapeHtml(t("markFp"))}</button>
+          <button type="button" class="btn verdict-btn v-unk" data-verdict="unknown">${escapeHtml(t("markUnknown"))}</button>
+        </div>`;
+      return card.replace("</article>", `${buttons}</article>`);
+    })
+    .join("");
+}
+
+/** Delegated handler so verdict buttons keep working after re-render. */
+function setupVerdictActions() {
+  document.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest?.(".verdict-btn");
+    if (!btn) return;
+    const bar = btn.closest("[data-verdict-for]");
+    const id = bar?.getAttribute("data-verdict-for");
+    if (!id) return;
+    bar.querySelectorAll(".verdict-btn").forEach((b) => (b.disabled = true));
+    try {
+      await api(`/api/intel/${encodeURIComponent(id)}/verdict`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verdict: btn.dataset.verdict }),
+      });
+      bar.innerHTML = `<span class="verdict-done">✓ ${escapeHtml(t("verdictSaved"))}</span>`;
+      cache.ruleAccuracy = null;
+      cache.reviewQueue = null;
+    } catch (e) {
+      bar.querySelectorAll(".verdict-btn").forEach((b) => (b.disabled = false));
+      showToast(t("verdictFailed"), true);
+    }
+  });
 }
 
 function isOtItem(i) {
@@ -1327,6 +1362,7 @@ async function loadView(view) {
   if (view === "ems") await loadEms();
   if (view === "finance") await loadFinance();
   if (view === "microsoft") await loadMicrosoft();
+  if (view === "review") await loadReview();
   if (view === "sources") await loadSources();
 }
 
@@ -1342,15 +1378,35 @@ async function refreshAll() {
 
 window.refreshAll = refreshAll;
 
+function activateTab(tab) {
+  $$(".tab").forEach((x) => {
+    x.classList.remove("active");
+    x.setAttribute("aria-selected", "false");
+  });
+  tab.classList.add("active");
+  tab.setAttribute("aria-selected", "true");
+  const view = tab.dataset.view;
+  $$(".view").forEach((v) => v.classList.remove("active"));
+  $(`#view-${view}`)?.classList.add("active");
+  return view;
+}
+
 function setupTabs() {
-  $$(".tab").forEach((tab) => {
+  const tabs = $$(".tab");
+  tabs.forEach((tab) => {
     tab.addEventListener("click", async () => {
-      $$(".tab").forEach((x) => x.classList.remove("active"));
-      tab.classList.add("active");
-      const view = tab.dataset.view;
-      $$(".view").forEach((v) => v.classList.remove("active"));
-      $(`#view-${view}`)?.classList.add("active");
-      await loadView(view);
+      await loadView(activateTab(tab));
+    });
+    // Arrow-key navigation, as expected of role="tablist"
+    tab.addEventListener("keydown", async (ev) => {
+      const step =
+        ev.key === "ArrowRight" ? 1 : ev.key === "ArrowLeft" ? -1 : 0;
+      if (!step) return;
+      ev.preventDefault();
+      const i = tabs.indexOf(tab);
+      const next = tabs[(i + step + tabs.length) % tabs.length];
+      next.focus();
+      await loadView(activateTab(next));
     });
   });
   $$(".nav-tile").forEach((tile) => {
@@ -1366,6 +1422,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   applyI18n();
   setupTabs();
   setupCardActions();
+  setupVerdictActions();
   $("#langToggle")?.addEventListener("click", () => toggleLang());
   $("#manualScanBtn")?.addEventListener("click", () => manualScan());
   $("#scanModalClose")?.addEventListener("click", () => {

@@ -28,6 +28,7 @@ concurrency:
 jobs:
   sanity:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,7 +52,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -q pytest
+          pip install -q pytest pytest-asyncio
 
       - name: Sanity checks (block bad deploys)
         working-directory: soc_cti_dashboard
@@ -64,6 +65,9 @@ jobs:
   build-and-deploy:
     needs: sanity
     runs-on: ubuntu-latest
+    # Individual collectors time out at 45-120s but the harvest as a whole had
+    # no ceiling: one hung feed could pin a runner until the job limit.
+    timeout-minutes: 30
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -83,6 +87,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r soc_cti_dashboard/requirements.txt
 
+      # The runner is fresh every run, so without this the SQLite file starts
+      # empty each time: 30-day trends collapse to whatever the feeds still
+      # carry, and an item can never evolve from unverified to corroborated
+      # across runs. restore-keys lets a new date-stamped key fall back to the
+      # most recent previous database.
+      - name: Restore intel database
+        id: db-cache
+        uses: actions/cache@v4
+        with:
+          path: soc_cti_dashboard/data
+          key: cti-db-${{ github.run_id }}
+          restore-keys: |
+            cti-db-
+
       - name: Harvest intel & export static JSON
         working-directory: soc_cti_dashboard
         run: python scripts/export_static.py
@@ -99,6 +117,16 @@ jobs:
           RANSOMWARE_LIVE_API_KEY: ${{ secrets.RANSOMWARE_LIVE_API_KEY }}
           OTX_API_KEY: ${{ secrets.OTX_API_KEY }}
           ABUSECH_AUTH_KEY: ${{ secrets.ABUSECH_AUTH_KEY }}
+
+      - name: Report database carry-over
+        working-directory: soc_cti_dashboard
+        run: |
+          if [ -f data/cti.db ]; then
+            echo "cti.db size: $(du -h data/cti.db | cut -f1)"
+            echo "restored from: ${{ steps.db-cache.outputs.cache-matched-key }}"
+          else
+            echo "no cti.db present (first run)"
+          fi
 
       - name: Prepare Pages artifact
         run: |

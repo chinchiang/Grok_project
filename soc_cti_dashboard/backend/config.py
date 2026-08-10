@@ -1602,7 +1602,7 @@ MICROSOFT_WATCHLIST = [
         "aliases": [
             "microsoft threat intelligence",
             "mstic",
-            "threat actor",
+            "threat actor*",  # * = tolerate inflection ("threat actors")
             "nation-state",
             "storm-",
             "midnight blizzard",

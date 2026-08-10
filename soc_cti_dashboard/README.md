@@ -46,6 +46,16 @@ https://chinchiang.github.io/Grok_project/
 | 微軟相關 Dashboard | 獨立「🪟 微軟專區」分頁：KEV／P1／勒索／Windows／企業平台（Exchange・SharePoint・Entra・Defender・M365）／MSTI／官方旁證 分區 |
 | 上方四項 KPI | P0、KEV 近 7 日、台灣產業／勒索、來源健康度 |
 | 每日 07:00、15:00 | APScheduler Cron（臺灣時間） |
+| 複核佇列與規則準確率 | 獨立「🔎 複核佇列」分頁；標記真／偽陽性後計算每條規則 precision |
+| 跨來源佐證 | 同一事件被多家獨立來源報導時自動合併佐證數並重評 |
+| 情資生命週期 | 逾 14 日未再觀測轉 `stale`，退出「未結」計數但保留可查 |
+
+### 監控名單比對（字界）
+
+英數別名採**字界比對**，中文別名維持子字串，股票代號需**市場上下文**（`TWSE 2330`／`2330.TW`／`(2330)`）才算命中。
+
+> 這解決了實測語料中的系統性誤判：勒索外洩貼文樣板「we have hundreds of **gigabytes** of your files」曾使**每一篇**勒索貼文命中「技嘉 GIGABYTE」，再與勒索旗標疊加就是 P0 誤報；股號亦曾命中 `CVE-2023-32315`、時間戳與外洩筆數。  
+> 別名可加後綴宣告比對模式：`storm-`＝前綴（`storm-1175`）、`threat actor*`＝容許字尾變化（複數）。
 
 ### 優先級（互斥）
 
@@ -74,6 +84,43 @@ https://chinchiang.github.io/Grok_project/
 
 > 效果：**單篇 ICS／OT 媒體報導不得**因命中台灣監控名單＋勒索關鍵字而自動升 P0；官方公告或雙源佐證才可以。  
 > 分級表位於 `backend/config.py` 的 `SOURCE_CLASS_REGISTRY`（未列名的來源一律保守視為 `media`）。
+
+### 跨來源佐證（自動識別同一事件）
+
+各採集器只看得到自己的 feed，因此都以 `source_count=1` 寫入——「≥2 獨立來源」規則對新聞幾乎從未生效：五家媒體報導同一起事故，會變成五筆各自單源的 P3。
+
+巡檢後會執行 `backend/aggregate.py`：
+
+- **同一事件的判定**：相同 CVE，或標題 token 重疊度 ≥ 0.55（中文以 bigram 切分）；
+- **獨立性檢查**：來源名稱不同，且**連結網域不同**——同一篇文章的 Google News 鏡像與原站 feed 不算兩個來源；
+- **不合併記錄**：分析師仍能分別開啟各家報導，只是佐證數、核實狀態與優先級依實際來源數重算。
+
+> 實測（400 筆語料）：同一個 SharePoint RCE 被 CISA KEV、BleepingComputer、The Hacker News、Microsoft GNews 四個獨立來源報導，原本各自為政，現在正確聚合，5 筆由 P3 升為 P2。
+
+### 暗網雙來源比對（三要件）
+
+`Ransomware.live × RansomLook` 的受害者比對，需滿足**其一**：
+
+1. **受害者網域相同**（最強訊號）；或
+2. **名稱相同 ＋ 勒索集團相同 ＋ 張貼日期相差 ≤ 14 天**。
+
+> 舊版將名稱正規化為純英數後做完全比對，短名或通用名極易跨受害者撞名，而一次撞名就直接升為「可信」。
+
+### 情資生命週期與 KPI 時間窗
+
+- 逾 **14 天**未再觀測的項目轉為 `stale`，退出「未結」計數（資料保留，仍可查詢）；再次被觀測會自動回到 `open`。
+- KPI 同時提供 **未結（open）／全期（total）／近 7 日新增／近 30 日新增**，避免「P0 只增不減」造成告警疲乏。
+- 所有日界改以 **Asia/Taipei** 計算（SQLite `date('now')` 為 UTC，臺灣每日前 8 小時的「近 7 日」都會差一天）。
+- 核實度分兩軸呈現：整體，以及**排除 L1 後的 OSINT 核實率**（L1 幾乎全是 KEV，本質即已證實，會淹沒 OSINT 的真實佐證品質）。
+
+### 複核佇列與規則準確率（回饋迴路）
+
+方法論一直要求「未核實單源只進人工複核佇列」，但佇列從未出現在介面上，複核結論也沒有任何欄位記錄——規則準確率無從量測，調整只能憑感覺。
+
+- 「🔎 複核佇列」分頁列出 **P3 ＋ 未核實 ＋ 未判定 ＋ 未逾期** 的項目；
+- 本機 API 模式下可直接標記**真陽性／偽陽性／無法判定**；
+- 判定寫入專屬欄位，**下次巡檢不會覆蓋**（`upsert` 的 `ON CONFLICT` 刻意不含這些欄位）；
+- `GET /api/rule-accuracy` 依 13 個規則面向（P0–P3、核實狀態、TW＋勒索、金融、微軟、KEV…）計算 precision＝TP/(TP+FP)。**未複核者 precision 為 `null` 而非 0**——未複核代表未知，不是完美。
 
 ## 本機啟動（完整 API 模式）
 
@@ -105,7 +152,45 @@ python scripts/export_static.py
 - `GET /api/finance-dashboard` — 金融相關看板  
 - `GET /api/microsoft-dashboard` — 微軟相關看板  
 - `GET /api/layers` — 七層健康  
+- `GET /api/review-queue` — 待人工複核佇列（P3 · 未核實 · 未判定）  
+- `GET /api/rule-accuracy` — 各規則面向的 precision 與複核覆蓋率  
+- `POST /api/intel/{id}/verdict` — 記錄分析師判定（需金鑰；body：`{"verdict":"true_positive|false_positive|unknown","note":"…"}`）  
 - `POST /api/scan/manual` — 手動巡檢（30 分鐘冷卻；設定金鑰後需帶驗證標頭）  
+
+`GET /api/intel` 另支援 `status=open|stale`、`verdict=…`、`unreviewed=true` 篩選。
+
+## 服務設定（選用環境變數）
+
+| 變數 | 預設 | 說明 |
+|------|------|------|
+| `SOC_CTI_API_KEY`（或 `API_KEY`） | 未設＝**不驗證** | 設定後 `POST /api/scan/manual` 與判定端點需帶 `X-API-Key: <key>` 或 `Authorization: Bearer <key>`（常數時間比對）。內網／共享部署建議必設 |
+| `CORS_ORIGINS` | `http://127.0.0.1:8787,http://localhost:8787` | 逗號分隔允許來源。內建前端與 API **同源**，僅前端分離部署時需調整 |
+| `EPSS_P2_THRESHOLD` | 沿用 `EPSS_TOP_MIN`（`0.5`） | **P2 判級**門檻，與抓取門檻 `EPSS_TOP_MIN` 獨立；調整會直接改變評鑑結果 |
+
+```powershell
+$env:SOC_CTI_API_KEY = "your-long-random-key"
+$env:EPSS_P2_THRESHOLD = "0.6"   # 收緊 P2（預設 0.5）
+```
+
+```bash
+# 記錄一筆判定
+curl -X POST http://127.0.0.1:8787/api/intel/<id>/verdict \
+  -H "X-API-Key: your-long-random-key" -H "Content-Type: application/json" \
+  -d '{"verdict":"false_positive","note":"媒體單篇，非台廠"}'
+```
+
+> `GET /api/health` 與 `GET /api/scan/status` 會回報 `api_key_required`，可確認金鑰是否生效。
+
+## 測試
+
+```powershell
+cd soc_cti_dashboard
+pip install -r requirements.txt pytest pytest-asyncio
+$env:PYTHONPATH = "."
+python -m pytest tests/ -q
+```
+
+GitHub Actions 於部署前執行同一組檢查（`node --check` ＋ `py_compile` ＋ pytest）；未通過即**中止部署**，不會把壞版本推上 Pages。
 
 ## 服務設定（選用環境變數）
 

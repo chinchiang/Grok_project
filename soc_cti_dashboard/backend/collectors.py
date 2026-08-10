@@ -8,7 +8,7 @@ import io
 import json
 import re
 import time
-from datetime import datetime
+from datetime import date as _date, datetime
 from typing import Any, Callable, Awaitable
 from xml.etree import ElementTree as ET
 
@@ -3019,10 +3019,127 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
     return total
 
 
+_LEGAL_SUFFIXES = (
+    "incorporated", "corporation", "limited", "holdings", "holding", "group",
+    "company", "gmbh", "llc", "ltd", "inc", "corp", "plc", "pte", "pty", "bv",
+    "nv", "ag", "sa", "srl", "spa", "oy", "ab", "as", "kk", "co",
+)
+
+
+def _victim_domain(*values: str) -> str:
+    """Registrable-ish domain from a website/URL field — the strongest join key."""
+    for value in values:
+        s = (value or "").strip().lower()
+        if not s or "." not in s:
+            continue
+        s = re.sub(r"^[a-z]+://", "", s)
+        s = s.split("/")[0].split("?")[0].split("@")[-1]
+        s = re.sub(r"^www\d?\.", "", s).strip(".")
+        parts = [p for p in s.split(".") if p]
+        if len(parts) < 2 or not re.fullmatch(r"[a-z0-9.\-]+", s or ""):
+            continue
+        # keep last three labels for co.uk / com.tw style suffixes
+        return ".".join(parts[-3:]) if len(parts[-2]) <= 3 and len(parts) >= 3 else ".".join(parts[-2:])
+    return ""
+
+
+def _victim_name_key(value: str) -> str:
+    """Normalised company name with legal suffixes removed."""
+    s = (value or "").lower()
+    s = re.sub(r"^[a-z]+://", " ", s)
+    s = re.sub(r"[^a-z0-9一-鿿]+", " ", s).strip()
+    tokens = [t for t in s.split() if t and t not in _LEGAL_SUFFIXES]
+    return "".join(tokens)
+
+
+def _group_key(value: str) -> str:
+    """Normalised ransomware group name (lockbit3 == LockBit 3.0 == lockbit)."""
+    s = (value or "").lower()
+    s = re.sub(r"[^a-z0-9]+", "", s)
+    s = re.sub(r"\d+(\.\d+)*$", "", s)  # trailing version numbers
+    return s
+
+
+def _victim_day(*values: str) -> _date | None:
+    """First parseable date among the given tracker fields.
+
+    Trackers are inconsistent: ISO timestamps, bare dates, and US-style slashes
+    all appear, sometimes with a trailing timezone.
+    """
+    for value in values:
+        s = (value or "").strip()
+        if not s:
+            continue
+        iso = re.match(r"(\d{4})-(\d{2})-(\d{2})", s)
+        if iso:
+            try:
+                return _date(int(iso.group(1)), int(iso.group(2)), int(iso.group(3)))
+            except ValueError:
+                pass
+        for fmt in ("%m/%d/%Y", "%d/%m/%Y", "%m/%d/%y", "%Y/%m/%d"):
+            try:
+                return datetime.strptime(s[:10], fmt).date()
+            except ValueError:
+                continue
+    return None
+
+
+def _ransom_match(
+    live: dict[str, Any], look: dict[str, Any], *, max_day_gap: int = 14
+) -> str | None:
+    """Decide whether two tracker rows describe the same victim (2.6).
+
+    Name equality alone is not enough: normalising to bare alphanumerics made
+    short or generic names collide across unrelated victims, and a collision
+    promoted an item straight to Credible. Accept only on a shared domain, or
+    on name **plus** the same ransomware group **plus** postings close in time.
+    Returns the evidence used, or None.
+    """
+    live_domain = _victim_domain(
+        str(live.get("website") or ""), str(live.get("post_url") or "")
+    )
+    look_domain = _victim_domain(
+        str(look.get("website") or ""),
+        str(look.get("link") or ""),
+        str(look.get("post_url") or ""),
+    )
+    if live_domain and live_domain == look_domain:
+        return f"domain={live_domain}"
+
+    live_name = _victim_name_key(
+        str(live.get("post_title") or live.get("victim") or "")
+    )
+    look_name = _victim_name_key(
+        str(look.get("post_title") or look.get("title") or look.get("victim") or "")
+    )
+    if not live_name or live_name != look_name or len(live_name) < 5:
+        return None
+
+    live_group = _group_key(str(live.get("group_name") or live.get("group") or ""))
+    look_group = _group_key(str(look.get("group_name") or look.get("group") or ""))
+    if not live_group or live_group != look_group:
+        return None
+
+    live_day = _victim_day(
+        str(live.get("discovered") or ""), str(live.get("published") or "")
+    )
+    look_day = _victim_day(
+        str(look.get("discovered") or ""), str(look.get("published") or "")
+    )
+    if not live_day or not look_day:
+        return None
+    if abs((live_day - look_day).days) > max_day_gap:
+        return None
+    return f"name+group={live_group}+within{max_day_gap}d"
+
+
 async def dual_source_ransom_trackers() -> int:
     """
     Elevate victims seen on both Ransomware.live and RansomLook to credible.
     Runs after both collectors; re-upserts dual-verified cards.
+
+    Matching requires a shared domain, or name + same group + close postings
+    (see _ransom_match) so a name collision cannot manufacture corroboration.
     """
     # Lightweight: fetch recent titles from both APIs and cross-match
     t0 = time.perf_counter()
@@ -3068,20 +3185,22 @@ async def dual_source_ransom_trackers() -> int:
                 except Exception:
                     pass
 
-        def norm(s: str) -> str:
-            s = (s or "").lower()
-            s = re.sub(r"https?://", "", s)
-            s = re.sub(r"^www\.", "", s)
-            s = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", s)
-            return s
-
-        look_map: dict[str, dict] = {}
+        # Candidate buckets: exact domain, else name (group/date checked later)
+        look_by_domain: dict[str, list[dict]] = {}
+        look_by_name: dict[str, list[dict]] = {}
         for row in rl_rows[:120]:
-            v = norm(
+            dom = _victim_domain(
+                str(row.get("website") or ""),
+                str(row.get("link") or ""),
+                str(row.get("post_url") or ""),
+            )
+            if dom:
+                look_by_domain.setdefault(dom, []).append(row)
+            nm = _victim_name_key(
                 str(row.get("post_title") or row.get("title") or row.get("victim") or "")
             )
-            if len(v) >= 4:
-                look_map[v] = row
+            if len(nm) >= 5:
+                look_by_name.setdefault(nm, []).append(row)
 
         # Pull recent live dump slice only when needed
         if not live_rows:
@@ -3106,18 +3225,28 @@ async def dual_source_ransom_trackers() -> int:
             except Exception:
                 live_rows = []
 
+        rejected = 0
         for row in live_rows[:150]:
             victim = str(
                 row.get("post_title") or row.get("victim") or row.get("website") or ""
             )
-            key = norm(victim)
-            if not key or key not in look_map:
-                # try website
-                key2 = norm(str(row.get("website") or ""))
-                if key2 not in look_map:
-                    continue
-                key = key2
-            partner = look_map[key]
+            candidates = look_by_domain.get(
+                _victim_domain(
+                    str(row.get("website") or ""), str(row.get("post_url") or "")
+                ),
+                [],
+            ) + look_by_name.get(_victim_name_key(victim), [])
+            partner = None
+            evidence = ""
+            for cand in candidates:
+                why = _ransom_match(row, cand)
+                if why:
+                    partner, evidence = cand, why
+                    break
+            if partner is None:
+                if candidates:
+                    rejected += 1  # name looked alike but group/date disagreed
+                continue
             group = str(
                 row.get("group_name")
                 or row.get("group")
@@ -3136,7 +3265,7 @@ async def dual_source_ransom_trackers() -> int:
                 discovered=str(row.get("discovered") or ""),
                 published=str(row.get("published") or ""),
                 url=str(row.get("post_url") or "https://www.ransomware.live/"),
-                extra_sources=["RansomLook"],
+                extra_sources=[f"RansomLook ({evidence})"],
                 dual_verified=True,
             )
             elevated += 1
@@ -3149,7 +3278,10 @@ async def dual_source_ransom_trackers() -> int:
             ok=True,
             count=elevated,
             latency_ms=ms,
-            detail=f"elevated={elevated}",
+            detail=(
+                f"elevated={elevated}; rejected_name_only={rejected}; "
+                "rule=domain OR name+group+<=14d"
+            ),
         )
         return elevated
     except Exception as e:
@@ -3637,6 +3769,23 @@ async def run_full_harvest() -> dict[str, Any]:
         results["steps"]["cisa_ics"] = {"ok": True, "count": n}
     except Exception as e:
         results["steps"]["cisa_ics"] = {"ok": False, "error": str(e)}
+
+    # Post-ingest: recognise the same event reported by several feeds, then
+    # age out anything that stopped being observed. Both must run after every
+    # collector, since either can change an item's evidence count.
+    try:
+        from .aggregate import aggregate_cross_source_events
+
+        results["steps"]["cross_source"] = await aggregate_cross_source_events()
+    except Exception as e:
+        results["steps"]["cross_source"] = {"ok": False, "error": str(e)}
+
+    try:
+        from .database import mark_stale_items
+
+        results["steps"]["lifecycle"] = {"ok": True, "staled": await mark_stale_items()}
+    except Exception as e:
+        results["steps"]["lifecycle"] = {"ok": False, "error": str(e)}
 
     results["finished_at"] = now_iso()
     results["layers"] = LAYERS
