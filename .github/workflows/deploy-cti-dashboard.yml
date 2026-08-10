@@ -26,7 +26,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sanity checks (block bad deploys)
+        working-directory: soc_cti_dashboard
+        run: |
+          node --check frontend/app.js
+          node --check frontend/i18n.js
+          python -m py_compile backend/*.py scripts/*.py
+          pip install -q pytest
+          PYTHONPATH=. python -m pytest tests/ -q
+
   build-and-deploy:
+    needs: sanity
     runs-on: ubuntu-latest
     environment:
       name: github-pages
