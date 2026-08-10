@@ -108,6 +108,7 @@ def explain_priority(
     source_count: int = 1,
     dual_verified: bool = False,
     forced_p3_review: bool = False,
+    verification: str = "unverified",
 ) -> tuple[str, str]:
     """Return (rationale_zh, rationale_en) for card display 判定依據."""
     if forced_p3_review:
@@ -125,8 +126,8 @@ def explain_priority(
             )
         if is_tw_industry and is_ransomware:
             return (
-                "判定依據：台灣電子／半導體監控名單命中 + 勒索相關 → P0",
-                "Rationale: TW electronics/semi watchlist hit + ransomware → P0",
+                "判定依據：台灣電子／半導體監控名單命中 + 勒索相關，且核實狀態為已證實／可信 → P0",
+                "Rationale: TW electronics/semi watchlist hit + ransomware AND verification confirmed/credible → P0",
             )
         if is_tw_industry and in_kev:
             return (
@@ -151,6 +152,12 @@ def explain_priority(
                 "Rationale: multi-source / dual-verified credible intel → P2",
             )
         return ("判定依據：P2 規則命中", "Rationale: P2 rule matched")
+    # P3 — surface why TW+ransomware did not elevate when verification insufficient
+    if is_tw_industry and is_ransomware and verification not in ("confirmed", "credible"):
+        return (
+            "判定依據：台灣監控名單＋勒索關鍵字命中，但核實狀態未達已證實／可信 → 維持 P3（需雙源或官方佐證後再升 P0）",
+            "Rationale: TW watchlist + ransomware keywords hit, but verification not confirmed/credible → stay P3 (need dual-source or official corroboration for P0)",
+        )
     return (
         "判定依據：未達 P0–P2 → P3 監控／人工複核",
         "Rationale: below P0–P2 thresholds → P3 monitor/review",
