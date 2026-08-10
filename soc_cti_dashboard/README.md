@@ -43,7 +43,7 @@ https://chinchiang.github.io/Grok_project/
 | 手動巡檢 | 每 30 分鐘一次（429 冷卻） |
 | 電子五哥／半導體 Dashboard | 獨立分頁；勒索高亮 |
 | 金融相關 Dashboard | 銀行／支付／SWIFT 等關鍵字與實體；勒索與 KEV 分區 |
-| 微軟相關 Dashboard | Microsoft 廠商／Windows／Exchange／Azure／M365 等；KEV 分區 |
+| 微軟相關 Dashboard | 獨立「🪟 微軟專區」分頁：KEV／P1／勒索／Windows／企業平台（Exchange・SharePoint・Entra・Defender・M365）／MSTI／官方旁證 分區 |
 | 上方四項 KPI | P0、KEV 近 7 日、台灣產業／勒索、來源健康度 |
 | 每日 07:00、15:00 | APScheduler Cron（臺灣時間） |
 
@@ -57,8 +57,23 @@ https://chinchiang.github.io/Grok_project/
 ### 核實狀態
 
 - **已證實 Confirmed**：官方 KEV 等  
-- **可信 Credible**：≥ 2 獨立來源  
-- **未核實 Unverified**：單源（尤其暗網間接、X OSINT）；未核實不得單獨開立 IR 工單  
+- **可信 Credible**：≥ 2 獨立來源；或**官方／PSIRT／研究單位**之單一來源  
+- **未核實 Unverified**：**媒體／社群／OSINT 之單源**（尤其暗網間接、X OSINT）；未核實不得單獨開立 IR 工單  
+
+### 來源可靠度分級（單源可信門檻）
+
+來源可靠度與佐證數是**獨立兩軸**（Admiralty 精神）。L2／L7 同時混編權威來源與專題媒體，因此**層級本身不足以authorize單源可信**——改由來源類別決定：
+
+| 類別 | 代表來源 | 單一來源 |
+|------|---------|---------|
+| `official-gov` | CISA（KEV／ICS／Alerts）、TWCERT、NCSC、JPCERT、CIS、ACSC、CCCS、CERT-EU、NSA、BSI | **可信 Credible** |
+| `vendor-psirt` | Fortinet PSIRT、MSRC、Microsoft Security Blog／Defender TI | **可信 Credible** |
+| `research` | Unit 42、Dragos、Claroty Team82、Nozomi Labs、SANS ICS／ISC、The DFIR Report | **可信 Credible** |
+| `media` | Dark Reading、The Hacker News、SecurityWeek、Industrial Cyber、Infosecurity、BleepingComputer、The Record | 未核實（**需 ≥2 獨立來源**） |
+| `community` / `osint` | OTX、ThreatFox、X 帳號、洩漏站 | 未核實（需雙源） |
+
+> 效果：**單篇 ICS／OT 媒體報導不得**因命中台灣監控名單＋勒索關鍵字而自動升 P0；官方公告或雙源佐證才可以。  
+> 分級表位於 `backend/config.py` 的 `SOURCE_CLASS_REGISTRY`（未列名的來源一律保守視為 `media`）。
 
 ## 本機啟動（完整 API 模式）
 

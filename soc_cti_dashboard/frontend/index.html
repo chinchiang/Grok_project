@@ -38,6 +38,7 @@
     <button class="tab" data-view="dark" data-i18n="tabDark">🌑 暗網／外洩</button>
     <button class="tab" data-view="ems" data-i18n="tabEms">🏭 臺灣電子製造</button>
     <button class="tab" data-view="finance" data-i18n="tabFinance">💰 金融專區</button>
+    <button class="tab" data-view="microsoft" data-i18n="tabMicrosoft">🪟 微軟專區</button>
     <button class="tab" data-view="sources" data-i18n="tabSources">來源與排程</button>
   </nav>
 
@@ -105,6 +106,11 @@
           <span class="nav-tile-ico">💰</span>
           <span class="nav-tile-name" data-i18n="tabFinance">金融專區</span>
           <span class="nav-tile-count"><span id="tileFin">0</span> <span data-i18n="unitJian">件</span></span>
+        </button>
+        <button type="button" class="nav-tile" data-goto="microsoft">
+          <span class="nav-tile-ico">🪟</span>
+          <span class="nav-tile-name" data-i18n="tabMicrosoft">微軟專區</span>
+          <span class="nav-tile-count"><span id="tileMs">0</span> <span data-i18n="unitJian">件</span></span>
         </button>
         <button type="button" class="nav-tile" data-goto="sources">
           <span class="nav-tile-ico">📡</span>
@@ -238,6 +244,49 @@
       <div class="card-list" id="finOtherList"></div>
     </section>
 
+    <!-- ========== 微軟專區 ========== -->
+    <section class="view" id="view-microsoft">
+      <div class="tw-banner ms-banner">
+        <div>
+          <h2 data-i18n="msTitle">🪟 微軟專區</h2>
+          <p data-i18n="msDesc">Windows 作業系統、企業平台（Exchange／SharePoint／Entra／Defender／M365）與 Microsoft Threat Intelligence 預警；KEV 與 P1 獨立分區，官方旁證另列。</p>
+        </div>
+        <div class="tw-stats">
+          <div><span id="msHitTotal">0</span><small data-i18n="msStatTotal">微軟相關</small></div>
+          <div class="hot"><span id="msHitKev">0</span><small data-i18n="msStatKev">KEV</small></div>
+          <div><span id="msHitP1">0</span><small data-i18n="msStatP1">P1</small></div>
+          <div class="hot"><span id="msHitRansom">0</span><small data-i18n="msStatRansom">勒索</small></div>
+        </div>
+      </div>
+
+      <section class="watch-lists ms-watch">
+        <div class="watch-card">
+          <h3 data-i18n="msWatchTitle">微軟監控範圍（產品／服務）</h3>
+          <p class="watch-note" data-i18n="watchNotStats">非統計數字 · 名單導向</p>
+          <div class="watch-chips" id="watchMicrosoft"></div>
+        </div>
+      </section>
+
+      <div class="entity-chips" id="msEntityChips"></div>
+
+      <h3 class="section-h ransom-h" data-i18n="msKevSection">CISA KEV／已遭利用</h3>
+      <div class="card-list" id="msKevList"></div>
+      <h3 class="section-h" data-i18n="msP1Section">P1 優先（KEV 在野利用路徑）</h3>
+      <div class="card-list" id="msP1List"></div>
+      <h3 class="section-h ransom-h" data-i18n="msRansomSection">🔐 微軟生態＋勒索</h3>
+      <div class="card-list" id="msRansomList"></div>
+      <h3 class="section-h" data-i18n="msWindowsSection">Windows 作業系統重大漏洞</h3>
+      <div class="card-list" id="msWindowsList"></div>
+      <h3 class="section-h" data-i18n="msEnterpriseSection">企業平台（Exchange／SharePoint／Entra／Defender／M365）</h3>
+      <div class="card-list" id="msEnterpriseList"></div>
+      <h3 class="section-h" data-i18n="msTiSection">Microsoft Threat Intelligence 攻擊活動／IOC</h3>
+      <div class="card-list" id="msTiList"></div>
+      <h3 class="section-h" data-i18n="msConfirmedSection">官方旁證（Confirmed／MSRC／MS Blog）</h3>
+      <div class="card-list" id="msConfirmedList"></div>
+      <h3 class="section-h" data-i18n="msOtherSection">其他微軟情資</h3>
+      <div class="card-list" id="msOtherList"></div>
+    </section>
+
     <!-- ========== 來源與排程 ========== -->
     <section class="view" id="view-sources">
       <div class="panel-head">
@@ -262,9 +311,13 @@
           <h4 data-i18n="methodConfTitle">信心分級（核實狀態）</h4>
           <ul class="method-list">
             <li><span class="pill v-confirmed" data-i18n="vConfirmed">已證實</span> <span data-i18n="methodConfA">官方權威（如 CISA KEV）· Admiralty A1/A2</span></li>
-            <li><span class="pill v-credible" data-i18n="vCredible">可信</span> <span data-i18n="methodConfB">≥2 獨立來源或雙源交叉 · B2</span></li>
-            <li><span class="pill v-unverified" data-i18n="vUnverified">未核實</span> <span data-i18n="methodConfC">單源／暗網間接 · C3 · 不得單獨開單</span></li>
+            <li><span class="pill v-credible" data-i18n="vCredible">可信</span> <span data-i18n="methodConfB">≥2 獨立來源；或官方／PSIRT／研究單位之單一來源 · B2</span></li>
+            <li><span class="pill v-unverified" data-i18n="vUnverified">未核實</span> <span data-i18n="methodConfC">媒體／社群／暗網間接之單源 · C3 · 不得單獨開單</span></li>
           </ul>
+        </article>
+        <article class="method-card">
+          <h4 data-i18n="methodSrcTitle">來源可靠度分級（單源可信門檻）</h4>
+          <p data-i18n="methodSrcBody">來源可靠度與佐證數為獨立兩軸。可單源即列「可信」者限：官方政府級（CISA／TWCERT／NCSC／JPCERT 等）、廠商 PSIRT（Fortinet／MSRC／MS Security Blog）、第一手研究（Unit 42／Dragos／Claroty／Nozomi）。專題媒體（Dark Reading／THN／SecurityWeek／Industrial Cyber）與社群／OSINT 須 ≥2 獨立來源佐證，單篇報導不得因命中監控名單＋勒索關鍵字而升 P0。</p>
         </article>
         <article class="method-card">
           <h4 data-i18n="methodDarkTitle">暗網雙來源核實</h4>

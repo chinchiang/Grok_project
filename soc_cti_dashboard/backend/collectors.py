@@ -25,6 +25,10 @@ from .config import (
     EPSS_TOP_LIMIT,
     EPSS_TOP_MIN,
     EPSS_TOP_URL,
+    SOURCE_CLASS_COMMUNITY,
+    SOURCE_CLASS_OFFICIAL_GOV,
+    SOURCE_CLASS_OSINT,
+    derive_source_class,
     BLEEPING_RSS,
     THEHACKERNEWS_RSS,
     TWCERT_NEWS_RSS,
@@ -188,6 +192,7 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
                 layer_id="L1",
                 source_count=1,
                 is_darkweb_indirect=False,
+                source_class=SOURCE_CLASS_OFFICIAL_GOV,
             )
             priority = assign_priority(
                 in_kev=True,
@@ -207,6 +212,7 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
                 is_tw_industry=is_tw,
                 epss=epss,
                 source_count=1,
+                verification=verification,
             )
             sop = pick_sop(
                 priority=priority,
@@ -360,10 +366,13 @@ async def collect_rss_layer(
     fallback_urls: list[str] | None = None,
     extra_tags: list[str] | None = None,
     title_prefix: str | None = None,
+    source_class: str | None = None,
 ) -> int:
     t0 = time.perf_counter()
     count = 0
     used_url = url
+    # R3-1: reliability class drives single-source credibility (media needs 2 sources)
+    src_class = source_class or derive_source_class(source_id, extra_tags)
     try:
         content = ""
         async with await _client() as client:
@@ -491,6 +500,7 @@ async def collect_rss_layer(
                 layer_id=layer_id,
                 source_count=source_count,
                 is_darkweb_indirect=darkweb_indirect,
+                source_class=src_class,
             )
             if darkweb_indirect and source_count < 2:
                 verification = "unverified"
@@ -534,6 +544,7 @@ async def collect_rss_layer(
                 + (["microsoft"] if is_ms else [])
                 + (["darkweb-indirect"] if darkweb_indirect else [])
                 + (["unverified"] if verification == "unverified" else [])
+                + [f"src:{src_class}"]
                 + list(extra_tags or [])
             )
             # Deduplicate tags while preserving order
@@ -624,6 +635,7 @@ async def collect_registered_intel_feeds() -> dict[str, Any]:
                 max_items=int(feed.get("max_items") or 20),
                 extra_tags=list(feed.get("extra_tags") or []),
                 title_prefix=feed.get("title_prefix"),
+                source_class=feed.get("source_class"),
             )
             out[feed["source_id"]] = {"ok": True, "count": n, "name": feed["name"]}
             total += n
@@ -877,6 +889,7 @@ async def collect_otx_pulses(max_items: int | None = None) -> int:
                 layer_id="L3",
                 source_count=1,
                 is_darkweb_indirect=False,
+                source_class=SOURCE_CLASS_COMMUNITY,
             )
             priority = assign_priority(
                 in_kev=False,
@@ -2309,6 +2322,7 @@ async def _upsert_ransom_victim_item(
         source_count=source_count,
         dual_verified=dual_verified,
         forced_p3_review=force_p3,
+        verification=verification,
     )
 
     sop = pick_sop(
@@ -2863,6 +2877,7 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                     is_tw_industry=flags["is_tw_industry"],
                     source_count=1,
                     forced_p3_review=True,
+                    verification=verification,
                 )
                 sop = pick_sop(
                     priority=priority,
@@ -3262,6 +3277,7 @@ async def dual_source_darkweb_verify() -> int:
             layer_id="L6",
             source_count=source_count,
             is_darkweb_indirect=True,
+            source_class=SOURCE_CLASS_OSINT,
         )
         if source_count < 2:
             verification = "unverified"

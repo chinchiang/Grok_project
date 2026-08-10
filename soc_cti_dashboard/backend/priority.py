@@ -32,7 +32,18 @@ from .config import (
     FINANCE_WORD_PATTERNS,
     MICROSOFT_WATCHLIST,
     RANSOMWARE_KEYWORDS,
+    SOURCE_CLASS_MEDIA,
+    SOURCE_CLASS_OFFICIAL_GOV,
+    SOURCE_CLASS_RESEARCH,
+    SOURCE_CLASS_VENDOR_PSIRT,
     TW_ELECTRONICS_WATCHLIST,
+)
+
+# R3-1: source-reliability classes allowed to be "credible" on a single source.
+# Trade press / community / OSINT must be corroborated (>= 2 independent sources)
+# before they can satisfy the TW+ransomware P0 gate in assign_priority().
+SINGLE_SOURCE_CREDIBLE_CLASSES = frozenset(
+    {SOURCE_CLASS_OFFICIAL_GOV, SOURCE_CLASS_VENDOR_PSIRT, SOURCE_CLASS_RESEARCH}
 )
 
 
@@ -227,7 +238,17 @@ def assign_verification(
     layer_id: str,
     source_count: int,
     is_darkweb_indirect: bool,
+    source_class: str = SOURCE_CLASS_MEDIA,
 ) -> tuple[str, str]:
+    """Return (verification, admiralty) — reliability and credibility kept separate.
+
+    source_class is the Admiralty *source reliability* axis. L2/L7 mixes
+    authorities (CISA, PSIRT, Dragos) with trade press (Dark Reading, THN),
+    so the layer alone cannot justify single-source credibility: only
+    SINGLE_SOURCE_CREDIBLE_CLASSES may be credible on one source. Media/OSINT
+    need >= 2 independent sources, which keeps a lone news article that merely
+    mentions a watchlist name + "ransomware" out of the P0 gate.
+    """
     if in_kev:
         return "confirmed", "A1"
     if layer_id in ("L1", "T1") and source_count >= 1 and not is_darkweb_indirect:
@@ -240,7 +261,10 @@ def assign_verification(
 
     if source_count >= 2:
         return "credible", "B2"
-    if layer_id in ("L2", "L7", "T2", "T7"):
+    if (
+        layer_id in ("L2", "L7", "T2", "T7")
+        and source_class in SINGLE_SOURCE_CREDIBLE_CLASSES
+    ):
         return "credible", "B2"
     return "unverified", "C3"
 

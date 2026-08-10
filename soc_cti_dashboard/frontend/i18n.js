@@ -11,6 +11,7 @@ const I18N = {
     tabDark: "🌑 暗網／外洩",
     tabEms: "🏭 臺灣電子製造",
     tabFinance: "💰 金融專區",
+    tabMicrosoft: "🪟 微軟專區",
     tabSources: "來源與排程",
     // 營運概況四卡
     opsP0: "P0 緊急",
@@ -62,6 +63,23 @@ const I18N = {
     finRansomSection: "🔐 金融＋勒索（優先關注）",
     finKevSection: "KEV 金融相關",
     finOtherSection: "其他金融情資",
+    // 微軟專區
+    msTitle: "🪟 微軟專區",
+    msDesc:
+      "Windows 作業系統、企業平台（Exchange／SharePoint／Entra／Defender／M365）與 Microsoft Threat Intelligence 預警；KEV 與 P1 獨立分區，官方旁證另列。",
+    msStatTotal: "微軟相關",
+    msStatKev: "KEV",
+    msStatP1: "P1",
+    msStatRansom: "勒索",
+    msWatchTitle: "微軟監控範圍（產品／服務）",
+    msKevSection: "CISA KEV／已遭利用",
+    msP1Section: "P1 優先（KEV 在野利用路徑）",
+    msWindowsSection: "Windows 作業系統重大漏洞",
+    msEnterpriseSection: "企業平台（Exchange／SharePoint／Entra／Defender／M365）",
+    msTiSection: "Microsoft Threat Intelligence 攻擊活動／IOC",
+    msRansomSection: "🔐 微軟生態＋勒索",
+    msConfirmedSection: "官方旁證（Confirmed／MSRC／MS Blog）",
+    msOtherSection: "其他微軟情資",
     // 來源與方法論
     layersHealthTitle: "七層來源健康",
     methodTitle: "方法論",
@@ -72,8 +90,11 @@ const I18N = {
     methodP3: "其餘監控；暗網單源強制 P3 複核佇列",
     methodConfTitle: "信心分級（核實狀態）",
     methodConfA: "官方權威（如 CISA KEV）· Admiralty A1/A2",
-    methodConfB: "≥2 獨立來源或雙源交叉 · B2",
-    methodConfC: "單源／暗網間接 · C3 · 不得單獨開單",
+    methodConfB: "≥2 獨立來源；或官方／PSIRT／研究單位之單一來源 · B2",
+    methodConfC: "媒體／社群／暗網間接之單源 · C3 · 不得單獨開單",
+    methodSrcTitle: "來源可靠度分級（單源可信門檻）",
+    methodSrcBody:
+      "來源可靠度與佐證數為獨立兩軸。可單源即列「可信」者限：官方政府級（CISA／TWCERT／NCSC／JPCERT 等）、廠商 PSIRT（Fortinet／MSRC／MS Security Blog）、第一手研究（Unit 42／Dragos／Claroty／Nozomi）。專題媒體（Dark Reading／THN／SecurityWeek／Industrial Cyber）與社群／OSINT 須 ≥2 獨立來源佐證，單篇報導不得因命中監控名單＋勒索關鍵字而升 P0。",
     methodDarkTitle: "暗網雙來源核實",
     methodDarkBody:
       "Ransomware.live × RansomLook 交叉比對。雙源→可信；單源（含 X OSINT）→未核實且僅 P3 人工複核，不得自動升 P0。",
@@ -126,6 +147,7 @@ const I18N = {
     tabDark: "🌑 Dark web / Breach",
     tabEms: "🏭 TW electronics mfg",
     tabFinance: "💰 Finance",
+    tabMicrosoft: "🪟 Microsoft",
     tabSources: "Sources & schedule",
     // Ops KPIs
     opsP0: "P0 Critical",
@@ -177,6 +199,23 @@ const I18N = {
     finRansomSection: "🔐 Finance + ransomware (priority)",
     finKevSection: "KEV finance-related",
     finOtherSection: "Other finance intel",
+    // Microsoft zone
+    msTitle: "🪟 Microsoft zone",
+    msDesc:
+      "Windows OS, enterprise platforms (Exchange / SharePoint / Entra / Defender / M365) and Microsoft Threat Intelligence warnings; KEV and P1 sectioned separately, official corroboration listed on its own.",
+    msStatTotal: "Microsoft-related",
+    msStatKev: "KEV",
+    msStatP1: "P1",
+    msStatRansom: "Ransomware",
+    msWatchTitle: "Microsoft watch scope (products / services)",
+    msKevSection: "CISA KEV / exploited in the wild",
+    msP1Section: "P1 priority (KEV in-the-wild path)",
+    msWindowsSection: "Windows OS critical vulnerabilities",
+    msEnterpriseSection: "Enterprise platforms (Exchange / SharePoint / Entra / Defender / M365)",
+    msTiSection: "Microsoft Threat Intelligence campaigns / IOCs",
+    msRansomSection: "🔐 Microsoft estate + ransomware",
+    msConfirmedSection: "Official corroboration (Confirmed / MSRC / MS Blog)",
+    msOtherSection: "Other Microsoft intel",
     // Sources & methodology
     layersHealthTitle: "7-layer source health",
     methodTitle: "Methodology",
@@ -187,8 +226,11 @@ const I18N = {
     methodP3: "Monitor otherwise; dark-web single-source forced to P3 review",
     methodConfTitle: "Confidence (verification)",
     methodConfA: "Authoritative official (e.g. CISA KEV) · Admiralty A1/A2",
-    methodConfB: "≥2 independent sources or dual cross-check · B2",
-    methodConfC: "Single-source / indirect dark web · C3 · no solo ticket",
+    methodConfB: "≥ 2 independent sources; or a single official / PSIRT / research source · B2",
+    methodConfC: "Single media / community / dark-web-indirect source · C3 · never ticket alone",
+    methodSrcTitle: "Source reliability grading (single-source credibility bar)",
+    methodSrcBody:
+      "Source reliability and evidence count are two independent axes. Credible on ONE source only for: official government (CISA / TWCERT / NCSC / JPCERT…), vendor PSIRT (Fortinet / MSRC / MS Security Blog) and first-party research (Unit 42 / Dragos / Claroty / Nozomi). Trade press (Dark Reading / THN / SecurityWeek / Industrial Cyber) and community/OSINT need ≥ 2 independent sources — a lone article cannot reach P0 on watchlist + ransomware keywords alone.",
     methodDarkTitle: "Dark-web dual-source verify",
     methodDarkBody:
       "Ransomware.live × RansomLook. Dual → Credible; single (incl. X OSINT) → Unverified P3 review only, no auto-P0.",

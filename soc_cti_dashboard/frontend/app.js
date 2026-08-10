@@ -580,6 +580,7 @@ async function loadKpis() {
   if ($("#tileEms"))
     $("#tileEms").textContent = k.ems_count ?? k.tw_industry_count ?? 0;
   if ($("#tileFin")) $("#tileFin").textContent = k.finance_count ?? 0;
+  if ($("#tileMs")) $("#tileMs").textContent = k.microsoft_count ?? 0;
   if ($("#tileDark"))
     $("#tileDark").textContent =
       k.ransomware_count ?? k.breach_count ?? 0;
@@ -632,23 +633,6 @@ async function loadHighRisk() {
   ]);
   renderList($("#highP0List"), p0.items, 80);
   renderList($("#highP1List"), p1.items, 80);
-}
-
-async function loadIntelStream() {
-  const params = new URLSearchParams();
-  const p = $("#filterPriority").value;
-  const v = $("#filterVerification").value;
-  const q = $("#filterQ").value.trim();
-  if (p) params.set("priority", p);
-  if (v) params.set("verification", v);
-  if ($("#filterRansom").checked) params.set("ransomware", "true");
-  if ($("#filterTw").checked) params.set("tw", "true");
-  if ($("#filterFinance")?.checked) params.set("finance", "true");
-  if ($("#filterMs")?.checked) params.set("microsoft", "true");
-  if (q) params.set("q", q);
-  params.set("limit", "80");
-  const data = await api(`/api/intel?${params}`);
-  renderList($("#intelStream"), data.items, 80);
 }
 
 function renderEntityChips(el, counts) {
@@ -801,6 +785,92 @@ async function loadFinance() {
   renderList($("#finRansomList"), ransom, 40);
   renderList($("#finKevList"), kev, 40);
   renderList($("#finOtherList"), other, 60);
+}
+
+/** Microsoft zone — backed by /api/microsoft-dashboard (ms_dashboard.py buckets). */
+async function loadMicrosoft() {
+  let data = {};
+  try {
+    data = await api("/api/microsoft-dashboard");
+  } catch (e) {
+    console.warn("microsoft-dashboard", e);
+  }
+
+  // Fallback: dashboard unavailable/empty → query the flagged items directly
+  let items = [...(data.items || [])];
+  if (items.length < 3) {
+    try {
+      const ms = await api("/api/intel?microsoft=true&limit=200");
+      items = ms.items || items;
+    } catch {
+      /* keep */
+    }
+  }
+  if (items.length < 3) {
+    const all = await ensureIntel();
+    items = all.filter((i) => i.is_microsoft);
+  }
+
+  const stats = data.stats || {};
+  const isKev = (i) =>
+    (i.source_name && /kev/i.test(i.source_name)) ||
+    (Array.isArray(i.tags) && i.tags.some((t) => /kev|in-the-wild/i.test(t)));
+  const kev = data.kev_items || items.filter(isKev);
+  const p1 = data.p1_items || items.filter((i) => i.priority === "P1");
+  const ransom = data.ransomware || items.filter((i) => i.is_ransomware);
+
+  const setNum = (sel, n) => {
+    const el = $(sel);
+    if (el) el.textContent = n;
+  };
+  setNum("#msHitTotal", stats.total ?? items.length);
+  setNum("#msHitKev", stats.kev ?? kev.length);
+  setNum("#msHitP1", stats.p1 ?? p1.length);
+  setNum("#msHitRansom", stats.ransomware ?? ransom.length);
+  setNum("#tileMs", stats.total ?? items.length);
+
+  const chips = $("#watchMicrosoft");
+  if (chips) {
+    const wl = data.watchlist || [];
+    chips.innerHTML = wl.length
+      ? wl
+          .map((w) => {
+            const label = typeof w === "string" ? w : w.key || w.name || "";
+            const tier = w && w.tier ? ` · ${w.tier}` : "";
+            return `<span>${escapeHtml(label)}${escapeHtml(tier)}</span>`;
+          })
+          .join("")
+      : `<span>${t("empty")}</span>`;
+  }
+
+  let entityCounts = data.entity_counts || {};
+  if (!Object.keys(entityCounts).length) {
+    entityCounts = {};
+    for (const it of items) {
+      let ents = it.ms_entities;
+      if (typeof ents === "string") {
+        try {
+          ents = JSON.parse(ents);
+        } catch {
+          ents = [];
+        }
+      }
+      for (const e of ents || []) {
+        const k = e.key || e.matched || "microsoft";
+        entityCounts[k] = (entityCounts[k] || 0) + 1;
+      }
+    }
+  }
+  renderEntityChips($("#msEntityChips"), entityCounts);
+
+  renderList($("#msKevList"), kev, 40);
+  renderList($("#msP1List"), p1, 40);
+  renderList($("#msRansomList"), ransom, 40);
+  renderList($("#msWindowsList"), data.windows_os || [], 40);
+  renderList($("#msEnterpriseList"), data.enterprise_platform || [], 40);
+  renderList($("#msTiList"), data.threat_intel || [], 40);
+  renderList($("#msConfirmedList"), data.confirmed_items || [], 40);
+  renderList($("#msOtherList"), data.other || [], 40);
 }
 
 function isOtItem(i) {
@@ -1256,6 +1326,7 @@ async function loadView(view) {
   if (view === "dark") await loadDark();
   if (view === "ems") await loadEms();
   if (view === "finance") await loadFinance();
+  if (view === "microsoft") await loadMicrosoft();
   if (view === "sources") await loadSources();
 }
 
