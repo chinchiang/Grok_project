@@ -18,6 +18,17 @@ SCHEDULE_HOURS = (7, 15)
 # Manual scan cooldown (seconds)
 MANUAL_SCAN_COOLDOWN_SEC = 30 * 60
 
+# --- API security ---
+# When set, POST /api/scan/manual requires X-API-Key or Authorization: Bearer <key>
+API_KEY = (os.environ.get("SOC_CTI_API_KEY") or os.environ.get("API_KEY") or "").strip()
+# Comma-separated allowed origins. Default: local uvicorn / common dev ports.
+# Production: set CORS_ORIGINS=https://chinchiang.github.io,https://your-domain
+_CORS_RAW = (
+    os.environ.get("CORS_ORIGINS")
+    or "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000"
+).strip()
+CORS_ORIGINS = [o.strip() for o in _CORS_RAW.split(",") if o.strip()]
+
 # Public feeds
 CISA_KEV_URL = (
     "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
