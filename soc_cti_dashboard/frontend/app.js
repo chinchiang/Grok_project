@@ -388,12 +388,13 @@ async function ensureIntel() {
   return d.items || [];
 }
 
+/** Escape HTML special chars. Use string concat so editors cannot auto-decode entities. */
 function escapeHtml(s) {
   return String(s)
-    .replace(/&/g, "&")
-    .replace(/</g, "<")
-    .replace(/>/g, ">")
-    .replace(/"/g, """)
+    .replace(/&/g, "&" + "amp;")
+    .replace(/</g, "&" + "lt;")
+    .replace(/>/g, "&" + "gt;")
+    .replace(/"/g, "&" + "quot;")
     .replace(/'/g, "&#39;");
 }
 
@@ -1206,7 +1207,7 @@ async function manualScan() {
   }
   const btn = $("#manualScanBtn");
   btn.disabled = true;
-  showToast(t("scanning"));
+  showToast(t("scanning");
   try {
     await api("/api/scan/manual", { method: "POST" });
     Object.keys(cache).forEach((k) => (cache[k] = null));
