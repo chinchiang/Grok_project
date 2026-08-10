@@ -10,12 +10,14 @@ from typing import Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import (
+    API_KEY,
+    CORS_ORIGINS,
     FINANCE_WATCHLIST,
     LAYERS,
     MANUAL_SCAN_COOLDOWN_SEC,
@@ -90,10 +92,39 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+async def require_api_key(
+    x_api_key: str | None = Header(None, alias="X-API-Key"),
+    authorization: str | None = Header(None),
+) -> None:
+    """Protect mutating endpoints when SOC_CTI_API_KEY / API_KEY is configured.
+
+    Local / CI without a key remain open. Production should set the env var.
+    Accepts X-API-Key or Authorization: Bearer <token>.
+    """
+    if not API_KEY:
+        return
+    provided = (x_api_key or "").strip()
+    if not provided and authorization:
+        auth = authorization.strip()
+        if auth.lower().startswith("bearer "):
+            provided = auth[7:].strip()
+        else:
+            provided = auth
+    if not provided or provided != API_KEY:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "message_zh": "需要有效 API 金鑰（X-API-Key 或 Authorization: Bearer）",
+                "message_en": "Valid API key required (X-API-Key or Authorization: Bearer)",
+            },
+        )
 
 
 @app.get("/api/health")
@@ -103,6 +134,7 @@ async def health() -> dict[str, Any]:
         "timezone": "Asia/Taipei",
         "server_time": now_iso(),
         "schedule_hours": list(SCHEDULE_HOURS),
+        "api_key_required": bool(API_KEY),
     }
 
 
@@ -316,12 +348,16 @@ async def scan_status() -> dict[str, Any]:
         "last_manual_scan": last,
         "last_scheduled_scan": await get_meta("last_scheduled_scan"),
         "harvest_running": _harvest_lock.locked(),
+        "api_key_required": bool(API_KEY),
     }
 
 
 @app.post("/api/scan/manual")
-async def manual_scan() -> dict[str, Any]:
-    """Trigger immediate intel harvest — limited to once per 30 minutes."""
+async def manual_scan(_: None = Depends(require_api_key)) -> dict[str, Any]:
+    """Trigger immediate intel harvest — limited to once per 30 minutes.
+
+    Requires X-API-Key when SOC_CTI_API_KEY is set.
+    """
     status = await scan_status()
     if not status["manual_scan_allowed"]:
         raise HTTPException(

@@ -18,6 +18,17 @@ SCHEDULE_HOURS = (7, 15)
 # Manual scan cooldown (seconds)
 MANUAL_SCAN_COOLDOWN_SEC = 30 * 60
 
+# --- API security ---
+# When set, POST /api/scan/manual requires X-API-Key or Authorization: Bearer <key>
+API_KEY = (os.environ.get("SOC_CTI_API_KEY") or os.environ.get("API_KEY") or "").strip()
+# Comma-separated allowed origins. Default: local uvicorn / common dev ports.
+# Production: set CORS_ORIGINS=https://chinchiang.github.io,https://your-domain
+_CORS_RAW = (
+    os.environ.get("CORS_ORIGINS")
+    or "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000"
+).strip()
+CORS_ORIGINS = [o.strip() for o in _CORS_RAW.split(",") if o.strip()]
+
 # Public feeds
 CISA_KEV_URL = (
     "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
@@ -194,6 +205,9 @@ OTX_MAX_PULSES = int(os.environ.get("OTX_MAX_PULSES") or "25")
 EPSS_TOP_URL = "https://api.first.org/data/v1/epss"
 EPSS_TOP_LIMIT = int(os.environ.get("EPSS_TOP_LIMIT") or "30")
 EPSS_TOP_MIN = float(os.environ.get("EPSS_TOP_MIN") or "0.5")
+# Independent P2 scoring threshold (R2-3). Defaults to EPSS_TOP_MIN so behaviour
+# is unchanged unless operator sets EPSS_P2_THRESHOLD explicitly.
+EPSS_P2_THRESHOLD = float(os.environ.get("EPSS_P2_THRESHOLD") or EPSS_TOP_MIN)
 
 # abuse.ch ThreatFox — free recent JSON export; Auth-Key optional for API
 # https://threatfox.abuse.ch/export/ / https://threatfox.abuse.ch/api/

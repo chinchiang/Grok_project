@@ -160,7 +160,7 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
             vulns = vulns[:limit_recent]
 
         cve_list = [v.get("cveID") for v in vulns if v.get("cveID")]
-        epss_map = await _fetch_epss_batch(cve_list[:80])
+        epss_map = await _fetch_epss_batch(cve_list)
 
         for v in vulns:
             cve = v.get("cveID") or ""
@@ -183,6 +183,12 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
             is_ms = flags["is_microsoft"]
             epss = epss_map.get(cve)
 
+            verification, admiralty = assign_verification(
+                in_kev=True,
+                layer_id="L1",
+                source_count=1,
+                is_darkweb_indirect=False,
+            )
             priority = assign_priority(
                 in_kev=True,
                 known_ransomware_campaign=ransomware_flag,
@@ -191,6 +197,7 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
                 epss=epss,
                 source_count=1,
                 layer_id="L1",
+                verification=verification,
             )
             rz, re_ = explain_priority(
                 priority=priority,
@@ -200,12 +207,6 @@ async def collect_cisa_kev(limit_recent: int | None = 120) -> int:
                 is_tw_industry=is_tw,
                 epss=epss,
                 source_count=1,
-            )
-            verification, admiralty = assign_verification(
-                in_kev=True,
-                layer_id="L1",
-                source_count=1,
-                is_darkweb_indirect=False,
             )
             sop = pick_sop(
                 priority=priority,
@@ -483,16 +484,8 @@ async def collect_rss_layer(
 
             # Dark-web-indirect single source → forced P3 (no watchlist auto-P0)
             force_p3 = bool(darkweb_indirect and source_count < 2)
-            priority = assign_priority(
-                in_kev=False,
-                known_ransomware_campaign=False,
-                is_ransomware=is_ransom,
-                is_tw_industry=is_tw,
-                epss=None,
-                source_count=source_count,
-                layer_id=layer_id,
-                force_p3_review=force_p3,
-            )
+            # R2-2: verification MUST be resolved before assign_priority so that
+            # dual-source TW + ransomware can elevate to P0 (credible gate).
             verification, admiralty = assign_verification(
                 in_kev=False,
                 layer_id=layer_id,
@@ -502,6 +495,17 @@ async def collect_rss_layer(
             if darkweb_indirect and source_count < 2:
                 verification = "unverified"
                 admiralty = "C3"
+            priority = assign_priority(
+                in_kev=False,
+                known_ransomware_campaign=False,
+                is_ransomware=is_ransom,
+                is_tw_industry=is_tw,
+                epss=None,
+                source_count=source_count,
+                layer_id=layer_id,
+                force_p3_review=force_p3,
+                verification=verification,
+            )
 
             title_zh = title
             title_en = title
@@ -686,6 +690,7 @@ async def collect_epss_top_scores(
                 f"Note: predictive exploit likelihood — not the same as KEV confirmation"
             )
             flags = enrich_flags(title_en, summary_en, "", "")
+            verification, admiralty = "confirmed", "A2"
             priority = assign_priority(
                 in_kev=False,
                 known_ransomware_campaign=False,
@@ -694,8 +699,8 @@ async def collect_epss_top_scores(
                 epss=epss,
                 source_count=1,
                 layer_id="L1",
+                verification=verification,
             )
-            verification, admiralty = "confirmed", "A2"
 
             await upsert_intel(
                 {
@@ -867,6 +872,12 @@ async def collect_otx_pulses(max_items: int | None = None) -> int:
             summary_en = summary_zh
             flags = enrich_flags(name, desc + " " + tag_s)
             cve_m = re.findall(r"CVE-\d{4}-\d{4,7}", f"{name} {desc}", re.I)
+            verification, admiralty = assign_verification(
+                in_kev=False,
+                layer_id="L3",
+                source_count=1,
+                is_darkweb_indirect=False,
+            )
             priority = assign_priority(
                 in_kev=False,
                 known_ransomware_campaign=False,
@@ -875,12 +886,7 @@ async def collect_otx_pulses(max_items: int | None = None) -> int:
                 epss=None,
                 source_count=1,
                 layer_id="L3",
-            )
-            verification, admiralty = assign_verification(
-                in_kev=False,
-                layer_id="L3",
-                source_count=1,
-                is_darkweb_indirect=False,
+                verification=verification,
             )
 
             await upsert_intel(
@@ -1153,6 +1159,8 @@ async def _collect_cisa_ics_from_github_csv(*, limit: int = 40) -> int:
 
         flags = enrich_flags(title, summary_en, vendor, product)
         is_ransom = flags["is_ransomware"]
+        # Official ICS advisory content (via trusted community mirror of CISA data)
+        verification, admiralty = "confirmed", "A2"
         # OT critical manufacturing + high CVSS is elevated monitoring
         priority = assign_priority(
             in_kev=False,
@@ -1162,20 +1170,12 @@ async def _collect_cisa_ics_from_github_csv(*, limit: int = 40) -> int:
             epss=None,
             source_count=1,
             layer_id="L7",
+            verification=verification,
         )
         if priority == "P3" and cvss is not None and cvss >= 9.0:
             priority = "P2"
         elif priority == "P3" and (severity or "").lower() == "critical":
             priority = "P2"
-
-        verification, admiralty = assign_verification(
-            in_kev=False,
-            layer_id="L7",
-            source_count=1,
-            is_darkweb_indirect=False,
-        )
-        # Official ICS advisory content (via trusted community mirror of CISA data)
-        verification, admiralty = "confirmed", "A2"
 
         # Normalize release date to ISO-ish
         pub_dt = parse_date(released) or parse_date(updated)
@@ -1306,6 +1306,7 @@ async def _upsert_easm_finding(
         m = re.findall(r"CVE-\d{4}-\d{4,7}", " ".join(vulns), re.I)
         cve_id = m[0].upper() if m else None
 
+    verification, admiralty = "credible", "B2"
     priority = assign_priority(
         in_kev=False,
         known_ransomware_campaign=False,
@@ -1314,6 +1315,7 @@ async def _upsert_easm_finding(
         epss=None,
         source_count=1,
         layer_id="L4",
+        verification=verification,
     )
     # Open risky ports or known vulns → at least P2
     risky_ports = {21, 23, 445, 3389, 5900, 6379, 9200, 27017}
@@ -1321,14 +1323,6 @@ async def _upsert_easm_finding(
     if vulns or (open_set & risky_ports):
         if priority == "P3":
             priority = "P2"
-
-    verification, admiralty = assign_verification(
-        in_kev=False,
-        layer_id="L4",
-        source_count=1,
-        is_darkweb_indirect=False,
-    )
-    verification, admiralty = "credible", "B2"
 
     await upsert_intel(
         {
@@ -1790,6 +1784,11 @@ async def collect_hibp_breaches(
                     "雙重勒索",
                 )
             )
+            # HIBP catalog is a trusted public authority for breach existence
+            if is_verified:
+                verification, admiralty = "confirmed", "A2"
+            else:
+                verification, admiralty = "credible", "B2"
             priority = assign_priority(
                 in_kev=False,
                 known_ransomware_campaign=False,
@@ -1798,6 +1797,7 @@ async def collect_hibp_breaches(
                 epss=None,
                 source_count=1,
                 layer_id="L5",
+                verification=verification,
             )
             # Large recent public breaches with passwords elevate monitoring
             if (
@@ -1810,18 +1810,6 @@ async def collect_hibp_breaches(
                 )
             ):
                 priority = "P2"
-
-            verification, admiralty = assign_verification(
-                in_kev=False,
-                layer_id="L5",
-                source_count=1,
-                is_darkweb_indirect=False,
-            )
-            # HIBP catalog is a trusted public authority for breach existence
-            if is_verified:
-                verification, admiralty = "confirmed", "A2"
-            else:
-                verification, admiralty = "credible", "B2"
 
             await upsert_intel(
                 {
@@ -2163,6 +2151,7 @@ async def collect_threatfox(
                 k in (tag_s + " " + fam).lower()
                 for k in ("ransom", "locker", "lockbit", "blackcat", "akira", "clop")
             )
+            verification, admiralty = "credible", "B2"
             priority = assign_priority(
                 in_kev=False,
                 known_ransomware_campaign=False,
@@ -2171,11 +2160,10 @@ async def collect_threatfox(
                 epss=None,
                 source_count=1,
                 layer_id="L3",
+                verification=verification,
             )
             if priority == "P3" and (b["count"] >= 50 or b["max_conf"] >= 90):
                 priority = "P2"
-
-            verification, admiralty = "credible", "B2"
 
             await upsert_intel(
                 {
@@ -2296,15 +2284,23 @@ async def _upsert_ransom_victim_item(
     # Spec: single-source leak-site → P3 human review queue only
     force_p3 = not dual_verified
 
+    # R2-2: resolve verification first — dual-source TW ransomware → P0
+    # only when verification is credible/confirmed (see assign_priority).
+    if dual_verified:
+        verification, admiralty = "credible", "B2"
+    else:
+        verification, admiralty = "unverified", "C3"
+
     priority = assign_priority(
         in_kev=False,
         known_ransomware_campaign=False,
         is_ransomware=is_ransom,
-        is_tw_industry=is_tw and dual_verified,
+        is_tw_industry=is_tw,
         epss=None,
         source_count=source_count,
         layer_id="L6",
         force_p3_review=force_p3,
+        verification=verification,
     )
     rz, re_ = explain_priority(
         priority=priority,
@@ -2314,16 +2310,6 @@ async def _upsert_ransom_victim_item(
         dual_verified=dual_verified,
         forced_p3_review=force_p3,
     )
-    verification, admiralty = assign_verification(
-        in_kev=False,
-        layer_id="L6",
-        source_count=source_count,
-        is_darkweb_indirect=True,
-    )
-    if dual_verified:
-        verification, admiralty = "credible", "B2"
-    else:
-        verification, admiralty = "unverified", "C3"
 
     sop = pick_sop(
         priority=priority,
@@ -2859,6 +2845,7 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                 )
                 # Spec: single-source X OSINT is always Unverified → P3 review only.
                 # Watchlist + ransomware keywords must NOT auto-elevate to P0.
+                verification, admiralty = "unverified", "C3"
                 priority = assign_priority(
                     in_kev=False,
                     known_ransomware_campaign=False,
@@ -2868,6 +2855,7 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                     source_count=1,
                     layer_id="L6",
                     force_p3_review=True,
+                    verification=verification,
                 )
                 rz, re_ = explain_priority(
                     priority=priority,
@@ -2876,7 +2864,6 @@ async def collect_x_osint_accounts(max_items: int | None = None) -> int:
                     source_count=1,
                     forced_p3_review=True,
                 )
-                verification, admiralty = "unverified", "C3"
                 sop = pick_sop(
                     priority=priority,
                     is_ransomware=is_ransom,
@@ -3269,16 +3256,7 @@ async def dual_source_darkweb_verify() -> int:
 
         # Single-source dual-track news → P3 review; dual-source may elevate.
         force_p3 = source_count < 2
-        priority = assign_priority(
-            in_kev=False,
-            known_ransomware_campaign=False,
-            is_ransomware=is_ransom,
-            is_tw_industry=is_tw,
-            epss=None,
-            source_count=source_count,
-            layer_id="L6",
-            force_p3_review=force_p3,
-        )
+        # R2-2: verification before priority (dual-source TW + ransom → P0)
         verification, admiralty = assign_verification(
             in_kev=False,
             layer_id="L6",
@@ -3288,6 +3266,17 @@ async def dual_source_darkweb_verify() -> int:
         if source_count < 2:
             verification = "unverified"
             admiralty = "C3"
+        priority = assign_priority(
+            in_kev=False,
+            known_ransomware_campaign=False,
+            is_ransomware=is_ransom,
+            is_tw_industry=is_tw,
+            epss=None,
+            source_count=source_count,
+            layer_id="L6",
+            force_p3_review=force_p3,
+            verification=verification,
+        )
 
         title = a["title"]
         title_zh = title
@@ -3408,6 +3397,7 @@ async def dual_source_darkweb_verify() -> int:
                     source_count=1,
                     layer_id="L6",
                     force_p3_review=True,
+                    verification="unverified",
                 ),
                 "verification": "unverified",
                 "layer_id": "L6",

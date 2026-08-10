@@ -2,10 +2,10 @@
 P0–P3 exclusive priority assignment (first match wins, no mixing).
 
   P0  KEV + known ransomware campaign
-      OR TW electronics/semi watchlist + ransomware (multi-source / not forced-P3)
+      OR TW electronics/semi watchlist + ransomware AND verification in (confirmed, credible)
       OR TW industry + KEV
   P1  In CISA KEV and not already P0  (never mixed into P2/P3)
-  P2  Not KEV; EPSS >= 0.5 OR multi-source credible
+  P2  Not KEV; EPSS >= threshold (config) OR multi-source credible
   P3  Everything else, AND single-source unverified OSINT/dark-web
       (force_p3_review=True) — never elevate to P0/P1 on keyword alone
 
@@ -13,6 +13,9 @@ Important:
   Unverified single-source X / leak-site / dual-track news MUST pass
   force_p3_review=True so Acer+ransomware-style watchlist hits stay P3
   until dual-sourced. Priority is not proof; verification is separate.
+
+  TW + ransomware alone is NOT P0 unless verification is confirmed/credible
+  (aligns with README: 已核實／多源 且台灣電子／半導體 + 勒索).
 
 Verification:
   confirmed / credible / unverified + Admiralty hint
@@ -24,6 +27,7 @@ import re
 from typing import Any
 
 from .config import (
+    EPSS_P2_THRESHOLD,
     FINANCE_WATCHLIST,
     FINANCE_WORD_PATTERNS,
     MICROSOFT_WATCHLIST,
@@ -182,8 +186,13 @@ def assign_priority(
     source_count: int,
     layer_id: str,
     force_p3_review: bool = False,
+    verification: str = "unverified",
 ) -> str:
-    """Return exactly one of P0|P1|P2|P3 — exclusive, first match wins."""
+    """Return exactly one of P0|P1|P2|P3 — exclusive, first match wins.
+
+    verification is required for the TW+ransomware P0 path so that
+    unverified / single-source OSINT cannot auto-elevate to "immediate action".
+    """
     # Spec: single-source unverified OSINT/dark-web → P3 review queue only
     if force_p3_review:
         return "P3"
@@ -191,7 +200,8 @@ def assign_priority(
     # P0 first
     if in_kev and known_ransomware_campaign:
         return "P0"
-    if is_tw_industry and is_ransomware:
+    # TW + ransomware → P0 only when already confirmed/credible (README alignment)
+    if is_tw_industry and is_ransomware and verification in ("confirmed", "credible"):
         return "P0"
     if is_tw_industry and in_kev:
         return "P0"
@@ -201,7 +211,7 @@ def assign_priority(
         return "P1"
 
     # P2: predictive / multi-source
-    if epss is not None and epss >= 0.5:
+    if epss is not None and epss >= EPSS_P2_THRESHOLD:
         return "P2"
     if source_count >= 2 and layer_id in ("L2", "L3", "L6", "L7", "T2", "T3", "T6", "T7"):
         return "P2"

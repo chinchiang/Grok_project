@@ -136,8 +136,10 @@ function cardHTML(item) {
     ? `<time class="card-time" datetime="${escapeHtml(String(item.date_added || item.fetched_at || ""))}" title="${escapeHtml(t("metaDate"))}">${escapeHtml(dateVal)}</time>`
     : `<span class="card-time card-time-empty" aria-hidden="true"></span>`;
 
-  const link = item.url
-    ? `<a class="meta-link" href="${item.url}" target="_blank" rel="noopener">${t("openLink")} ↗</a>`
+  // XSS-safe: only allow http/https; reject javascript:/data:/etc.
+  const safeUrl = safeHref(item.url);
+  const link = safeUrl
+    ? `<a class="meta-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${t("openLink")} ↗</a>`
     : "";
 
   return `
@@ -386,12 +388,31 @@ async function ensureIntel() {
   return d.items || [];
 }
 
+/** Escape HTML special chars. Use string concat so editors cannot auto-decode entities. */
 function escapeHtml(s) {
   return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/&/g, "&" + "amp;")
+    .replace(/</g, "&" + "lt;")
+    .replace(/>/g, "&" + "gt;")
+    .replace(/"/g, "&" + "quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * XSS-safe href: only allow http: and https: schemes.
+ * Rejects javascript:, data:, vbscript:, blob:, and malformed URLs.
+ * Returns attribute-escaped absolute URL, or empty string if unsafe.
+ */
+function safeHref(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return "";
+    return escapeHtml(u.href);
+  } catch {
+    return "";
+  }
 }
 
 function renderList(el, items, limit = 12) {
@@ -840,29 +861,31 @@ async function loadOtCatalog() {
   for (const c of data.categories) {
     const srcs = (data.by_category && data.by_category[String(c.id)]) || [];
     parts.push(`<details class="ot-cat-block" ${c.id === 1 ? "open" : ""}>`);
-    parts.push(`<summary><strong>${catTitle(c)}</strong> · ${srcs.length}</summary>`);
+    parts.push(`<summary><strong>${escapeHtml(catTitle(c))}</strong> · ${srcs.length}</summary>`);
     if (c.note_zh || c.note_en) {
       parts.push(
-        `<p class="ot-cat-note">${zh ? c.note_zh || "" : c.note_en || ""}</p>`
+        `<p class="ot-cat-note">${escapeHtml(zh ? c.note_zh || "" : c.note_en || "")}</p>`
       );
     }
     parts.push(`<ul class="ot-cat-list">`);
     for (const s of srcs) {
-      const link = s.url
-        ? `<a href="${s.url}" target="_blank" rel="noopener noreferrer">${s.name}</a>`
-        : s.name;
+      const safeUrl = safeHref(s.url);
+      const nameEsc = escapeHtml(s.name || "");
+      const link = safeUrl
+        ? `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${nameEsc}</a>`
+        : nameEsc;
       const badge = s.ingest === "reference" || s.priority === "framework"
         ? `<span class="pill p3">ref</span>`
         : s.priority === "daily_must"
           ? `<span class="pill p0">must</span>`
           : s.ingest
-            ? `<span class="pill p2">${s.ingest}</span>`
+            ? `<span class="pill p2">${escapeHtml(String(s.ingest))}</span>`
             : "";
       parts.push(
         `<li>${badge} ${link}` +
-          `<div class="ot-cat-role">${role(s) || ""}</div>` +
+          `<div class="ot-cat-role">${escapeHtml(role(s) || "")}</div>` +
           (usage(s)
-            ? `<div class="ot-cat-usage"><span class="muted">${t("otUsage")}:</span> ${usage(s)}</div>`
+            ? `<div class="ot-cat-usage"><span class="muted">${t("otUsage")}:</span> ${escapeHtml(usage(s))}</div>`
             : "") +
           `</li>`
       );
