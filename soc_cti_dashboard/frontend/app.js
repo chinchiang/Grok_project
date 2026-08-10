@@ -1207,7 +1207,7 @@ async function manualScan() {
   }
   const btn = $("#manualScanBtn");
   btn.disabled = true;
-  showToast(t("scanning");
+  showToast(t("scanning"));
   try {
     await api("/api/scan/manual", { method: "POST" });
     Object.keys(cache).forEach((k) => (cache[k] = null));
