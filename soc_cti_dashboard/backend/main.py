@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -90,13 +91,30 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS_ORIGINS always resolves to a non-empty allowlist (config.py supplies the
+# local default), so there is no wildcard fallback: "*" plus allow_credentials
+# is rejected by browsers anyway and would silently widen the surface.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+def _key_bytes(value: str) -> bytes:
+    """Recover the on-the-wire bytes of a credential.
+
+    ASGI decodes header values as latin-1, so a UTF-8 key arrives mojibake'd;
+    re-encoding with latin-1 restores the original bytes. Environment values are
+    already real text, hence the UTF-8 fallback. For ASCII keys — the normal
+    case — both paths are identical.
+    """
+    try:
+        return value.encode("latin-1")
+    except UnicodeEncodeError:
+        return value.encode("utf-8")
 
 
 async def require_api_key(
@@ -117,7 +135,12 @@ async def require_api_key(
             provided = auth[7:].strip()
         else:
             provided = auth
-    if not provided or provided != API_KEY:
+    # Constant-time compare so response latency leaks no prefix information.
+    # Compare as bytes: compare_digest() rejects non-ASCII str outright, so a
+    # header carrying any byte >= 0x80 would otherwise raise 500 instead of 401.
+    if not provided or not secrets.compare_digest(
+        _key_bytes(provided), API_KEY.encode("utf-8")
+    ):
         raise HTTPException(
             status_code=401,
             detail={

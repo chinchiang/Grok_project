@@ -105,7 +105,28 @@ python scripts/export_static.py
 - `GET /api/finance-dashboard` — 金融相關看板  
 - `GET /api/microsoft-dashboard` — 微軟相關看板  
 - `GET /api/layers` — 七層健康  
-- `POST /api/scan/manual` — 手動巡檢（30 分鐘冷卻）  
+- `POST /api/scan/manual` — 手動巡檢（30 分鐘冷卻；設定金鑰後需帶驗證標頭）  
+
+## 服務設定（選用環境變數）
+
+| 變數 | 預設 | 說明 |
+|------|------|------|
+| `SOC_CTI_API_KEY`（或 `API_KEY`） | 未設＝**不驗證** | 設定後 `POST /api/scan/manual` 需帶 `X-API-Key: <key>` 或 `Authorization: Bearer <key>`（常數時間比對）。內網／共享環境部署建議必設 |
+| `CORS_ORIGINS` | `http://127.0.0.1:8787,http://localhost:8787` | 逗號分隔的允許來源。內建前端與 API **同源**，僅在前端分離部署時需調整（例：`https://chinchiang.github.io`） |
+| `EPSS_P2_THRESHOLD` | 沿用 `EPSS_TOP_MIN`（`0.5`） | **P2 判級**門檻，與抓取門檻 `EPSS_TOP_MIN` 互相獨立；調整會直接改變評鑑結果 |
+
+```powershell
+$env:SOC_CTI_API_KEY = "your-long-random-key"
+$env:CORS_ORIGINS = "https://cti.example.com"
+$env:EPSS_P2_THRESHOLD = "0.6"   # 收緊 P2（預設 0.5）
+```
+
+```bash
+# 設定金鑰後觸發手動巡檢
+curl -X POST http://127.0.0.1:8787/api/scan/manual -H "X-API-Key: your-long-random-key"
+```
+
+> `GET /api/health` 與 `GET /api/scan/status` 會回報 `api_key_required`，可用來確認金鑰是否已生效。
 
 ## 選用 API 金鑰（強化 L3/L4/L5）
 
