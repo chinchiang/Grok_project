@@ -27,16 +27,13 @@ import re
 from typing import Any
 
 from .config import (
-    EPSS_TOP_MIN,
+    EPSS_P2_THRESHOLD,
     FINANCE_WATCHLIST,
     FINANCE_WORD_PATTERNS,
     MICROSOFT_WATCHLIST,
     RANSOMWARE_KEYWORDS,
     TW_ELECTRONICS_WATCHLIST,
 )
-
-# P2 EPSS threshold — overridable via env EPSS_TOP_MIN / EPSS_P2_THRESHOLD
-EPSS_P2_THRESHOLD = float(EPSS_TOP_MIN)
 
 
 def text_blob(*parts: str | None) -> str:
