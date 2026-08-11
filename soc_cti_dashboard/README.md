@@ -181,6 +181,31 @@ curl -X POST http://127.0.0.1:8787/api/intel/<id>/verdict \
 
 > `GET /api/health` 與 `GET /api/scan/status` 會回報 `api_key_required`，可確認金鑰是否生效。
 
+## 程式結構
+
+```
+backend/
+  collectors/        # 依來源家族拆分（原為單一 3,800 行檔案）
+    _base.py         #   共用：id 產生、HTTP client、來源健康回報
+    kev.py           #   L1 CISA KEV ＋ EPSS
+    rss.py           #   通用 RSS 層與註冊 feed 巡檢
+    ics.py           #   L7 CISA ICS（官方 RSS 或社群 CSV 鏡像）
+    easm.py          #   L4 Shodan／Censys
+    breaches.py      #   L5 HIBP
+    iocs.py          #   L3 ThreatFox／OTX
+    ransom.py        #   L6 勒索追蹤站與雙源比對
+    osint.py         #   L6 X OSINT 與新聞雙源交叉驗證
+    harvest.py       #   run_full_harvest 編排
+  aggregate.py       # 跨來源佐證（巡檢後）
+  priority.py        # P0–P3 規則與核實狀態
+  ops.py             # SOP／Owner／SLA／判定依據
+  database.py        # SQLite、KPI、生命週期、分析師判定
+  ms_dashboard.py    # 微軟專區資料組裝
+  main.py            # FastAPI
+```
+
+> 拆分為**純機械式搬移**：每個函式主體的 AST 指紋在拆分前後完全一致，`backend.collectors` 套件重新匯出原模組的全部 33 個名稱，因此 `from .collectors import run_full_harvest` 等既有匯入完全不受影響。`tests/test_collectors_package.py` 守住這些性質。
+
 ## 測試
 
 ```powershell
@@ -191,27 +216,6 @@ python -m pytest tests/ -q
 ```
 
 GitHub Actions 於部署前執行同一組檢查（`node --check` ＋ `py_compile` ＋ pytest）；未通過即**中止部署**，不會把壞版本推上 Pages。
-
-## 服務設定（選用環境變數）
-
-| 變數 | 預設 | 說明 |
-|------|------|------|
-| `SOC_CTI_API_KEY`（或 `API_KEY`） | 未設＝**不驗證** | 設定後 `POST /api/scan/manual` 需帶 `X-API-Key: <key>` 或 `Authorization: Bearer <key>`（常數時間比對）。內網／共享環境部署建議必設 |
-| `CORS_ORIGINS` | `http://127.0.0.1:8787,http://localhost:8787` | 逗號分隔的允許來源。內建前端與 API **同源**，僅在前端分離部署時需調整（例：`https://chinchiang.github.io`） |
-| `EPSS_P2_THRESHOLD` | 沿用 `EPSS_TOP_MIN`（`0.5`） | **P2 判級**門檻，與抓取門檻 `EPSS_TOP_MIN` 互相獨立；調整會直接改變評鑑結果 |
-
-```powershell
-$env:SOC_CTI_API_KEY = "your-long-random-key"
-$env:CORS_ORIGINS = "https://cti.example.com"
-$env:EPSS_P2_THRESHOLD = "0.6"   # 收緊 P2（預設 0.5）
-```
-
-```bash
-# 設定金鑰後觸發手動巡檢
-curl -X POST http://127.0.0.1:8787/api/scan/manual -H "X-API-Key: your-long-random-key"
-```
-
-> `GET /api/health` 與 `GET /api/scan/status` 會回報 `api_key_required`，可用來確認金鑰是否已生效。
 
 ## 選用 API 金鑰（強化 L3/L4/L5）
 

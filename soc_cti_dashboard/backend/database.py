@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+
 import aiosqlite
 from datetime import datetime
 from typing import Any
@@ -258,6 +260,12 @@ async def items_for_aggregation(days: int = 14, limit: int = 1200) -> list[dict[
             return [_row_to_item(r) for r in await cur.fetchall()]
 
 
+# Collectors bake an "unverified" badge into the title at ingest time. Once
+# corroboration raises the verification, that prefix contradicts the card's own
+# badge, so it is stripped when the item is upgraded.
+_UNVERIFIED_PREFIX = re.compile(r"^\[(?:未核實 Unverified|Unverified)\]\s*")
+
+
 async def apply_aggregation(
     item_id: str,
     *,
@@ -273,11 +281,19 @@ async def apply_aggregation(
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT extras_json FROM intel_items WHERE id=?", (item_id,)
+            "SELECT extras_json, title, title_en FROM intel_items WHERE id=?",
+            (item_id,),
         ) as cur:
             row = await cur.fetchone()
         if row is None:
             return
+        if verification != "unverified":
+            title = _UNVERIFIED_PREFIX.sub("", row["title"] or "")
+            title_en = _UNVERIFIED_PREFIX.sub("", row["title_en"] or "")
+            await db.execute(
+                "UPDATE intel_items SET title=?, title_en=? WHERE id=?",
+                (title, title_en, item_id),
+            )
         try:
             extras = json.loads(row["extras_json"] or "{}")
         except json.JSONDecodeError:
