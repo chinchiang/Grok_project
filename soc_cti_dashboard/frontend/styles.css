@@ -1169,3 +1169,18 @@ button.meta-cve-btn.copied .meta-copy-icon {
   outline: 2px solid #00e5ff;
   outline-offset: 2px;
 }
+
+/* Browser live-scan: a CORS-blocked source is not a failure, so it must not
+   read as one next to genuine errors. */
+.modal-card li.info { color: #90caf9; }
+.modal-card li.scan-note {
+  list-style: none;
+  margin: 10px -8px 0;
+  padding: 8px 10px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--muted);
+  background: #0d1528;
+  border-left: 3px solid var(--credible);
+  border-radius: 6px;
+}

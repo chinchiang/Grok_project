@@ -1064,26 +1064,42 @@ async function browserLiveScan() {
   const results = [];
   const newItems = [];
 
-  // 1) KEV mirrors
+  /**
+   * Fetch the first reachable mirror. Reports one outcome per *source* rather
+   * than per attempt: a failed first mirror followed by a working one is a
+   * success, and showing both made the panel look broken when it was not.
+   */
+  async function fetchFirst(urls) {
+    let lastErr;
+    for (const u of urls) {
+      try {
+        const r = await fetch(u, { cache: "no-store" });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return { data: await r.json(), url: u };
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error("no mirror reachable");
+  }
+
+  // 1) KEV — GitHub mirror first: it sends Access-Control-Allow-Origin, while
+  // cisa.gov does not, so from a browser the direct feed can only ever fail.
   const kevUrls = [
-    "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
     "https://raw.githubusercontent.com/cisagov/kev-data/main/known_exploited_vulnerabilities.json",
+    "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
   ];
-  let kevOk = false;
   let kevN = 0;
-  for (const u of kevUrls) {
+  {
     try {
-      const r = await fetch(u, { cache: "no-store" });
-      if (!r.ok) throw new Error(String(r.status));
-      const data = await r.json();
+      const { data, url: u } = await fetchFirst(kevUrls);
       const vulns = (data.vulnerabilities || [])
         .sort((a, b) => (b.dateAdded || "").localeCompare(a.dateAdded || ""))
         .slice(0, 40);
       kevN = vulns.length;
-      kevOk = true;
       results.push({
         name: "CISA KEV",
-        ok: true,
+        state: "ok",
         detail: `${kevN} recent · ${u.includes("github") ? "GitHub mirror" : "cisa.gov"}`,
       });
       vulns.slice(0, 8).forEach((v) => {
@@ -1119,19 +1135,22 @@ async function browserLiveScan() {
           date_added: v.dateAdded,
         });
       });
-      break;
     } catch (e) {
-      results.push({ name: `KEV ${u.slice(0, 40)}…`, ok: false, detail: String(e) });
+      results.push({ name: "CISA KEV", state: "bad", detail: String(e.message || e) });
     }
   }
 
-  // 2) RansomLook recent
+  // 2) RansomLook — serves no CORS header, so a browser can never read it.
+  // Reported as unavailable-in-static rather than as a failure: nothing is
+  // broken, this source simply needs the Actions run.
   let lookTitles = new Set();
+  let lookReachable = false;
   try {
     const r = await fetch("https://www.ransomlook.io/api/recent", { cache: "no-store" });
     const data = await r.json();
     const rows = Array.isArray(data) ? data.slice(0, 30) : [];
-    results.push({ name: "RansomLook", ok: true, detail: `${rows.length} posts` });
+    lookReachable = true;
+    results.push({ name: "RansomLook", state: "ok", detail: `${rows.length} posts` });
     rows.forEach((row) => {
       const victim = row.post_title || row.title || "";
       lookTitles.add(String(victim).toLowerCase().replace(/[^a-z0-9]/g, ""));
@@ -1153,8 +1172,8 @@ async function browserLiveScan() {
         sla_hours: 72,
       });
     });
-  } catch (e) {
-    results.push({ name: "RansomLook", ok: false, detail: String(e) });
+  } catch {
+    results.push({ name: "RansomLook", state: "blocked", detail: t("scanNoCors") });
   }
 
   // 3) Ransomware.live dump (heavy — skip full; try API v2 then skip)
@@ -1198,16 +1217,25 @@ async function browserLiveScan() {
           url: row.post_url || "https://www.ransomware.live/",
         });
       });
+      // Only claim a dual-source count when the other tracker was actually
+      // read. "dual≈0" with RansomLook unreachable reads as "cross-checked,
+      // no matches" when nothing was cross-checked at all.
       results.push({
         name: "Ransomware.live",
-        ok: true,
-        detail: `${rows.length} victims · dual≈${dual}`,
+        state: "ok",
+        detail: lookReachable
+          ? `${rows.length} victims · dual≈${dual}`
+          : `${rows.length} victims · ${t("scanNoDual")}`,
       });
     } else {
-      results.push({ name: "Ransomware.live", ok: false, detail: `HTTP ${r.status}` });
+      results.push({ name: "Ransomware.live", state: "bad", detail: `HTTP ${r.status}` });
     }
   } catch (e) {
-    results.push({ name: "Ransomware.live", ok: false, detail: String(e.message || e) });
+    results.push({
+      name: "Ransomware.live",
+      state: "blocked",
+      detail: String(e.message || e),
+    });
   }
 
   // Merge into static cache for UI
@@ -1226,14 +1254,21 @@ async function browserLiveScan() {
   localStorage.setItem(LIVE_COOLDOWN_KEY, String(Date.now()));
   const list = $("#scanResultList");
   if (list) {
-    list.innerHTML = results
+    const cls = { ok: "ok", bad: "bad", blocked: "info" };
+    const rows = results
       .map(
         (r) =>
-          `<li class="${r.ok ? "ok" : "bad"}"><b>${escapeHtml(r.name)}</b> — ${escapeHtml(
+          `<li class="${cls[r.state] || "bad"}"><b>${escapeHtml(r.name)}</b> — ${escapeHtml(
             r.detail || ""
           )}</li>`
       )
       .join("");
+    const anyBlocked = results.some((r) => r.state === "blocked");
+    list.innerHTML =
+      rows +
+      (anyBlocked
+        ? `<li class="scan-note">${escapeHtml(t("scanBlockedNote"))}</li>`
+        : "");
   }
   $("#scanModal")?.classList.remove("hidden");
   showToast(
