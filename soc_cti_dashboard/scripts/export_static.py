@@ -27,7 +27,9 @@ from backend.config import (
 )
 from backend.ms_dashboard import build_microsoft_dashboard
 from backend.database import (
+    VALID_VERDICTS,
     get_kpis,
+    get_rule_accuracy,
     get_meta,
     get_source_health,
     init_db,
@@ -38,6 +40,29 @@ from backend.database import (
 from backend.config import LAYERS
 
 OUT_DIR = ROOT / "frontend" / "data"
+
+# Fields that exist only for server-side processing. raw_json alone was up to
+# 8 KB per item, which is what made intel.json multi-megabyte on a dashboard
+# that advertises mobile support.
+_DROP_FIELDS = ("raw_json", "extras_json", "summary_en", "title_en")
+_SUMMARY_MAX = 600
+
+
+def slim(item: dict, *, keep_translation: bool = True) -> dict:
+    """Strip an item down to what the UI actually renders."""
+    out = {k: v for k, v in item.items() if k not in _DROP_FIELDS}
+    if keep_translation:
+        for k in ("title_en", "summary_en"):
+            if item.get(k) and item.get(k) != item.get(k.replace("_en", "")):
+                out[k] = item[k]
+    for k in ("summary", "summary_en"):
+        if isinstance(out.get(k), str) and len(out[k]) > _SUMMARY_MAX:
+            out[k] = out[k][:_SUMMARY_MAX].rstrip() + "…"
+    return out
+
+
+def slim_all(items: list) -> list:
+    return [slim(i) for i in items]
 
 
 def _entity_counts(items: list, entities_key: str) -> dict[str, int]:
@@ -70,24 +95,36 @@ async def export() -> None:
     kpis["static_export"] = True
     kpis["exported_at"] = now_iso()
 
-    items = await query_intel(limit=400)
+    items = slim_all(await query_intel(limit=400))
     by_priority = {
         "P0": [i for i in items if i.get("priority") == "P0"],
         "P1": [i for i in items if i.get("priority") == "P1"],
         "P2": [i for i in items if i.get("priority") == "P2"],
         "P3": [i for i in items if i.get("priority") == "P3"],
     }
+    high_risk = by_priority["P0"] + by_priority["P1"]
 
-    all_tw = await query_intel(tw_only=True, limit=200)
+    all_tw = slim_all(await query_intel(tw_only=True, limit=200))
     ransom, non_ransom = _split_ransom(all_tw)
-    global_ransom = await query_intel(ransomware_only=True, limit=80)
+    global_ransom = slim_all(await query_intel(ransomware_only=True, limit=80))
 
-    finance_items = await query_intel(finance_only=True, limit=200)
+    finance_items = slim_all(await query_intel(finance_only=True, limit=200))
     fin_ransom, fin_other = _split_ransom(finance_items)
     fin_kev = [i for i in finance_items if i.get("source_name") and "KEV" in i["source_name"]]
 
-    ms_items = await query_intel(microsoft_only=True, limit=300)
+    ms_items = slim_all(await query_intel(microsoft_only=True, limit=300))
     ms_payload = build_microsoft_dashboard(ms_items)
+
+    review_queue = slim_all(
+        await query_intel(
+            priority="P3",
+            verification="unverified",
+            status="open",
+            unreviewed_only=True,
+            limit=150,
+        )
+    )
+    rule_accuracy = await get_rule_accuracy()
 
     health = await get_source_health()
     by_layer: dict[str, list] = {L["id"]: [] for L in LAYERS}
@@ -113,6 +150,9 @@ async def export() -> None:
 
     payloads = {
         "kpis.json": kpis,
+        # Split so the first paint only needs the high-risk slice; the full
+        # stream is fetched lazily by the views that need it.
+        "intel-highrisk.json": {"count": len(high_risk), "items": high_risk},
         "intel.json": {"count": len(items), "items": items, "by_priority": by_priority},
         "tw-dashboard.json": {
             "watchlist": TW_ELECTRONICS_WATCHLIST,
@@ -144,6 +184,15 @@ async def export() -> None:
             },
         },
         "microsoft-dashboard.json": ms_payload,
+        "review-queue.json": {
+            "count": len(review_queue),
+            "items": review_queue,
+            "verdicts": list(VALID_VERDICTS),
+            "static_mode": True,
+            "note_zh": "靜態站僅供檢視；標記真／偽陽性需在本機 API 模式操作",
+            "note_en": "Read-only on the static site; record verdicts in local API mode",
+        },
+        "rule-accuracy.json": rule_accuracy,
         "layers.json": {
             "layers": layers_out,
             "schedule": {
@@ -211,13 +260,18 @@ async def export() -> None:
         },
     }
 
+    total_bytes = 0
     for name, obj in payloads.items():
         path = OUT_DIR / name
+        # separators + no indent: this is machine-read, not browsed by hand
         path.write_text(
-            json.dumps(obj, ensure_ascii=False, indent=2, default=str),
+            json.dumps(obj, ensure_ascii=False, separators=(",", ":"), default=str),
             encoding="utf-8",
         )
-        print(f"[export] wrote {path} ({path.stat().st_size} bytes)")
+        size = path.stat().st_size
+        total_bytes += size
+        print(f"[export] wrote {path} ({size / 1024:.0f} KB)")
+    print(f"[export] payload total {total_bytes / 1024 / 1024:.2f} MB")
 
     print("[export] complete")
 

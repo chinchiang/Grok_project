@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -14,6 +16,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
 from .config import (
     API_KEY,
@@ -30,14 +33,20 @@ from .config import (
 from .ms_dashboard import build_microsoft_dashboard
 from .collectors import run_full_harvest
 from .database import (
+    VALID_VERDICTS,
     get_kpis,
     get_meta,
+    get_rule_accuracy,
     get_source_health,
     init_db,
+    mark_stale_items,
     now_iso,
     query_intel,
+    set_analyst_verdict,
     set_meta,
 )
+
+log = logging.getLogger("soc_cti")
 
 FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
 
@@ -48,8 +57,10 @@ _harvest_lock = asyncio.Lock()
 async def scheduled_harvest() -> None:
     async with _harvest_lock:
         summary = await run_full_harvest()
+        staled = await mark_stale_items()
         await set_meta("last_scheduled_scan", now_iso())
         await set_meta("last_scan_summary", str(summary.get("steps")))
+        await set_meta("last_staled_count", str(staled))
 
 
 @asynccontextmanager
@@ -80,7 +91,14 @@ async def _bootstrap() -> None:
             await set_meta("last_scheduled_scan", now_iso())
             await set_meta("bootstrap_done", "1")
         except Exception:
-            pass
+            # Was a bare pass: a first-run failure left the dashboard empty with
+            # no explanation anywhere. Record it so /api/health-adjacent state
+            # and the server log both say what happened.
+            log.exception("bootstrap harvest failed")
+            try:
+                await set_meta("bootstrap_error", now_iso())
+            except Exception:
+                log.exception("could not record bootstrap failure")
 
 
 app = FastAPI(
@@ -90,13 +108,30 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS_ORIGINS always resolves to a non-empty allowlist (config.py supplies the
+# local default), so there is no wildcard fallback: "*" plus allow_credentials
+# is rejected by browsers anyway and would silently widen the surface.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+def _key_bytes(value: str) -> bytes:
+    """Recover the on-the-wire bytes of a credential.
+
+    ASGI decodes header values as latin-1, so a UTF-8 key arrives mojibake'd;
+    re-encoding with latin-1 restores the original bytes. Environment values are
+    already real text, hence the UTF-8 fallback. For ASCII keys — the normal
+    case — both paths are identical.
+    """
+    try:
+        return value.encode("latin-1")
+    except UnicodeEncodeError:
+        return value.encode("utf-8")
 
 
 async def require_api_key(
@@ -117,7 +152,12 @@ async def require_api_key(
             provided = auth[7:].strip()
         else:
             provided = auth
-    if not provided or provided != API_KEY:
+    # Constant-time compare so response latency leaks no prefix information.
+    # Compare as bytes: compare_digest() rejects non-ASCII str outright, so a
+    # header carrying any byte >= 0x80 would otherwise raise 500 instead of 401.
+    if not provided or not secrets.compare_digest(
+        _key_bytes(provided), API_KEY.encode("utf-8")
+    ):
         raise HTTPException(
             status_code=401,
             detail={
@@ -159,6 +199,11 @@ async def api_intel(
     layer: str | None = None,
     q: str | None = None,
     limit: int = Query(150, ge=1, le=500),
+    status: str | None = Query(None, pattern="^(open|stale)$"),
+    verdict: str | None = Query(
+        None, pattern="^(true_positive|false_positive|unknown)$"
+    ),
+    unreviewed: bool = False,
 ) -> dict[str, Any]:
     items = await query_intel(
         priority=priority,
@@ -170,8 +215,52 @@ async def api_intel(
         layer_id=layer,
         q=q,
         limit=limit,
+        status=status,
+        verdict=verdict,
+        unreviewed_only=unreviewed,
     )
     return {"count": len(items), "items": items}
+
+
+class VerdictIn(BaseModel):
+    """Analyst review outcome for one intel item (2.9)."""
+
+    verdict: Literal["true_positive", "false_positive", "unknown"]
+    note: str = Field("", max_length=1000)
+    by: str = Field("analyst", max_length=80)
+
+
+@app.post("/api/intel/{item_id}/verdict")
+async def api_set_verdict(
+    item_id: str, body: VerdictIn, _: None = Depends(require_api_key)
+) -> dict[str, Any]:
+    """Record whether a flagged item was real. This is what makes rule
+    precision measurable instead of anecdotal — see /api/rule-accuracy."""
+    ok = await set_analyst_verdict(item_id, body.verdict, body.note, body.by)
+    if not ok:
+        raise HTTPException(404, {"message_zh": "查無此情資", "message_en": "No such item"})
+    return {"ok": True, "id": item_id, "verdict": body.verdict, "at": now_iso()}
+
+
+@app.get("/api/review-queue")
+async def api_review_queue(limit: int = Query(100, ge=1, le=500)) -> dict[str, Any]:
+    """Open, unverified, unreviewed P3 items — the human-review backlog the
+    methodology promises but never surfaced anywhere."""
+    items = await query_intel(
+        priority="P3",
+        verification="unverified",
+        status="open",
+        unreviewed_only=True,
+        limit=limit,
+    )
+    return {"count": len(items), "items": items, "verdicts": list(VALID_VERDICTS)}
+
+
+@app.get("/api/rule-accuracy")
+async def api_rule_accuracy() -> dict[str, Any]:
+    """Per-rule precision from analyst verdicts — the feedback loop for tuning
+    thresholds and watchlists with data rather than intuition."""
+    return await get_rule_accuracy()
 
 
 def _entity_counts(items: list[dict[str, Any]], entities_key: str) -> dict[str, int]:

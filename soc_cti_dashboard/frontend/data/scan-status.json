@@ -1,11 +1,1 @@
-{
-  "manual_scan_allowed": false,
-  "cooldown_remaining_sec": 0,
-  "cooldown_sec": 1800,
-  "last_manual_scan": null,
-  "last_scheduled_scan": "2026-07-23T20:13:39+08:00",
-  "harvest_running": false,
-  "static_mode": true,
-  "note_zh": "GitHub Pages 為靜態站，請用 GitHub Actions「Run workflow」觸發更新",
-  "note_en": "Static GitHub Pages site — trigger update via Actions workflow_dispatch"
-}
+{"manual_scan_allowed":false,"cooldown_remaining_sec":0,"cooldown_sec":1800,"last_manual_scan":null,"last_scheduled_scan":"2026-08-11T07:06:51+08:00","harvest_running":false,"static_mode":true,"note_zh":"GitHub Pages 為靜態站，請用 GitHub Actions「Run workflow」觸發更新","note_en":"Static GitHub Pages site — trigger update via Actions workflow_dispatch"}

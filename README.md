@@ -16,8 +16,13 @@ Inventec / GSMD 相關資安研究與 SOC 工具集。
 | P0–P3 | 互斥優先級（P1 不混入其他級） |
 | 七層情資 | 來源健康與排程狀態 |
 | 暗網間接 | 雙來源核實；單源標「未核實」且強制 P3 複核（含 X OSINT） |
+| 來源可靠度分級 | 官方／PSIRT／研究單源可列「可信」；**媒體／社群單源須雙源佐證**，不得單篇升 P0 |
 | OT／ICS 四層來源 | ① CISA ICS＋KEV 每日必查 ② Dragos／Claroty／Nozomi／SANS ③ 專題媒體 ④ ATT&CK for ICS |
 | 🇹🇼 電子／半導體 | 電子五哥、上市櫃半導體受害與**勒索**強調 |
+| 🪟 微軟專區 | Windows／Exchange／SharePoint／Entra／Defender／M365 與 MSTI；KEV・P1・勒索分區 |
+| 🔎 複核佇列 | 未核實單源進人工佇列；標記真／偽陽性後計算各規則 precision |
+| 跨來源佐證 | 多家獨立來源報導同一事件時自動合併佐證數並重評優先級 |
+| 生命週期 | 逾 14 日未再觀測轉 stale，KPI 區分「未結／近 7 日新增／全期」 |
 | 語系 | 正體中文 ／ English 可切換 |
 | 時區 | Asia/Taipei（每日 07:00、15:00 自動更新） |
 

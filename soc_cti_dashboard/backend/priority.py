@@ -32,7 +32,18 @@ from .config import (
     FINANCE_WORD_PATTERNS,
     MICROSOFT_WATCHLIST,
     RANSOMWARE_KEYWORDS,
+    SOURCE_CLASS_MEDIA,
+    SOURCE_CLASS_OFFICIAL_GOV,
+    SOURCE_CLASS_RESEARCH,
+    SOURCE_CLASS_VENDOR_PSIRT,
     TW_ELECTRONICS_WATCHLIST,
+)
+
+# R3-1: source-reliability classes allowed to be "credible" on a single source.
+# Trade press / community / OSINT must be corroborated (>= 2 independent sources)
+# before they can satisfy the TW+ransomware P0 gate in assign_priority().
+SINGLE_SOURCE_CREDIBLE_CLASSES = frozenset(
+    {SOURCE_CLASS_OFFICIAL_GOV, SOURCE_CLASS_VENDOR_PSIRT, SOURCE_CLASS_RESEARCH}
 )
 
 
@@ -40,15 +51,83 @@ def text_blob(*parts: str | None) -> str:
     return " ".join(p for p in parts if p).lower()
 
 
+_CJK_RE = re.compile(r"[㐀-鿿豈-﫿]")
+
+# Market context required before a bare Taiwan ticker counts as a company hit.
+_TICKER_CONTEXT = (
+    r"twse|tpex|tse|otc|taiex|"
+    r"台股|臺股|股票代號|股票代碼|股號|代號|代碼|上市|上櫃|股價|台證|臺證"
+)
+
+_alias_re_cache: dict[str, re.Pattern[str]] = {}
+
+
+def _alias_regex(alias: str) -> re.Pattern[str]:
+    """Compile an alias into a false-positive-resistant matcher (2.2).
+
+    Three modes, chosen by the alias itself:
+
+    * numeric  — a Taiwan ticker. A bare 4-digit run matches CVE ids, dates and
+      byte counts far more often than a listed company, so a ticker only counts
+      next to market context ("TWSE 2330", "2330.TW", "(2330)"). When the
+      company name is present the name alias already matches, so this costs
+      almost no recall.
+    * CJK      — substring. Word boundaries are meaningless between Han
+      characters, and CJK company names are distinctive enough on their own.
+    * ASCII    — boundary-anchored, so "acer" no longer fires on "tracer",
+      "umc" on "documcenter", or "gigabyte" on the "hundreds of gigabytes of
+      your files" boilerplate every leak-site post carries. Aliases are
+      stripped first, which also retires the trailing-space hack ("msi ",
+      "rdp ") and lets those match at a comma or full stop as well.
+
+    Two suffixes let an alias opt out of the strict tail boundary, because
+    inflection rules cannot be inferred — "threat actors" must match while
+    "gigabytes" must not:
+
+    * ``storm-`` (trailing hyphen) — prefix match, for enumerated actor names
+      such as ``storm-1175``.
+    * ``threat actor*`` (trailing asterisk) — allow a short inflection tail,
+      for phrases that are routinely pluralised.
+    """
+    cached = _alias_re_cache.get(alias)
+    if cached is not None:
+        return cached
+
+    a = alias.strip()
+    if a.isdigit():
+        esc = re.escape(a)
+        pattern = re.compile(
+            rf"(?:{_TICKER_CONTEXT})[^0-9a-z]{{0,8}}{esc}(?![0-9])"
+            rf"|(?<![0-9]){esc}\s*\.\s*tw(?![a-z])"
+            rf"|[（(]\s*{esc}\s*[）)]",
+            re.I,
+        )
+    elif _CJK_RE.search(a):
+        pattern = re.compile(re.escape(a))
+    elif a.endswith("-"):
+        pattern = re.compile(rf"(?<![0-9a-z]){re.escape(a)}", re.I)
+    elif a.endswith("*"):
+        pattern = re.compile(
+            rf"(?<![0-9a-z]){re.escape(a[:-1])}[a-z]{{0,3}}(?![0-9a-z])", re.I
+        )
+    else:
+        pattern = re.compile(rf"(?<![0-9a-z]){re.escape(a)}(?![0-9a-z])", re.I)
+
+    _alias_re_cache[alias] = pattern
+    return pattern
+
+
 def _match_watchlist(text: str, watchlist: list[dict[str, Any]]) -> list[dict[str, str]]:
     hits: list[dict[str, str]] = []
-    t = text.lower()
     for ent in watchlist:
         for alias in ent["aliases"]:
-            alias_l = alias.lower()
-            if alias_l in t:
+            if _alias_regex(alias).search(text):
                 hits.append(
-                    {"key": ent["key"], "matched": alias, "tier": ent.get("tier", "")}
+                    {
+                        "key": ent["key"],
+                        "matched": alias.strip(),
+                        "tier": ent.get("tier", ""),
+                    }
                 )
                 break
     return hits
@@ -227,7 +306,17 @@ def assign_verification(
     layer_id: str,
     source_count: int,
     is_darkweb_indirect: bool,
+    source_class: str = SOURCE_CLASS_MEDIA,
 ) -> tuple[str, str]:
+    """Return (verification, admiralty) — reliability and credibility kept separate.
+
+    source_class is the Admiralty *source reliability* axis. L2/L7 mixes
+    authorities (CISA, PSIRT, Dragos) with trade press (Dark Reading, THN),
+    so the layer alone cannot justify single-source credibility: only
+    SINGLE_SOURCE_CREDIBLE_CLASSES may be credible on one source. Media/OSINT
+    need >= 2 independent sources, which keeps a lone news article that merely
+    mentions a watchlist name + "ransomware" out of the P0 gate.
+    """
     if in_kev:
         return "confirmed", "A1"
     if layer_id in ("L1", "T1") and source_count >= 1 and not is_darkweb_indirect:
@@ -240,7 +329,10 @@ def assign_verification(
 
     if source_count >= 2:
         return "credible", "B2"
-    if layer_id in ("L2", "L7", "T2", "T7"):
+    if (
+        layer_id in ("L2", "L7", "T2", "T7")
+        and source_class in SINGLE_SOURCE_CREDIBLE_CLASSES
+    ):
         return "credible", "B2"
     return "unverified", "C3"
 

@@ -21,11 +21,12 @@ MANUAL_SCAN_COOLDOWN_SEC = 30 * 60
 # --- API security ---
 # When set, POST /api/scan/manual requires X-API-Key or Authorization: Bearer <key>
 API_KEY = (os.environ.get("SOC_CTI_API_KEY") or os.environ.get("API_KEY") or "").strip()
-# Comma-separated allowed origins. Default: local uvicorn / common dev ports.
-# Production: set CORS_ORIGINS=https://chinchiang.github.io,https://your-domain
+# Comma-separated allowed origins. Default: the port run.py actually serves on
+# (8787) — the bundled frontend is same-origin, so CORS only matters when the UI
+# is hosted separately. Production: CORS_ORIGINS=https://chinchiang.github.io,…
 _CORS_RAW = (
     os.environ.get("CORS_ORIGINS")
-    or "http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000"
+    or "http://127.0.0.1:8787,http://localhost:8787"
 ).strip()
 CORS_ORIGINS = [o.strip() for o in _CORS_RAW.split(",") if o.strip()]
 
@@ -218,6 +219,99 @@ THREATFOX_RECENT_EXPORT = "https://threatfox.abuse.ch/export/json/recent/"
 THREATFOX_API_URL = "https://threatfox-api.abuse.ch/api/v1/"
 THREATFOX_MAX_FAMILIES = int(os.environ.get("THREATFOX_MAX_FAMILIES") or "35")
 THREATFOX_MIN_CONFIDENCE = int(os.environ.get("THREATFOX_MIN_CONFIDENCE") or "50")
+
+# --- Source reliability classes (R3-1) ---
+# Admiralty-style source-reliability axis, kept separate from the credibility
+# (evidence-count) axis. Only authoritative classes may be rated "credible" on a
+# SINGLE source; media/community/osint need >= 2 independent sources. This stops
+# one ICS/OT news article that merely mentions a watchlist company + "ransomware"
+# from passing the TW+ransomware P0 gate in assign_priority().
+SOURCE_CLASS_OFFICIAL_GOV = "official-gov"   # CISA / TWCERT / NCSC / JPCERT / CIS …
+SOURCE_CLASS_VENDOR_PSIRT = "vendor-psirt"   # Fortinet PSIRT / MSRC / MS Security Blog
+SOURCE_CLASS_RESEARCH = "research"           # Unit 42 / Dragos / Claroty / Nozomi / DFIR
+SOURCE_CLASS_MEDIA = "media"                 # trade press (Dark Reading, THN, SecurityWeek…)
+SOURCE_CLASS_COMMUNITY = "community"         # community IOC feeds (OTX, ThreatFox)
+SOURCE_CLASS_OSINT = "osint"                 # X / leak sites / dark-web indirect
+
+# source_id → reliability class. Anything unlisted defaults to "media"
+# (conservative: unlisted sources never get single-source credible).
+SOURCE_CLASS_REGISTRY: dict[str, str] = {
+    # ① Official / government
+    "cisa_ics_medical_rss": SOURCE_CLASS_OFFICIAL_GOV,
+    "cisa_alerts_rss": SOURCE_CLASS_OFFICIAL_GOV,
+    "cisa_cyber_advisories_rss": SOURCE_CLASS_OFFICIAL_GOV,
+    "cisa_news_rss": SOURCE_CLASS_OFFICIAL_GOV,
+    "cisa_ics_advisories": SOURCE_CLASS_OFFICIAL_GOV,
+    "ncsc_uk_all_rss": SOURCE_CLASS_OFFICIAL_GOV,
+    "jpcert_en_rss": SOURCE_CLASS_OFFICIAL_GOV,
+    "cis_advisories_rss": SOURCE_CLASS_OFFICIAL_GOV,
+    "acsc_gnews": SOURCE_CLASS_OFFICIAL_GOV,
+    "cccs_gnews": SOURCE_CLASS_OFFICIAL_GOV,
+    "cert_eu_gnews": SOURCE_CLASS_OFFICIAL_GOV,
+    "nsa_cyber_gnews": SOURCE_CLASS_OFFICIAL_GOV,
+    "bsi_gnews": SOURCE_CLASS_OFFICIAL_GOV,
+    "twcert_news_rss": SOURCE_CLASS_OFFICIAL_GOV,
+    "twcert_tvn_rss": SOURCE_CLASS_OFFICIAL_GOV,
+    "twcert_rss": SOURCE_CLASS_OFFICIAL_GOV,
+    # ② Vendor PSIRT / vendor official security comms
+    "fortinet_psirt": SOURCE_CLASS_VENDOR_PSIRT,
+    "msrc_update_guide": SOURCE_CLASS_VENDOR_PSIRT,
+    "ms_security_blog": SOURCE_CLASS_VENDOR_PSIRT,
+    "ms_defender_ti_blog": SOURCE_CLASS_VENDOR_PSIRT,
+    # ③ First-party threat research
+    "unit42_rss": SOURCE_CLASS_RESEARCH,
+    "dragos_ot_rss": SOURCE_CLASS_RESEARCH,
+    "claroty_team82_rss": SOURCE_CLASS_RESEARCH,
+    "nozomi_labs_rss": SOURCE_CLASS_RESEARCH,
+    "sans_ics_gnews": SOURCE_CLASS_RESEARCH,
+    "sans_isc_rss": SOURCE_CLASS_RESEARCH,
+    "dfir_report_rss": SOURCE_CLASS_RESEARCH,
+    # ④ Trade press — single report is NOT credible (needs corroboration)
+    "securityweek_rss": SOURCE_CLASS_MEDIA,
+    "securityweek_ics_gnews": SOURCE_CLASS_MEDIA,
+    "industrial_cyber_rss": SOURCE_CLASS_MEDIA,
+    "darkreading_rss": SOURCE_CLASS_MEDIA,
+    "darkreading_ics_gnews": SOURCE_CLASS_MEDIA,
+    "thn_news_rss": SOURCE_CLASS_MEDIA,
+    "thn_ics_gnews": SOURCE_CLASS_MEDIA,
+    "infosecurity_ics_gnews": SOURCE_CLASS_MEDIA,
+    "therecord_rss": SOURCE_CLASS_MEDIA,
+    "reuters_cyber_gnews": SOURCE_CLASS_MEDIA,
+    "cybersecuritynews_rss": SOURCE_CLASS_MEDIA,
+    "bleeping_news_rss": SOURCE_CLASS_MEDIA,
+    "krebs_rss": SOURCE_CLASS_MEDIA,
+    "databreaches_rss": SOURCE_CLASS_MEDIA,
+    "ms_vuln_gnews": SOURCE_CLASS_MEDIA,
+    # ⑤ Community IOC / OSINT
+    "otx_pulses": SOURCE_CLASS_COMMUNITY,
+    "abusech_threatfox": SOURCE_CLASS_COMMUNITY,
+    "x_osint_accounts": SOURCE_CLASS_OSINT,
+    "ransomware_live": SOURCE_CLASS_OSINT,
+    "ransomlook": SOURCE_CLASS_OSINT,
+}
+
+# Tag fallback for sources not in the registry (e.g. feeds added later).
+_TAG_CLASS_HINTS: tuple[tuple[str, str], ...] = (
+    ("official-gov", SOURCE_CLASS_OFFICIAL_GOV),
+    ("ot-gov", SOURCE_CLASS_OFFICIAL_GOV),
+    ("psirt", SOURCE_CLASS_VENDOR_PSIRT),
+    ("ot-research", SOURCE_CLASS_RESEARCH),
+    ("ot-media", SOURCE_CLASS_MEDIA),
+)
+
+
+def derive_source_class(
+    source_id: str = "", extra_tags: list[str] | None = None
+) -> str:
+    """Resolve a source's reliability class: registry → tags → conservative default."""
+    if source_id and source_id in SOURCE_CLASS_REGISTRY:
+        return SOURCE_CLASS_REGISTRY[source_id]
+    tags = {str(t).lower() for t in (extra_tags or [])}
+    for tag, cls in _TAG_CLASS_HINTS:
+        if tag in tags:
+            return cls
+    return SOURCE_CLASS_MEDIA
+
 
 # Registered multi-layer news/research feeds collected each harvest
 # force_all=True keeps all items (general news), False filters to CTI-relevant
@@ -1508,7 +1602,7 @@ MICROSOFT_WATCHLIST = [
         "aliases": [
             "microsoft threat intelligence",
             "mstic",
-            "threat actor",
+            "threat actor*",  # * = tolerate inflection ("threat actors")
             "nation-state",
             "storm-",
             "midnight blizzard",
