@@ -105,13 +105,25 @@ def _victim_domain(*values: str) -> str:
     return ""
 
 
+# The token filter below splits on whitespace, which CJK names do not have:
+# "鴻海精密工業股份有限公司" is a single token and can never equal a suffix
+# entry, so the CJK forms in _LEGAL_SUFFIXES were unreachable. They are stripped
+# from the end of the name instead, longest form first. Only true legal forms
+# are listed — a geographic word like 台灣 is part of the name (台灣大哥大)
+# and removing it would merge unrelated victims.
+_CJK_LEGAL_SUFFIX_RE = re.compile(
+    r"(?:股份有限公司|有限責任公司|有限公司|股份公司|"
+    r"株式会社|株式會社|控股集團|控股|集團)+$"
+)
+
+
 def _victim_name_key(value: str) -> str:
     """Normalised company name with legal suffixes removed (spec §二)."""
     s = (value or "").lower()
     s = re.sub(r"^[a-z]+://", " ", s)
     s = re.sub(r"[^a-z0-9一-鿿]+", " ", s).strip()
     tokens = [t for t in s.split() if t and t not in _LEGAL_SUFFIXES]
-    return "".join(tokens)
+    return _CJK_LEGAL_SUFFIX_RE.sub("", "".join(tokens))
 
 
 def _group_key(value: str) -> str:
