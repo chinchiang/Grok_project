@@ -182,3 +182,39 @@ def test_day_parsing_handles_tracker_formats(raw):
 
 def test_day_parsing_returns_none_for_junk():
     assert _victim_day("", "not a date") is None
+
+
+# --- CJK legal forms ----------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "full,bare",
+    [
+        ("鴻海精密工業股份有限公司", "鴻海精密工業"),
+        ("台積電股份有限公司", "台積電"),
+        ("緯創資通有限公司", "緯創資通"),
+        ("某某控股集團", "某某"),
+    ],
+)
+def test_cjk_legal_forms_are_stripped(full, bare):
+    """CJK names have no whitespace, so the token filter never sees a glued-on
+    legal form — they are suffix-stripped instead."""
+    assert _victim_name_key(full) == _victim_name_key(bare)
+
+
+@pytest.mark.parametrize("name", ["台灣大哥大", "中國信託商業銀行", "公司田溪"])
+def test_cjk_stripping_does_not_eat_the_name(name):
+    """Only true legal forms go. A geographic or descriptive word is part of the
+    name, and removing it would merge unrelated victims."""
+    assert _victim_name_key(name) == name
+
+
+def test_cjk_victims_dual_confirm_across_trackers():
+    """The end-to-end case: one tracker lists the full legal name, the other the
+    short form — previously they never matched."""
+    assert (
+        _ransom_match(
+            live(post_title="鴻海精密工業股份有限公司"),
+            look(post_title="鴻海精密工業"),
+        )
+        is not None
+    )
