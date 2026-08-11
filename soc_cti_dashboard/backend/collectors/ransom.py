@@ -1,7 +1,15 @@
 """L6 — ransomware leak-site trackers and their dual-source cross-check.
 
-Victim matching lives here too: corroboration needs a shared domain, or
-name + same group + postings within 14 days (see _ransom_match)."""
+Dual-source rule (T5/T6 agent spec, 2026-08-11):
+  Primary path — ALL of:
+    1. victim name normalised similarity ≥ 85%
+    2. group name normalised similarity ≥ 90% (or known alias)
+    3. discovery/attack date gap ≤ 7 days (default; hard cap 14)
+  Strong path — shared registrable domain (equivalent corroboration).
+
+Single-source (only one of Ransomware.live / RansomLook, or any X /
+media-indirect T6 feed) → unverified + forced P3. Never auto-elevate.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +17,7 @@ import json
 import re
 import time
 from datetime import date as _date, datetime
+from difflib import SequenceMatcher
 from typing import Any
 import feedparser
 from ..config import (
@@ -29,11 +38,55 @@ from ..priority import assign_priority, enrich_flags
 from ._base import _client, _id, _mark
 
 
+# ---------------------------------------------------------------------------
+# Normalisation & dual-source matching (spec §一／§二)
+# ---------------------------------------------------------------------------
+
+# Default date window per agent spec; hard cap remains 14 days.
+DEFAULT_DAY_GAP = 7
+MAX_DAY_GAP = 14
+
+# Victim-name similarity threshold (≥ 85%).
+NAME_SIM_THRESHOLD = 0.85
+# Group-name similarity threshold (≥ 90%), unless alias table hits.
+GROUP_SIM_THRESHOLD = 0.90
+
 _LEGAL_SUFFIXES = (
+    # EN / international
     "incorporated", "corporation", "limited", "holdings", "holding", "group",
     "company", "gmbh", "llc", "ltd", "inc", "corp", "plc", "pte", "pty", "bv",
     "nv", "ag", "sa", "srl", "spa", "oy", "ab", "as", "kk", "co",
+    # TW / CJK corporate forms
+    "股份有限公司", "有限公司", "台灣", "臺灣", "株式会社", "株式會社",
 )
+
+# Canonical group aliases → single key. Extend as trackers introduce variants.
+_GROUP_ALIASES: dict[str, str] = {
+    "lockbit": "lockbit",
+    "lockbit3": "lockbit",
+    "lockbit30": "lockbit",
+    "lockbitblack": "lockbit",
+    "clop": "clop",
+    "cl0p": "clop",
+    "clopransomware": "clop",
+    "alphv": "alphv",
+    "blackcat": "alphv",
+    "blackcatalphv": "alphv",
+    "play": "play",
+    "playransomware": "play",
+    "akira": "akira",
+    "ransomhub": "ransomhub",
+    "8base": "8base",
+    "bianlian": "bianlian",
+    "medusa": "medusa",
+    "medusalocker": "medusa",
+    "qilin": "qilin",
+    "agenda": "qilin",
+    "fog": "fog",
+    "hunters": "hunters",
+    "huntersinternational": "hunters",
+}
+
 
 def _victim_domain(*values: str) -> str:
     """Registrable-ish domain from a website/URL field — the strongest join key."""
@@ -51,20 +104,32 @@ def _victim_domain(*values: str) -> str:
         return ".".join(parts[-3:]) if len(parts[-2]) <= 3 and len(parts) >= 3 else ".".join(parts[-2:])
     return ""
 
+
 def _victim_name_key(value: str) -> str:
-    """Normalised company name with legal suffixes removed."""
+    """Normalised company name with legal suffixes removed (spec §二)."""
     s = (value or "").lower()
     s = re.sub(r"^[a-z]+://", " ", s)
     s = re.sub(r"[^a-z0-9一-鿿]+", " ", s).strip()
     tokens = [t for t in s.split() if t and t not in _LEGAL_SUFFIXES]
     return "".join(tokens)
 
+
 def _group_key(value: str) -> str:
-    """Normalised ransomware group name (lockbit3 == LockBit 3.0 == lockbit)."""
+    """Normalised ransomware group name + alias fold (spec §二)."""
     s = (value or "").lower()
     s = re.sub(r"[^a-z0-9]+", "", s)
     s = re.sub(r"\d+(\.\d+)*$", "", s)  # trailing version numbers
-    return s
+    return _GROUP_ALIASES.get(s, s)
+
+
+def _similarity(a: str, b: str) -> float:
+    """SequenceMatcher ratio on already-normalised strings."""
+    if not a or not b:
+        return 0.0
+    if a == b:
+        return 1.0
+    return SequenceMatcher(None, a, b).ratio()
+
 
 def _victim_day(*values: str) -> _date | None:
     """First parseable date among the given tracker fields.
@@ -89,17 +154,26 @@ def _victim_day(*values: str) -> _date | None:
                 continue
     return None
 
-def _ransom_match(
-    live: dict[str, Any], look: dict[str, Any], *, max_day_gap: int = 14
-) -> str | None:
-    """Decide whether two tracker rows describe the same victim (2.6).
 
-    Name equality alone is not enough: normalising to bare alphanumerics made
-    short or generic names collide across unrelated victims, and a collision
-    promoted an item straight to Credible. Accept only on a shared domain, or
-    on name **plus** the same ransomware group **plus** postings close in time.
-    Returns the evidence used, or None.
+def _ransom_match(
+    live: dict[str, Any],
+    look: dict[str, Any],
+    *,
+    max_day_gap: int = DEFAULT_DAY_GAP,
+) -> str | None:
+    """Decide whether two tracker rows describe the same victim (spec §一).
+
+    Returns evidence string, or None when not dual-confirmed.
+
+    Paths (either is enough):
+      A. Shared domain — strongest join key; still recorded as dual-source.
+      B. name_sim ≥ 0.85 AND group_sim ≥ 0.90 (or alias) AND date gap ≤ window.
+
+    Window defaults to 7 days; callers must not exceed MAX_DAY_GAP (14).
+    Short/generic names (< 5 normalised chars) cannot pass path B alone.
     """
+    gap = min(max(1, max_day_gap), MAX_DAY_GAP)
+
     live_domain = _victim_domain(
         str(live.get("website") or ""), str(live.get("post_url") or "")
     )
@@ -117,12 +191,25 @@ def _ransom_match(
     look_name = _victim_name_key(
         str(look.get("post_title") or look.get("title") or look.get("victim") or "")
     )
-    if not live_name or live_name != look_name or len(live_name) < 5:
+    if not live_name or not look_name or len(live_name) < 5 or len(look_name) < 5:
+        return None
+
+    name_sim = _similarity(live_name, look_name)
+    if name_sim < NAME_SIM_THRESHOLD:
         return None
 
     live_group = _group_key(str(live.get("group_name") or live.get("group") or ""))
     look_group = _group_key(str(look.get("group_name") or look.get("group") or ""))
-    if not live_group or live_group != look_group:
+    if not live_group or not look_group:
+        return None
+
+    if live_group == look_group:
+        group_ok = True
+        group_sim = 1.0
+    else:
+        group_sim = _similarity(live_group, look_group)
+        group_ok = group_sim >= GROUP_SIM_THRESHOLD
+    if not group_ok:
         return None
 
     live_day = _victim_day(
@@ -133,9 +220,13 @@ def _ransom_match(
     )
     if not live_day or not look_day:
         return None
-    if abs((live_day - look_day).days) > max_day_gap:
+    if abs((live_day - look_day).days) > gap:
         return None
-    return f"name+group={live_group}+within{max_day_gap}d"
+
+    return (
+        f"name={name_sim:.2f}+group={group_sim:.2f}+within{gap}d"
+    )
+
 
 async def _upsert_ransom_victim_item(
     *,
@@ -234,7 +325,7 @@ async def _upsert_ransom_victim_item(
         f"發現/公布：{discovered or '—'} / {published or '—'}\n"
         f"{(description or '')[:800]}\n"
         f"來源：{', '.join(sources)}（暗網洩漏站間接 — "
-        f"{'雙源可信' if dual_verified else '單源未核實 → P3 複核佇列'}）\n"
+        f"{'雙源確認' if dual_verified else '單源未核實 → P3 複核佇列'}）\n"
         f"{rz}"
     )
     summary_en = (
@@ -245,7 +336,7 @@ async def _upsert_ransom_victim_item(
         f"Discovered/Published: {discovered or '—'} / {published or '—'}\n"
         f"{(description or '')[:800]}\n"
         f"Source: {', '.join(sources)} (indirect leak-site — "
-        f"{'dual-source credible' if dual_verified else 'single-source → P3 review'})\n"
+        f"{'dual-source confirmed' if dual_verified else 'single-source → P3 review'})\n"
         f"{re_}"
     )
 
@@ -304,6 +395,7 @@ async def _upsert_ransom_victim_item(
                     "country": country,
                     "website": website,
                     "activity": activity,
+                    "dual_verified": dual_verified,
                 },
                 ensure_ascii=False,
             )[:4000],
@@ -316,6 +408,7 @@ async def _upsert_ransom_victim_item(
             ),
         }
     )
+
 
 async def collect_ransomware_live(max_items: int | None = None) -> int:
     """L6 — Ransomware.live recent victims (data dump or optional PRO API)."""
@@ -446,6 +539,7 @@ async def collect_ransomware_live(max_items: int | None = None) -> int:
         )
         return 0
 
+
 async def collect_ransomlook(max_items: int | None = None) -> int:
     """L6 — RansomLook recent posts (open API)."""
     t0 = time.perf_counter()
@@ -550,15 +644,15 @@ async def collect_ransomlook(max_items: int | None = None) -> int:
         )
         return 0
 
+
 async def dual_source_ransom_trackers() -> int:
     """
     Elevate victims seen on both Ransomware.live and RansomLook to credible.
     Runs after both collectors; re-upserts dual-verified cards.
 
-    Matching requires a shared domain, or name + same group + close postings
-    (see _ransom_match) so a name collision cannot manufacture corroboration.
+    Matching follows the T5/T6 agent spec: domain share, or
+    name≥85% + group≥90%/alias + date≤7d (see _ransom_match).
     """
-    # Lightweight: fetch recent titles from both APIs and cross-match
     t0 = time.perf_counter()
     elevated = 0
     try:
@@ -577,8 +671,6 @@ async def dual_source_ransom_trackers() -> int:
 
             live_rows: list[dict] = []
             try:
-                # Use only first chunk via streaming would be better; dump is large —
-                # reuse API if possible, else skip dual and rely on single ingest.
                 r = await client.get(
                     RANSOMWARE_LIVE_API_V2,
                     headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
@@ -591,18 +683,7 @@ async def dual_source_ransom_trackers() -> int:
             except Exception:
                 live_rows = []
 
-            # If live API empty, match against what we just stored is hard;
-            # instead normalize RansomLook set and re-fetch a small slice of dump.
-            if not live_rows:
-                try:
-                    # Only compare against RansomLook victims by re-querying
-                    # data dump is huge; dual-check using token overlap on RL list
-                    # against recent live already ingested is skippable.
-                    pass
-                except Exception:
-                    pass
-
-        # Candidate buckets: exact domain, else name (group/date checked later)
+        # Candidate buckets: exact domain, else name key for fuzzy pass
         look_by_domain: dict[str, list[dict]] = {}
         look_by_name: dict[str, list[dict]] = {}
         for row in rl_rows[:120]:
@@ -619,7 +700,6 @@ async def dual_source_ransom_trackers() -> int:
             if len(nm) >= 5:
                 look_by_name.setdefault(nm, []).append(row)
 
-        # Pull recent live dump slice only when needed
         if not live_rows:
             try:
                 async with await _client() as client:
@@ -647,22 +727,35 @@ async def dual_source_ransom_trackers() -> int:
             victim = str(
                 row.get("post_title") or row.get("victim") or row.get("website") or ""
             )
+            # Broad candidate set: same domain, exact name key, plus near-key
+            # neighbours are not pre-indexed — fuzzy is applied in _ransom_match.
             candidates = look_by_domain.get(
                 _victim_domain(
                     str(row.get("website") or ""), str(row.get("post_url") or "")
                 ),
                 [],
             ) + look_by_name.get(_victim_name_key(victim), [])
+            # Also try other name-bucket keys that share a long prefix (≥4)
+            # so 85% similarity can still fire without O(n²) on all rows.
+            vn = _victim_name_key(victim)
+            if len(vn) >= 5:
+                prefix = vn[:4]
+                for key, rows in look_by_name.items():
+                    if key.startswith(prefix) or vn.startswith(key[:4]):
+                        for cand in rows:
+                            if cand not in candidates:
+                                candidates.append(cand)
+
             partner = None
             evidence = ""
             for cand in candidates:
-                why = _ransom_match(row, cand)
+                why = _ransom_match(row, cand)  # default 7-day window
                 if why:
                     partner, evidence = cand, why
                     break
             if partner is None:
                 if candidates:
-                    rejected += 1  # name looked alike but group/date disagreed
+                    rejected += 1
                 continue
             group = str(
                 row.get("group_name")
@@ -696,8 +789,8 @@ async def dual_source_ransom_trackers() -> int:
             count=elevated,
             latency_ms=ms,
             detail=(
-                f"elevated={elevated}; rejected_name_only={rejected}; "
-                "rule=domain OR name+group+<=14d"
+                f"elevated={elevated}; rejected_near={rejected}; "
+                f"rule=domain OR name≥{NAME_SIM_THRESHOLD}+group≥{GROUP_SIM_THRESHOLD}+≤{DEFAULT_DAY_GAP}d"
             ),
         )
         return elevated
