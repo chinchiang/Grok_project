@@ -31,7 +31,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-cti
+  # Scoped by ref. As a single fixed string this group spanned every event, so
+  # once pull_request runs were added a PR push would cancel an in-flight
+  # master deploy — which is exactly what happened to the run for #2's merge.
+  # Per-ref keeps the useful behaviour (a new push supersedes its own earlier
+  # run) without letting one branch cancel another's deploy.
+  group: pages-cti-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
