@@ -31,7 +31,12 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-cti
+  # Scoped by ref. As a single fixed string this group spanned every event, so
+  # once pull_request runs were added a PR push would cancel an in-flight
+  # master deploy — which is exactly what happened to the run for #2's merge.
+  # Per-ref keeps the useful behaviour (a new push supersedes its own earlier
+  # run) without letting one branch cancel another's deploy.
+  group: pages-cti-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -40,15 +45,18 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          # Only used for `node --check` below. Node 20 is end-of-life, and the
+          # action bump would otherwise have left it as the last thing here
+          # still pinned to it.
+          node-version: "24"
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -85,10 +93,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -106,7 +114,7 @@ jobs:
       # most recent previous database.
       - name: Restore intel database
         id: db-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: soc_cti_dashboard/data
           key: cti-db-${{ github.run_id }}
@@ -135,7 +143,11 @@ jobs:
         run: |
           if [ -f data/cti.db ]; then
             echo "cti.db size: $(du -h data/cti.db | cut -f1)"
-            echo "restored from: ${{ steps.db-cache.outputs.cache-matched-key }}"
+            # cache-hit is the only output actions/cache declares; the
+            # cache-matched-key used here before belongs to actions/cache/restore
+            # and rendered as an empty string. It is false on a restore-keys
+            # fallback, which is the normal case for this rolling key.
+            echo "exact key hit: ${{ steps.db-cache.outputs.cache-hit }}"
           else
             echo "no cti.db present (first run)"
           fi
@@ -150,13 +162,17 @@ jobs:
           ls -la _site/data || true
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
+          # Hidden files are excluded by default, which would silently drop the
+          # .nojekyll marker written above. Stated explicitly rather than left
+          # to a default that has already changed once.
+          include-hidden-files: true
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
