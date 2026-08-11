@@ -1,12 +1,11 @@
-"""Dual-source ransomware victim matching (2.6).
+"""Dual-source ransomware victim matching (T5/T6 agent spec).
 
-Matching used to normalise both titles to bare alphanumerics and compare for
-equality. Short or generic victim names therefore collided across unrelated
-posts, and a collision promoted the item to Credible — which, once the TW
-watchlist and ransomware flags were also set, was a path to P0.
+Dual-confirmed when:
+  A. shared domain, or
+  B. name similarity ≥ 0.85 AND group similarity ≥ 0.90 (or alias)
+     AND discovery-date gap ≤ 7 days (hard cap 14).
 
-A match now needs a shared domain, or the same name *and* the same ransomware
-group *and* postings close together in time.
+Single-source / X / media-indirect must stay unverified + P3.
 """
 
 import pytest
@@ -17,6 +16,12 @@ from backend.collectors import (
     _victim_day,
     _victim_domain,
     _victim_name_key,
+)
+from backend.collectors.ransom import (
+    DEFAULT_DAY_GAP,
+    GROUP_SIM_THRESHOLD,
+    NAME_SIM_THRESHOLD,
+    _similarity,
 )
 
 
@@ -54,15 +59,57 @@ def test_same_domain_is_enough():
 
 def test_name_plus_group_plus_close_dates():
     why = _ransom_match(live(), look())
-    assert why and "name+group" in why
+    assert why and "name=" in why and "group=" in why
 
 
 def test_legal_suffixes_do_not_block_a_name_match():
     assert _ransom_match(live(post_title="Acme Manufacturing Ltd."), look()) is not None
 
 
+def test_tw_legal_suffix_stripped():
+    assert _victim_name_key("鴻海精密工業股份有限公司") == _victim_name_key("鴻海精密工業")
+
+
 def test_group_version_differences_still_match():
     assert _group_key("LockBit 3.0") == _group_key("lockbit3") == "lockbit"
+
+
+def test_group_alias_clop():
+    assert _group_key("Cl0p") == _group_key("clop") == "clop"
+
+
+def test_name_similarity_threshold_allows_minor_typo():
+    """≥85% similarity still dual-confirms (spec §一)."""
+    # "Acme Manufacturing" vs "Acme Manufacturings" is high similarity
+    why = _ransom_match(
+        live(post_title="Acme Manufacturing"),
+        look(post_title="Acme Manufacturings"),
+    )
+    assert why is not None
+    assert _similarity(
+        _victim_name_key("Acme Manufacturing"),
+        _victim_name_key("Acme Manufacturings"),
+    ) >= NAME_SIM_THRESHOLD
+
+
+def test_default_window_is_seven_days():
+    assert DEFAULT_DAY_GAP == 7
+    # 6 days apart → pass
+    assert (
+        _ransom_match(
+            live(discovered="2026-07-01"),
+            look(discovered="2026-07-07"),
+        )
+        is not None
+    )
+    # 8 days apart → fail under default window
+    assert (
+        _ransom_match(
+            live(discovered="2026-07-01"),
+            look(discovered="2026-07-09"),
+        )
+        is None
+    )
 
 
 # --- rejected -----------------------------------------------------------------
@@ -81,12 +128,26 @@ def test_missing_dates_do_not_pass():
 
 
 def test_short_generic_name_is_rejected():
-    """'ABC' style stubs collided constantly under the old exact-key match."""
+    """'ABC' style stubs must not dual-confirm on name path."""
     assert _ransom_match(live(post_title="ABC"), look(post_title="ABC")) is None
 
 
 def test_unrelated_victims_do_not_match():
     assert _ransom_match(live(), look(post_title="Globex Industries")) is None
+
+
+def test_low_name_similarity_rejected():
+    """Far-apart names must not pass the 85% gate."""
+    why = _ransom_match(
+        live(post_title="Acme Manufacturing"),
+        look(post_title="Globex Trading Partners"),
+    )
+    assert why is None
+
+
+def test_group_sim_threshold_constant():
+    assert GROUP_SIM_THRESHOLD == 0.90
+    assert NAME_SIM_THRESHOLD == 0.85
 
 
 # --- helpers ------------------------------------------------------------------
