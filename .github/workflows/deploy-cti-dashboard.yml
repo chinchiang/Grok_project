@@ -15,6 +15,15 @@ on:
     paths:
       - "soc_cti_dashboard/**"
       - ".github/workflows/deploy-cti-dashboard.yml"
+  # Run the sanity gate on pull requests too. On push alone it only fired after
+  # a merge, so a broken change was already on the default branch by the time
+  # anything checked it — the gate could stop the deploy but not the mistake.
+  # build-and-deploy stays off for pull requests (see its `if` below).
+  pull_request:
+    branches: [master, main]
+    paths:
+      - "soc_cti_dashboard/**"
+      - ".github/workflows/deploy-cti-dashboard.yml"
 
 permissions:
   contents: read
@@ -64,6 +73,9 @@ jobs:
 
   build-and-deploy:
     needs: sanity
+    # Never publish from a pull request: it would push a branch's output to the
+    # live Pages site and needs the github-pages environment.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # Individual collectors time out at 45-120s but the harvest as a whole had
     # no ceiling: one hung feed could pin a runner until the job limit.
