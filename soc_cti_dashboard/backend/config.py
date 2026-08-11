@@ -279,7 +279,6 @@ SOURCE_CLASS_REGISTRY: dict[str, str] = {
     "reuters_cyber_gnews": SOURCE_CLASS_MEDIA,
     "cybersecuritynews_rss": SOURCE_CLASS_MEDIA,
     "bleeping_news_rss": SOURCE_CLASS_MEDIA,
-    "krebs_rss": SOURCE_CLASS_MEDIA,
     "databreaches_rss": SOURCE_CLASS_MEDIA,
     "ms_vuln_gnews": SOURCE_CLASS_MEDIA,
     # ⑤ Community IOC / OSINT
@@ -400,15 +399,6 @@ INTEL_FEEDS: list[dict] = [
         "darkweb_indirect": False,
     },
     # Official blogs for accounts that also exist on X — prefer RSS over X (dedupe)
-    {
-        "source_id": "krebs_rss",
-        "layer_id": "L6",
-        "name": "Krebs on Security",
-        "url": "https://krebsonsecurity.com/feed/",
-        "force_all": True,
-        "max_items": 15,
-        "darkweb_indirect": False,
-    },
     {
         "source_id": "darkreading_rss",
         "layer_id": "L6",
@@ -802,7 +792,6 @@ RANSOMLOOK_MAX_ITEMS = int(os.environ.get("RANSOMLOOK_MAX_ITEMS") or "60")
 #   @TheHackersNews     → The Hacker News RSS
 #   @BleepinComputer    → BleepingComputer RSS
 #   @haveibeenpwned     → HIBP API (L5)
-#   @briankrebs         → Krebs on Security RSS
 #   @DarkReading        → Dark Reading RSS
 #   @TheDFIRReport      → The DFIR Report RSS
 #   @sans_isc           → SANS ISC RSS
@@ -1059,7 +1048,6 @@ LAYERS = [
             "RansomLook",
             "BleepingComputer",
             "The Hacker News",
-            "Krebs on Security",
             "Dark Reading",
             "The DFIR Report",
             "SANS Internet Storm Center",
