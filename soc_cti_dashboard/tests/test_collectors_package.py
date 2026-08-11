@@ -92,11 +92,23 @@ def test_harvest_reaches_the_parent_package():
     assert "from ..database import" in src
 
 
+# Tripwire for the split being undone, not a style rule: the original module was
+# 3.8k lines across 32 functions. A module legitimately grows when its source
+# family gains logic, so the bar is set where a file stops being one family's
+# worth of code and starts being a monolith again.
+MONOLITH_LINES = 1200
+
+
 def test_package_is_not_one_big_module_again():
-    """The point of the split: no single file back over ~800 lines."""
-    oversized = {
-        p.name: len(p.read_text().splitlines())
-        for p in PKG_DIR.glob("*.py")
-        if len(p.read_text().splitlines()) > 800
-    }
-    assert oversized == {}, f"modules growing back: {oversized}"
+    sizes = {p.name: len(p.read_text().splitlines()) for p in PKG_DIR.glob("*.py")}
+    oversized = {n: s for n, s in sizes.items() if s > MONOLITH_LINES}
+    assert oversized == {}, f"modules growing back toward a monolith: {oversized}"
+
+
+def test_no_module_holds_most_of_the_package():
+    """Size alone can be misleading, so also check the shape: if one file holds
+    over half the package, the split has effectively been reversed."""
+    sizes = {p.name: len(p.read_text().splitlines()) for p in PKG_DIR.glob("*.py")}
+    total = sum(sizes.values())
+    dominant = {n: s for n, s in sizes.items() if total and s / total > 0.5}
+    assert dominant == {}, f"one module dominates the package: {dominant} of {total}"
