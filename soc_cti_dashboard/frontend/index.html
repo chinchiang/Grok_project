@@ -12,11 +12,42 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+  <style>
+    .yumi-mascot-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-right: 8px;
+    }
+    .yumi-mascot {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #00e5ff;
+      box-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+      transition: transform 0.2s;
+    }
+    .yumi-mascot-wrap:hover .yumi-mascot {
+      transform: scale(1.08);
+    }
+    .yumi-name {
+      font-size: 0.6rem;
+      font-weight: 800;
+      color: #00e5ff;
+      margin-top: 2px;
+      letter-spacing: 0.04em;
+    }
+  </style>
 </head>
 <body>
   <div class="bg-grid"></div>
   <header class="topbar">
     <div class="brand">
+      <div class="yumi-mascot-wrap" title="Yumi · SOC CTI Cyber Guardian">
+        <img src="data:image/webp;base64,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" alt="Yumi" class="yumi-mascot" width="48" height="48" />
+        <span class="yumi-name">Yumi</span>
+      </div>
       <div class="logo-pulse"></div>
       <div>
         <h1 data-i18n="appTitle">SOC 即時威脅情資中心</h1>
