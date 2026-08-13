@@ -489,6 +489,76 @@ async function staticApi(path, opts) {
   return {};
 }
 
+/** Taipei hour, independent of the viewer's own timezone. */
+function taipeiHour() {
+  return parseInt(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Taipei",
+      hour: "2-digit",
+      hour12: false,
+    }).format(new Date()),
+    10
+  );
+}
+
+/**
+ * On-duty operator panel.
+ *
+ * Shift boundaries follow the harvest schedule (07:00 / 15:00 Asia/Taipei), so
+ * "who is on" lines up with when the data was last refreshed. The status line
+ * is derived from live KPIs rather than being decorative: an operator opening
+ * the dashboard should see the outstanding work before the charts.
+ */
+function renderDuty(k) {
+  const panel = $("#dutyPanel");
+  if (!panel || !k) return;
+
+  const h = taipeiHour();
+  const shiftKey = h >= 7 && h < 15 ? "dutyShiftDay" : "dutyShiftNight";
+  const p0 = k.p0_count ?? 0;
+  const p1 = k.p1_count ?? 0;
+  const review = k.review_queue_count ?? 0;
+  const health = k.source_health_pct ?? 0;
+
+  const set = (sel, v) => {
+    const el = $(sel);
+    if (el) el.textContent = v;
+  };
+  set("#dutyP0", p0);
+  set("#dutyP1", p1);
+  set("#dutyReview", review);
+  set("#dutyHealth", health);
+  set("#dutyShift", `${t(shiftKey)} · ${t("dutyOnDuty")}`);
+
+  // Most urgent true statement wins, so the line never overstates the state.
+  let state = "clear";
+  let say = t("dutySayClear");
+  if (p0 > 0) {
+    state = "alert";
+    say = t("dutySayP0").replace("{n}", p0);
+  } else if (health < 80) {
+    state = "warn";
+    say = t("dutySayHealth").replace("{n}", health);
+  } else if (review > 0) {
+    state = "review";
+    say = t("dutySayReview").replace("{n}", review);
+  }
+  panel.dataset.state = state;
+  set("#dutySay", say);
+}
+
+/** Use the operator's own artwork when dropped in at assets/kano.png. */
+function upgradeDutyAvatar() {
+  const img = $("#dutyAvatar");
+  if (!img) return;
+  const probe = new Image();
+  probe.onload = () => {
+    img.src = "assets/kano.png";
+    img.classList.add("duty-avatar-photo");
+  };
+  probe.src = "assets/kano.png";
+}
+
 async function loadKpis() {
   const k = await api("/api/kpis");
   cache.kpis = k;
@@ -531,6 +601,8 @@ async function loadKpis() {
     $("#tileDark").textContent =
       k.ransomware_count ?? k.breach_count ?? 0;
   if ($("#tileSrc")) $("#tileSrc").textContent = health;
+
+  renderDuty(k);
 
   const scan = await api("/api/scan/status");
   const parts = [
@@ -1458,6 +1530,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupTabs();
   setupCardActions();
   setupVerdictActions();
+  upgradeDutyAvatar();
   $("#langToggle")?.addEventListener("click", () => toggleLang());
   $("#manualScanBtn")?.addEventListener("click", () => manualScan());
   $("#scanModalClose")?.addEventListener("click", () => {
