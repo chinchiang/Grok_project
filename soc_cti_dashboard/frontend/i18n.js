@@ -4,6 +4,16 @@ const I18N = {
     appSubtitle: "OSINT CTI · CISA KEV · 七層來源 · 臺灣時區",
     manualScan: "立即巡檢",
     // —— 分頁 ——
+    // 值班人員
+    dutyRole: "值班人員",
+    dutyOnDuty: "值班中",
+    dutyShiftDay: "日班 07:00–15:00",
+    dutyShiftNight: "夜班 15:00–07:00",
+    dutyReviewLabel: "待複核",
+    dutySayClear: "目前無 P0，來源健康，可依排程節奏處理 P1／P2。",
+    dutySayP0: "有 {n} 件 P0 待立即處置——請先看「P0／P1 高風險」分頁。",
+    dutySayReview: "無 P0。複核佇列尚有 {n} 件未判定，處理後可提升規則精確率。",
+    dutySayHealth: "來源健康度僅 {n}%，請至「來源與排程」確認失效層級。",
     tabOverview: "總覽",
     tabHighRisk: "P0／P1 高風險",
     tabTaiwan: "🇹🇼 臺灣專區",
@@ -164,6 +174,16 @@ const I18N = {
     appSubtitle: "OSINT CTI · CISA KEV · 7 Layers · Asia/Taipei",
     manualScan: "Scan Now",
     // —— tabs ——
+    // On-duty operator
+    dutyRole: "On duty",
+    dutyOnDuty: "on shift",
+    dutyShiftDay: "Day 07:00–15:00",
+    dutyShiftNight: "Night 15:00–07:00",
+    dutyReviewLabel: "To review",
+    dutySayClear: "No P0 open and sources healthy — P1/P2 can follow the normal schedule.",
+    dutySayP0: "{n} P0 need immediate action — start with the P0/P1 High risk tab.",
+    dutySayReview: "No P0. {n} items still await a verdict; clearing them sharpens rule precision.",
+    dutySayHealth: "Source health is only {n}% — check Sources & schedule for the failing layer.",
     tabOverview: "Overview",
     tabHighRisk: "P0 / P1 High risk",
     tabTaiwan: "🇹🇼 Taiwan",

@@ -90,6 +90,29 @@
 
     <!-- ========== 總覽 ========== -->
     <section class="view active" id="view-overview" role="tabpanel" tabindex="0">
+      <!-- 值班人員：誰在看、現在有什麼待處理 -->
+      <section class="duty-panel" id="dutyPanel" aria-labelledby="dutyName">
+        <div class="duty-avatar-wrap">
+          <img id="dutyAvatar" class="duty-avatar" alt="Kano" width="96" height="96"
+               src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Cdefs%3E%3ClinearGradient id='h' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%231b1430'/%3E%3Cstop offset='.55' stop-color='%233a1d6e'/%3E%3Cstop offset='1' stop-color='%238b3ff0'/%3E%3C/linearGradient%3E%3ClinearGradient id='s' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2300e5ff'/%3E%3Cstop offset='1' stop-color='%23a24bff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='48' cy='48' r='47' fill='%230a1020'/%3E%3Cpath d='M48 17c-13 0-21 9-21 22 0 7 1 12 3 17l-9 26h54l-9-26c2-5 3-10 3-17 0-13-8-22-21-22z' fill='url(%23h)'/%3E%3Cpath d='M27 39c0-13 8-22 21-22s21 9 21 22c0 4-.4 7-1 10-2-9-7-14-13-16-4 5-11 8-19 8-4 0-7 3-8 8-.7-3-1-6-1-10z' fill='%23120d24'/%3E%3Cellipse cx='48' cy='50' rx='15' ry='17' fill='%23f7dcc4'/%3E%3Cpath d='M33 44c3-6 8-9 15-9s12 3 15 9c0-11-6-17-15-17s-15 6-15 17z' fill='%231b1430'/%3E%3Cellipse cx='41' cy='51' rx='3.1' ry='4' fill='%23a24bff'/%3E%3Cellipse cx='55' cy='51' rx='3.1' ry='4' fill='%23a24bff'/%3E%3Ccircle cx='41.9' cy='49.6' r='1.1' fill='%23fff'/%3E%3Ccircle cx='55.9' cy='49.6' r='1.1' fill='%23fff'/%3E%3Cpath d='M45 59c2 1.6 4 1.6 6 0' stroke='%23c98f7a' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M22 82l7-19c5 5 12 8 19 8s14-3 19-8l7 19z' fill='%23141d33'/%3E%3Cpath d='M38 71h20v3H38zm-6 6h32v2H32z' fill='url(%23s)' opacity='.85'/%3E%3Ccircle cx='48' cy='66' r='2.6' fill='%2300e5ff'/%3E%3C/svg%3E" />
+          <span class="duty-pulse" id="dutyPulse" aria-hidden="true"></span>
+        </div>
+        <div class="duty-body">
+          <div class="duty-head">
+            <span class="duty-role" data-i18n="dutyRole">值班人員</span>
+            <strong class="duty-name" id="dutyName">Kano</strong>
+            <span class="duty-badge" id="dutyShift">—</span>
+          </div>
+          <p class="duty-say" id="dutySay"></p>
+          <div class="duty-stats">
+            <span><b id="dutyP0">—</b> <span data-i18n="opsP0">P0 緊急</span></span>
+            <span><b id="dutyP1">—</b> <span data-i18n="opsP1">P1 在野利用</span></span>
+            <span><b id="dutyReview">—</b> <span data-i18n="dutyReviewLabel">待複核</span></span>
+            <span><b id="dutyHealth">—</b>% <span data-i18n="opsComplete">完整度</span></span>
+          </div>
+        </div>
+      </section>
+
       <!-- 營運概況四卡 -->
       <section class="kpi-row ops-kpi" aria-label="Ops KPIs">
         <article class="kpi kpi-p0">
