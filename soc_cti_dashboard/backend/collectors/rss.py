@@ -11,7 +11,7 @@ from ..config import derive_source_class, INTEL_FEEDS, HTTP_TIMEOUT
 from ..database import now_iso, upsert_intel
 from ..priority import assign_priority, assign_verification, enrich_flags
 
-from ._base import _client, _id, _mark
+from ._base import _client, _id, _mark, _strip_html
 
 
 async def collect_rss_layer(
@@ -90,10 +90,9 @@ async def collect_rss_layer(
         # Dual-source map for dark web: title fingerprint across runs handled via sources list
         for e in entries:
             title = (e.get("title") or "").strip()
-            summary = (e.get("summary") or e.get("description") or "").strip()
-            # strip html tags lightly
-            summary = re.sub(r"<[^>]+>", " ", summary)
-            summary = re.sub(r"\s+", " ", summary).strip()[:1200]
+            # _strip_html decodes entities as well as removing tags; a bare tag
+            # strip leaves `&nbsp;` to be escaped and shown verbatim by the UI.
+            summary = _strip_html(e.get("summary") or e.get("description") or "")[:1200]
             link = e.get("link") or ""
             published = e.get("published") or e.get("updated") or ""
             cve_m = re.findall(r"CVE-\d{4}-\d{4,7}", f"{title} {summary}", flags=re.I)
