@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-import re
 import feedparser
 import httpx
 from ..config import USER_AGENT, HTTP_TIMEOUT
 from ..database import now_iso, upsert_source_health
+from ..textclean import clean_text
 
 
 def _id(*parts: str) -> str:
@@ -49,8 +49,8 @@ async def _mark(
     )
 
 def _strip_html(s: str) -> str:
-    s = re.sub(r"<[^>]+>", " ", s or "")
-    return re.sub(r"\s+", " ", s).strip()
+    """Turn feed markup into the plain text the UI shows."""
+    return clean_text(s)
 
 def _parse_rss_entries(
     content: bytes | str, *, profile: str, limit: int
@@ -71,11 +71,12 @@ def _parse_rss_entries(
         out.append(
             {
                 "title": title,
-                "summary": re.sub(
-                    r"<[^>]+>",
-                    " ",
-                    e.get("summary") or e.get("description") or "",
-                ).strip()[:1200],
+                # _strip_html, not an inline tag strip: the summary is raw feed
+                # markup and needs entity decoding too, or `&nbsp;` survives all
+                # the way to the analyst's screen.
+                "summary": _strip_html(
+                    e.get("summary") or e.get("description") or ""
+                )[:1200],
                 "link": e.get("link") or profile,
                 "published": e.get("published") or "",
             }

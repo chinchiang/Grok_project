@@ -20,7 +20,7 @@ from ..database import delete_source_health, now_iso, upsert_intel
 from ..ops import explain_priority, pick_sop
 from ..priority import assign_priority, assign_verification, enrich_flags
 
-from ._base import _client, _id, _mark, _parse_rss_entries
+from ._base import _client, _id, _mark, _parse_rss_entries, _strip_html
 from .rss import collect_rss_layer
 
 
@@ -351,10 +351,7 @@ async def dual_source_darkweb_verify() -> int:
         out = []
         for e in feed.entries[:50]:
             title = (e.get("title") or "").strip()
-            summary = re.sub(
-                r"<[^>]+>", " ", e.get("summary") or e.get("description") or ""
-            )
-            summary = re.sub(r"\s+", " ", summary).strip()
+            summary = _strip_html(e.get("summary") or e.get("description") or "")
             out.append(
                 {
                     "title": title,

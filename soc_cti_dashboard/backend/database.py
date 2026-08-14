@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 from .config import DB_PATH, DATA_DIR, TZ_TAIPEI
+from .textclean import ENTITY_RE, clean_text
 
 
 SCHEMA = """
@@ -144,7 +145,39 @@ async def init_db() -> None:
             "last_seen = COALESCE(last_seen, fetched_at) "
             "WHERE first_seen IS NULL OR last_seen IS NULL"
         )
+        await _backfill_html_entities(db)
         await db.commit()
+
+
+async def _backfill_html_entities(db: aiosqlite.Connection) -> int:
+    """Decode entities left in rows harvested before the collector was fixed.
+
+    The database survives between runs (it is restored from the Actions cache),
+    and an item is only rewritten when its feed still carries it. Without this,
+    text already stored as `&nbsp;` would keep rendering as `&nbsp;` on the
+    dashboard indefinitely. Idempotent: cleaned rows no longer match.
+    """
+    cur = await db.execute(
+        "SELECT id, summary, summary_en, title, title_en FROM intel_items "
+        "WHERE summary LIKE '%&%;%' OR summary_en LIKE '%&%;%' "
+        "OR title LIKE '%&%;%' OR title_en LIKE '%&%;%'"
+    )
+    rows = await cur.fetchall()
+    await cur.close()
+
+    fixed = 0
+    for item_id, summary, summary_en, title, title_en in rows:
+        values = (summary, summary_en, title, title_en)
+        if not any(v and ENTITY_RE.search(v) for v in values):
+            continue  # an innocent '&' plus a ';' elsewhere, not an entity
+        cleaned = [clean_text(v, keep_newlines=True) if v else v for v in values]
+        await db.execute(
+            "UPDATE intel_items SET summary=?, summary_en=?, title=?, title_en=? "
+            "WHERE id=?",
+            (*cleaned, item_id),
+        )
+        fixed += 1
+    return fixed
 
 
 def _pack_extras(item: dict[str, Any]) -> str:

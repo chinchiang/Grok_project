@@ -35,7 +35,7 @@ from ..database import now_iso, upsert_intel
 from ..ops import explain_priority, guess_assets, pick_sop
 from ..priority import assign_priority, enrich_flags
 
-from ._base import _client, _id, _mark
+from ._base import _client, _id, _mark, _strip_html
 
 
 # ---------------------------------------------------------------------------
@@ -595,9 +595,7 @@ async def collect_ransomlook(max_items: int | None = None) -> int:
                             "post_title": victim,
                             "group_name": group,
                             "discovered": e.get("published") or "",
-                            "description": re.sub(
-                                r"<[^>]+>", " ", e.get("summary") or ""
-                            )[:900],
+                            "description": _strip_html(e.get("summary") or "")[:900],
                             "link": e.get("link") or "",
                         }
                     )
