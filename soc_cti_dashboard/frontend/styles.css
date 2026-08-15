@@ -1296,3 +1296,96 @@ button.meta-cve-btn.copied .meta-copy-icon {
   .duty-panel { flex-direction: column; align-items: flex-start; gap: 12px; }
   .duty-avatar { width: 60px; height: 60px; }
 }
+
+/* --- Preemptive cybersecurity daily brief --- */
+.tw-banner.pre-banner {
+  background: linear-gradient(120deg, #1a1030, #121a2e 55%);
+  border-color: #7c4dff;
+  box-shadow: 0 0 40px rgba(124, 77, 255, 0.22);
+}
+.pre-banner .tw-stats div {
+  background: #140a24;
+  border-color: #b388ff;
+}
+.pre-banner .tw-stats span { color: #d1c4e9; }
+.pre-meta {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.pre-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0 16px;
+}
+.pre-legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.pre-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pre-exec {
+  background: var(--panel);
+  border: 2px solid #5e35b1;
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+.pre-exec h3 { margin: 0 0 8px; font-size: 1.02rem; }
+.pre-exec p { margin: 0 0 8px; line-height: 1.65; color: #e8e0ff; }
+.pre-exec p:last-child { margin-bottom: 0; }
+.pre-must {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+@media (min-width: 900px) {
+  .pre-must { grid-template-columns: 1fr 1fr 1fr; }
+}
+.pre-must-item { display: flex; gap: 8px; align-items: stretch; }
+.pre-rank {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #7c4dff;
+  color: #fff;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+}
+.pre-must-item .card { flex: 1; }
+.pre-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px 18px;
+}
+@media (min-width: 900px) {
+  .pre-grid { grid-template-columns: 1fr 1fr; }
+}
+.pre-ot-note { margin-bottom: 10px; }
+.pre-card.org, .pre-card.pre-org { box-shadow: inset 3px 0 0 #ab47bc; }
+.pre-sources {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.pre-sources li {
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border);
+  word-break: break-all;
+}
+.pre-sources a { color: #b39ddb; }
+.pre-sources time { display: block; font-size: 0.7rem; opacity: 0.75; }
+.nav-tile-preemptive { border-color: #7c4dff; }
+.nav-tile-preemptive .nav-tile-ico { filter: saturate(1.2); }
+@media (max-width: 640px) {
+  .pre-toolbar { flex-direction: column; align-items: stretch; }
+  .pre-actions .btn { width: 100%; min-height: 44px; }
+  .pre-must { grid-template-columns: 1fr; }
+}

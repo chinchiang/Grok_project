@@ -31,6 +31,7 @@ from .config import (
     TW_ELECTRONICS_WATCHLIST,
 )
 from .ms_dashboard import build_microsoft_dashboard
+from .preemptive import build_preemptive_brief
 from .collectors import run_full_harvest
 from .database import (
     VALID_VERDICTS,
@@ -334,6 +335,13 @@ async def api_microsoft_dashboard() -> dict[str, Any]:
     """
     items = await query_intel(microsoft_only=True, limit=300)
     return build_microsoft_dashboard(items)
+
+
+@app.get("/api/preemptive-brief")
+async def api_preemptive_brief(limit: int = Query(300, ge=1, le=500)) -> dict[str, Any]:
+    """先制式資安日報：KEV/EPSS/CVSS 三訊號排序＋組織脈絡＋八節正體中文日報。"""
+    items = await query_intel(limit=limit)
+    return build_preemptive_brief(items)
 
 
 @app.get("/api/ot-catalog")

@@ -26,6 +26,7 @@ from backend.config import (
     TW_ELECTRONICS_WATCHLIST,
 )
 from backend.ms_dashboard import build_microsoft_dashboard
+from backend.preemptive import build_preemptive_brief
 from backend.database import (
     VALID_VERDICTS,
     get_kpis,
@@ -184,6 +185,7 @@ async def export() -> None:
             },
         },
         "microsoft-dashboard.json": ms_payload,
+        "preemptive-brief.json": build_preemptive_brief(items),
         "review-queue.json": {
             "count": len(review_queue),
             "items": review_queue,

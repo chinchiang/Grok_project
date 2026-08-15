@@ -1,0 +1,47 @@
+# PSIRT / 官方安全通告監控廠商（依本組織資產增刪）
+vendors:
+  - id: microsoft
+    name: Microsoft MSRC
+    class: vendor-psirt
+  - id: cisco
+    name: Cisco PSIRT
+    class: vendor-psirt
+  - id: fortinet
+    name: Fortinet PSIRT
+    class: vendor-psirt
+  - id: paloalto
+    name: Palo Alto Networks
+    class: vendor-psirt
+  - id: ivanti
+    name: Ivanti
+    class: vendor-psirt
+  - id: citrix
+    name: Citrix / Cloud Software Group
+    class: vendor-psirt
+  - id: vmware
+    name: VMware / Broadcom
+    class: vendor-psirt
+  - id: sap
+    name: SAP
+    class: vendor-psirt
+  - id: siemens
+    name: Siemens ProductCERT
+    class: vendor-psirt
+  - id: rockwell
+    name: Rockwell Automation
+    class: vendor-psirt
+  - id: schneider
+    name: Schneider Electric
+    class: vendor-psirt
+  - id: twcert
+    name: TWCERT/CC
+    class: official-gov
+  - id: cisa
+    name: CISA
+    class: official-gov
+  - id: nukib
+    name: NÚKIB (Czechia, NIS2)
+    class: official-gov
+  - id: enisa
+    name: ENISA
+    class: official-gov

@@ -18,6 +18,7 @@ const cache = {
   scan: null,
   reviewQueue: null,
   ruleAccuracy: null,
+  preemptive: null,
 };
 
 function titleOf(item) {
@@ -420,6 +421,10 @@ async function staticApi(path, opts) {
     if (!cache.microsoft) cache.microsoft = await loadStaticJson("microsoft-dashboard.json");
     return cache.microsoft;
   }
+  if (path.startsWith("/api/preemptive-brief")) {
+    if (!cache.preemptive) cache.preemptive = await loadStaticJson("preemptive-brief.json");
+    return cache.preemptive;
+  }
   if (path.startsWith("/api/ot-catalog")) {
     if (!cache.otCatalog) cache.otCatalog = await loadStaticJson("ot-catalog.json");
     return cache.otCatalog;
@@ -597,6 +602,8 @@ async function loadKpis() {
     $("#tileEms").textContent = k.ems_count ?? k.tw_industry_count ?? 0;
   if ($("#tileFin")) $("#tileFin").textContent = k.finance_count ?? 0;
   if ($("#tileMs")) $("#tileMs").textContent = k.microsoft_count ?? 0;
+  if ($("#tileHigh"))
+    $("#tileHigh").textContent = (k.p0_count ?? 0) + (k.p1_count ?? 0);
   if ($("#tileDark"))
     $("#tileDark").textContent =
       k.ransomware_count ?? k.breach_count ?? 0;
@@ -632,6 +639,13 @@ async function loadOverview() {
   const items = await ensureIntel();
   const otN = items.filter((i) => isOtItem(i)).length;
   if ($("#tileOt")) $("#tileOt").textContent = otN;
+  try {
+    const brief = cache.preemptive || (await api("/api/preemptive-brief"));
+    const st = brief.stats || {};
+    if ($("#tilePre")) $("#tilePre").textContent = (st.p0 ?? 0) + (st.p1 ?? 0);
+  } catch {
+    /* tile stays 0 */
+  }
 
   // 最新高風險 P0+P1 前 8（P0 優先）
   const high = items
@@ -889,6 +903,218 @@ async function loadMicrosoft() {
   renderList($("#msTiList"), data.threat_intel || [], 40);
   renderList($("#msConfirmedList"), data.confirmed_items || [], 40);
   renderList($("#msOtherList"), data.other || [], 40);
+}
+
+function briefCardHTML(it) {
+  const p = it.priority || "P3";
+  const classes = ["card", "pre-card", String(p).toLowerCase()];
+  if (it.org_related) classes.push("pre-org");
+  if (it.status_upgrade) classes.push("pre-up");
+  const ev = it.evidence || "unverified";
+  const evClass =
+    ev === "confirmed" ? "v-confirmed" : ev === "third_party" ? "v-credible" : "v-unverified";
+  const evLabel =
+    ev === "confirmed"
+      ? t("vConfirmed")
+      : ev === "third_party"
+        ? t("preThirdParty")
+        : t("vUnverified");
+  const sig = it.signals || {};
+  const epss =
+    sig.epss == null ? "—" : Number(sig.epss).toFixed(3);
+  const cvss =
+    sig.cvss == null ? "—" : `${Number(sig.cvss).toFixed(1)} (${sig.cvss_version || "v3.1"})`;
+  const safeUrl = safeHref(it.url);
+  const link = safeUrl
+    ? `<a class="meta-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${t("openLink")} ↗</a>`
+    : "";
+  const tags = [
+    `<span class="pill ${String(p).toLowerCase()}">${escapeHtml(p)}</span>`,
+    `<span class="pill ${evClass}">${escapeHtml(evLabel)}</span>`,
+  ];
+  if (it.org_related)
+    tags.push(
+      `<span class="pill" style="background:#2a1040;color:#e1bee7;border-color:#ab47bc">${escapeHtml(t("preOrgHits"))}</span>`
+    );
+  if (it.status_upgrade)
+    tags.push(`<span class="pill p2">${escapeHtml(t("preUpgrade"))}</span>`);
+  const cve = it.cve_id ? cveCopyChip(it.cve_id) : "";
+  return `
+    <article class="${classes.join(" ")}">
+      <div class="card-top"><div class="card-tags">${tags.join("")}</div></div>
+      <h4>${escapeHtml(it.cve_id || it.title || "")}</h4>
+      <p>${escapeHtml(it.title && it.cve_id && it.title !== it.cve_id ? it.title : it.so_what || "")}</p>
+      <div class="card-rationale"><strong>${t("preSoWhat")}</strong> ${escapeHtml(it.so_what || "")}</div>
+      ${
+        it.action
+          ? `<div class="card-ops"><span><b>${t("preAction")}</b> ${escapeHtml(it.action)}</span>
+             <span><b>${t("preDeadline")}</b> ${escapeHtml(it.deadline || "—")}</span>
+             <span><b>${t("preOwner")}</b> ${escapeHtml(it.owner || "—")}</span></div>`
+          : ""
+      }
+      ${
+        it.trigger && (it.section === "watch" || p === "P3")
+          ? `<div class="card-assets"><b>${t("preTrigger")}</b> ${escapeHtml(it.trigger)}</div>`
+          : ""
+      }
+      <div class="card-meta">
+        ${cve}
+        ${metaChip("epss", "EPSS", epss, "meta-epss")}
+        ${metaChip("cvss", "CVSS", cvss, "meta-layer")}
+        ${it.source_name ? metaChip("source", t("sources"), it.source_name, "meta-source") : ""}
+        ${link}
+      </div>
+    </article>`;
+}
+
+function renderBriefList(el, items, limit = 8) {
+  if (!el) return;
+  const slice = (items || []).slice(0, limit);
+  if (!slice.length) {
+    el.innerHTML = `<div class="empty">${t("empty")}</div>`;
+    return;
+  }
+  el.innerHTML = slice.map(briefCardHTML).join("");
+}
+
+async function loadPreemptive() {
+  let data = {};
+  try {
+    data = await api("/api/preemptive-brief");
+  } catch (e) {
+    console.warn("preemptive-brief", e);
+  }
+  cache.preemptive = data;
+  const stats = data.stats || {};
+  const set = (sel, v) => {
+    const el = $(sel);
+    if (el) el.textContent = v;
+  };
+  set("#preP0", stats.p0 ?? 0);
+  set("#preP1", stats.p1 ?? 0);
+  set("#preOrg", stats.org_hits ?? 0);
+  set("#tilePre", (stats.p0 ?? 0) + (stats.p1 ?? 0));
+
+  const meta = $("#preMeta");
+  if (meta) {
+    const dec = data.needs_exec_decision ? t("preNeedsDecision") : t("preNoDecision");
+    meta.textContent = [
+      `${data.date || "—"} ${data.weekday_zh || ""}`,
+      data.coverage || "",
+      data.generated_at_taipei || data.generated_at || "",
+      dec,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+
+  const exec = $("#preExec");
+  if (exec) {
+    const lines = data.exec_summary || [];
+    exec.innerHTML = lines.length
+      ? `<h3 data-i18n="none">${escapeHtml(currentLang === "zh" ? "一、管理階層摘要" : "1. Executive summary")}</h3>` +
+        lines.map((l) => `<p>${escapeHtml(l)}</p>`).join("")
+      : `<p class="empty">${t("empty")}</p>`;
+  }
+
+  const mustEl = $("#preMust");
+  if (mustEl) {
+    const must = data.must_do || [];
+    mustEl.innerHTML = must.length
+      ? must
+          .map((it, i) => {
+            const card = briefCardHTML(it);
+            return `<div class="pre-must-item"><div class="pre-rank">${i + 1}</div>${card}</div>`;
+          })
+          .join("")
+      : `<div class="empty">${t("preNoMust")}</div>`;
+  }
+
+  const body = $("#preKevBody");
+  if (body) {
+    const rows = data.kev_epss || [];
+    body.innerHTML = rows.length
+      ? rows
+          .slice(0, 25)
+          .map((it) => {
+            const sig = it.signals || {};
+            const epss = sig.epss == null ? "—" : Number(sig.epss).toFixed(3);
+            const cvss =
+              sig.cvss == null
+                ? "—"
+                : `${Number(sig.cvss).toFixed(1)} ${sig.cvss_version || ""}`;
+            const url = safeHref(it.url);
+            const cve = escapeHtml(it.cve_id || "—");
+            const cveCell = url
+              ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${cve}</a>`
+              : cve;
+            return `<tr>
+              <td>${cveCell}</td>
+              <td>${escapeHtml(((it.vendor || "") + " " + (it.product || "")).trim() || "—")}</td>
+              <td>${escapeHtml(cvss)}</td>
+              <td>${escapeHtml(epss)}</td>
+              <td>${sig.kev ? "●" : "—"}</td>
+              <td>${it.org_related ? "●" : "—"}</td>
+              <td>${escapeHtml(it.source_name || "—")}</td>
+            </tr>`;
+          })
+          .join("")
+      : `<tr><td colspan="7">${escapeHtml(t("empty"))}</td></tr>`;
+  }
+
+  renderBriefList($("#preExpList"), data.exposure, 8);
+  renderBriefList($("#preOtList"), data.ot_ics, 8);
+  renderBriefList($("#prePsirtList"), data.psirt, 8);
+  renderBriefList($("#preMktList"), data.market, 6);
+  renderBriefList($("#preWatchList"), data.watch, 10);
+
+  const src = $("#preSources");
+  if (src) {
+    const rows = data.sources || [];
+    src.innerHTML = rows.length
+      ? rows
+          .slice(0, 40)
+          .map((s) => {
+            const url = safeHref(s.url);
+            const name = escapeHtml(s.name || "");
+            const st = s.status && s.status !== "ok" ? ` · ${escapeHtml(s.status)}` : "";
+            const link = url
+              ? `<a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a>`
+              : name;
+            return `<li>${link}${st} <time>${escapeHtml(s.published || "")}</time></li>`;
+          })
+          .join("")
+      : `<li>${t("empty")}</li>`;
+  }
+}
+
+function setupPreemptiveActions() {
+  const copyBtn = $("#preCopyMd");
+  const dlBtn = $("#preDlMd");
+  copyBtn?.addEventListener("click", async () => {
+    const md = cache.preemptive?.markdown || cache.preemptive?.exec_markdown || "";
+    if (!md) {
+      showToast(t("empty"), true);
+      return;
+    }
+    try {
+      await copyText(md);
+      showToast(t("preCopied"));
+    } catch {
+      showToast(t("preCopyFail"), true);
+    }
+  });
+  dlBtn?.addEventListener("click", () => {
+    const md = cache.preemptive?.markdown || "";
+    if (!md) return;
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const a = document.createElement("a");
+    const date = cache.preemptive?.date || "brief";
+    a.href = URL.createObjectURL(blob);
+    a.download = `daily_${date}.md`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
 }
 
 /** Review queue + rule accuracy — the analyst feedback loop (2.9). */
@@ -1469,6 +1695,7 @@ async function loadView(view) {
   if (view === "ems") await loadEms();
   if (view === "finance") await loadFinance();
   if (view === "microsoft") await loadMicrosoft();
+  if (view === "preemptive") await loadPreemptive();
   if (view === "review") await loadReview();
   if (view === "sources") await loadSources();
 }
@@ -1530,6 +1757,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupTabs();
   setupCardActions();
   setupVerdictActions();
+  setupPreemptiveActions();
   upgradeDutyAvatar();
   $("#langToggle")?.addEventListener("click", () => toggleLang());
   $("#manualScanBtn")?.addEventListener("click", () => manualScan());

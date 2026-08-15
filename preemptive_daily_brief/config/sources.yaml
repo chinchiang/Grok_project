@@ -1,0 +1,123 @@
+# Tier 1–4 OSINT sources for the preemptive daily brief.
+# Fetch scripts skip a source on HTTP failure and record it; they never invent items.
+
+tier1:
+  - id: cisa_kev
+    name: CISA KEV Catalog
+    kind: json
+    url: https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json
+    mirrors:
+      - https://raw.githubusercontent.com/cisagov/kev-data/main/known_exploited_vulnerabilities.json
+    purpose: 新增 KEV 條目＝最高優先訊號
+  - id: first_epss
+    name: FIRST EPSS
+    kind: json
+    url: https://api.first.org/data/v1/epss?days=1&percentile-gt=0.9
+    purpose: 24 小時內 EPSS 大幅跳升／高百分位
+  - id: nvd
+    name: NVD API 2.0
+    kind: json
+    url: https://services.nvd.nist.gov/rest/json/cves/2.0
+    purpose: 新增／更新 CVE、CVSS
+  - id: cisa_ics
+    name: CISA ICS Advisories
+    kind: rss
+    url: https://www.cisa.gov/cybersecurity-advisories/ics-advisories.xml
+    purpose: OT/ICS 專區素材
+
+tier2:
+  - id: msrc
+    name: Microsoft MSRC
+    kind: rss
+    url: https://api.msrc.microsoft.com/update-guide/rss
+    vendor: microsoft
+  - id: cisco_psirt
+    name: Cisco PSIRT
+    kind: rss
+    url: https://sec.cloudapps.cisco.com/security/center/psirtrss20/CiscoSecurityAdvisory.xml
+    vendor: cisco
+  - id: fortinet_psirt
+    name: Fortinet PSIRT
+    kind: rss
+    url: https://www.fortiguard.com/rss/ir.xml
+    vendor: fortinet
+  - id: paloalto
+    name: Palo Alto Unit 42
+    kind: rss
+    url: https://unit42.paloaltonetworks.com/feed/
+    vendor: paloalto
+  - id: twcert
+    name: TWCERT/CC
+    kind: rss
+    url: https://www.twcert.org.tw/tw/rss-13.xml
+    vendor: twcert
+  - id: cisa_alerts
+    name: CISA Alerts
+    kind: rss
+    url: https://www.cisa.gov/cybersecurity-advisories/alerts.xml
+    vendor: cisa
+  - id: enisa
+    name: ENISA
+    kind: rss
+    url: https://www.enisa.europa.eu/news/rss
+    vendor: enisa
+
+tier3:
+  - id: thn
+    name: The Hacker News
+    kind: rss
+    url: https://feeds.feedburner.com/TheHackersNews
+    class: media
+  - id: bleeping
+    name: BleepingComputer
+    kind: rss
+    url: https://www.bleepingcomputer.com/feed/
+    class: media
+  - id: darkreading
+    name: Dark Reading
+    kind: rss
+    url: https://www.darkreading.com/rss.xml
+    class: media
+  - id: securityweek
+    name: SecurityWeek
+    kind: rss
+    url: https://www.securityweek.com/feed/
+    class: media
+  - id: dragos
+    name: Dragos
+    kind: rss
+    url: https://www.dragos.com/feed/
+    class: research
+  - id: claroty
+    name: Claroty Team82
+    kind: rss
+    url: https://claroty.com/feed
+    class: research
+  - id: tenable
+    name: Tenable
+    kind: rss
+    url: https://www.tenable.com/blog/feed
+    class: vendor
+  - id: rapid7
+    name: Rapid7
+    kind: rss
+    url: https://www.rapid7.com/blog/rss/
+    class: vendor
+  - id: gartner_newsroom
+    name: Gartner Newsroom
+    kind: rss
+    url: https://www.gartner.com/en/newsroom/rss
+    class: analyst
+    note: 僅官方新聞稿；付費報告內容一律標【第三方評論】且不得重製
+
+tier4:
+  - id: greynoise
+    name: GreyNoise
+    kind: rss
+    url: https://www.greynoise.io/blog/rss.xml
+    class: early
+  - id: shadowserver
+    name: Shadowserver
+    kind: web
+    url: https://www.shadowserver.org/news/
+    class: early

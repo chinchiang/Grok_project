@@ -44,6 +44,7 @@ https://chinchiang.github.io/Grok_project/
 | 電子五哥／半導體 Dashboard | 獨立分頁；勒索高亮 |
 | 金融相關 Dashboard | 銀行／支付／SWIFT 等關鍵字與實體；勒索與 KEV 分區 |
 | 微軟相關 Dashboard | 獨立「🪟 微軟專區」分頁：KEV／P1／勒索／Windows／企業平台（Exchange・SharePoint・Entra・Defender・M365）／MSTI／官方旁證 分區 |
+| 先制式資安日報 | 獨立「⚔ 先制式資安」分頁：KEV/EPSS/CVSS 三訊號、本組織資產對映、八節正體中文日報（可複製／下載 Markdown） |
 | 上方四項 KPI | P0、KEV 近 7 日、台灣產業／勒索、來源健康度 |
 | 每日 07:00、15:00 | APScheduler Cron（臺灣時間） |
 | 複核佇列與規則準確率 | 獨立「🔎 複核佇列」分頁；標記真／偽陽性後計算每條規則 precision |
@@ -151,6 +152,7 @@ python scripts/export_static.py
 - `GET /api/tw-dashboard` — 台灣產業獨立看板  
 - `GET /api/finance-dashboard` — 金融相關看板  
 - `GET /api/microsoft-dashboard` — 微軟相關看板  
+- `GET /api/preemptive-brief` — 先制式資安日報（八節 JSON + markdown）  
 - `GET /api/layers` — 七層健康  
 - `GET /api/review-queue` — 待人工複核佇列（P3 · 未核實 · 未判定）  
 - `GET /api/rule-accuracy` — 各規則面向的 precision 與複核覆蓋率  
@@ -201,6 +203,7 @@ backend/
   ops.py             # SOP／Owner／SLA／判定依據
   database.py        # SQLite、KPI、生命週期、分析師判定
   ms_dashboard.py    # 微軟專區資料組裝
+  preemptive.py      # 先制式資安日報（呼叫 preemptive_daily_brief）
   main.py            # FastAPI
 ```
 

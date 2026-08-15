@@ -67,6 +67,7 @@
   <nav class="tabs" role="tablist" aria-label="專區導覽 / Zone navigation">
     <button class="tab active" role="tab" aria-selected="true" aria-controls="view-overview" data-view="overview" data-i18n="tabOverview">總覽</button>
     <button class="tab" role="tab" aria-selected="false" aria-controls="view-highrisk" data-view="highrisk" data-i18n="tabHighRisk">P0／P1 高風險</button>
+    <button class="tab" role="tab" aria-selected="false" aria-controls="view-preemptive" data-view="preemptive" data-i18n="tabPreemptive">⚔ 先制式資安</button>
     <button class="tab" role="tab" aria-selected="false" aria-controls="view-taiwan" data-view="taiwan" data-i18n="tabTaiwan">🇹🇼 臺灣專區</button>
     <button class="tab" role="tab" aria-selected="false" aria-controls="view-ot" data-view="ot" data-i18n="tabOt">⚙️ OT／ICS</button>
     <button class="tab" role="tab" aria-selected="false" aria-controls="view-dark" data-view="dark" data-i18n="tabDark">🌑 暗網／外洩</button>
@@ -140,6 +141,16 @@
       <!-- 專區導覽磚 -->
       <h2 class="section-title" data-i18n="navTilesTitle">專區導覽</h2>
       <section class="nav-tiles" id="navTiles">
+        <button type="button" class="nav-tile" data-goto="highrisk">
+          <span class="nav-tile-ico">⚑</span>
+          <span class="nav-tile-name" data-i18n="tabHighRisk">P0／P1 高風險</span>
+          <span class="nav-tile-count"><span id="tileHigh">0</span> <span data-i18n="unitJian">件</span></span>
+        </button>
+        <button type="button" class="nav-tile nav-tile-preemptive" data-goto="preemptive">
+          <span class="nav-tile-ico">⚔</span>
+          <span class="nav-tile-name" data-i18n="tabPreemptive">先制式資安</span>
+          <span class="nav-tile-count"><span id="tilePre">0</span> <span data-i18n="unitJian">件</span></span>
+        </button>
         <button type="button" class="nav-tile" data-goto="taiwan">
           <span class="nav-tile-ico">🇹🇼</span>
           <span class="nav-tile-name" data-i18n="tabTaiwan">臺灣專區</span>
@@ -198,6 +209,84 @@
       <div class="card-list" id="highP0List"></div>
       <h3 class="section-h"><span class="pill p1">P1</span> <span data-i18n="colP1">KEV 在野利用</span></h3>
       <div class="card-list" id="highP1List"></div>
+    </section>
+
+    <!-- ========== 先制式資安日報 ========== -->
+    <section class="view" id="view-preemptive" role="tabpanel" tabindex="0">
+      <div class="tw-banner pre-banner">
+        <div>
+          <h2 data-i18n="preTitle">⚔ 先制式資安日報</h2>
+          <p data-i18n="preDesc">不是「昨天被打了什麼」，而是今天必須先切斷攻擊鏈第一環。KEV／EPSS／CVSS 三訊號排序，對映本組織 IT＋OT＋PSIRT 堆疊。</p>
+          <p class="pre-meta" id="preMeta"></p>
+        </div>
+        <div class="tw-stats">
+          <div class="hot"><span id="preP0">0</span><small>P0</small></div>
+          <div><span id="preP1">0</span><small>P1</small></div>
+          <div><span id="preOrg">0</span><small data-i18n="preOrgHits">本組織相關</small></div>
+        </div>
+      </div>
+
+      <div class="pre-toolbar">
+        <span class="pre-legend">
+          <span class="pill v-confirmed" data-i18n="vConfirmed">已證實</span>
+          <span class="pill v-credible" data-i18n="preThirdParty">第三方評論</span>
+          <span class="pill v-unverified" data-i18n="vUnverified">未核實</span>
+          <span class="pill p2" data-i18n="preUpgrade">⬆ 狀態升級</span>
+        </span>
+        <span class="pre-actions">
+          <button type="button" class="btn" id="preCopyMd" data-i18n="preCopy">複製日報 Markdown</button>
+          <button type="button" class="btn" id="preDlMd" data-i18n="preDownload">下載 .md</button>
+        </span>
+      </div>
+
+      <article class="pre-exec" id="preExec"></article>
+
+      <h3 class="section-h" data-i18n="preMustTitle">二、今日必辦 Top 3</h3>
+      <div class="pre-must" id="preMust"></div>
+
+      <h3 class="section-h" data-i18n="preKevTitle">三、新增 KEV 與高 EPSS 訊號</h3>
+      <div class="table-scroll">
+        <table class="acc-table pre-table" id="preKevTable">
+          <thead>
+            <tr>
+              <th>CVE</th>
+              <th data-i18n="preColProduct">產品</th>
+              <th>CVSS</th>
+              <th>EPSS</th>
+              <th>KEV</th>
+              <th data-i18n="preColOrg">本組織</th>
+              <th data-i18n="preColSrc">來源</th>
+            </tr>
+          </thead>
+          <tbody id="preKevBody"></tbody>
+        </table>
+      </div>
+
+      <div class="pre-grid">
+        <section>
+          <h3 class="section-h" data-i18n="preExpTitle">四、曝險與攻擊面</h3>
+          <div class="card-list" id="preExpList"></div>
+        </section>
+        <section>
+          <h3 class="section-h" data-i18n="preOtTitle">五、OT／ICS 專區</h3>
+          <div class="principle-box pre-ot-note" data-i18n="preOtNote">OT 只做被動探索與受控窗口驗證；緩解須經 OT 工程與 CAB。禁止主動掃描。</div>
+          <div class="card-list" id="preOtList"></div>
+        </section>
+        <section>
+          <h3 class="section-h" data-i18n="prePsirtTitle">六、產品資安／SBOM／CRA</h3>
+          <div class="card-list" id="prePsirtList"></div>
+        </section>
+        <section>
+          <h3 class="section-h" data-i18n="preMktTitle">七、先制式技術與市場</h3>
+          <div class="card-list" id="preMktList"></div>
+        </section>
+      </div>
+
+      <h3 class="section-h" data-i18n="preWatchTitle">八、觀察與尚未證實</h3>
+      <div class="card-list" id="preWatchList"></div>
+
+      <h3 class="section-h" data-i18n="preSrcTitle">附錄：今日來源</h3>
+      <ul class="pre-sources" id="preSources"></ul>
     </section>
 
     <!-- ========== 臺灣專區 ========== -->

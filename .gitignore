@@ -22,5 +22,7 @@ desktop.ini
 # Logs / temp
 *.log
 .cache/
+preemptive_daily_brief/cache/*
+!preemptive_daily_brief/cache/.gitkeep
 dist/
 build/

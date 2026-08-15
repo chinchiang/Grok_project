@@ -24,6 +24,7 @@ Inventec / GSMD 相關資安研究與 SOC 工具集。
 | OT／ICS 四層來源 | ① CISA ICS＋KEV 每日必查 ② Dragos／Claroty／Nozomi／SANS ③ 專題媒體 ④ ATT&CK for ICS |
 | 🇹🇼 電子／半導體 | 電子五哥、上市櫃半導體受害與**勒索**強調 |
 | 🪟 微軟專區 | Windows／Exchange／SharePoint／Entra／Defender／M365 與 MSTI；KEV・P1・勒索分區 |
+| ⚔ 先制式資安日報 | OSINT → KEV/EPSS/CVSS 三訊號排序 → 正體中文八節日報（今日必辦／OT／PSIRT／CRA） |
 | 🔎 複核佇列 | 未核實單源進人工佇列；標記真／偽陽性後計算各規則 precision |
 | 跨來源佐證 | 多家獨立來源報導同一事件時自動合併佐證數並重評優先級 |
 | 生命週期 | 逾 14 日未再觀測轉 stale，KPI 區分「未結／近 7 日新增／全期」 |
@@ -41,6 +42,7 @@ Inventec / GSMD 相關資安研究與 SOC 工具集。
 | 路徑 | 說明 |
 |------|------|
 | [`soc_cti_dashboard/`](./soc_cti_dashboard/) | SOC 即時情資網站（FastAPI 本機版 + Pages 靜態匯出） |
+| [`preemptive_daily_brief/`](./preemptive_daily_brief/) | 先制式資安日報模組（OSINT 抓取、三訊號排序、正體中文八節日報） |
 | [`SOC_Hunting_Detection_Playbook_2026-07-17.md`](./SOC_Hunting_Detection_Playbook_2026-07-17.md) | SOC 狩獵假設與 SIEM 規則草稿（SPL / KQL） |
 | [`.github/workflows/deploy-cti-dashboard.yml`](./.github/workflows/deploy-cti-dashboard.yml) | 每日排程抓取並部署 Pages |
 
