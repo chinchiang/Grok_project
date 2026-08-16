@@ -128,31 +128,21 @@ async def collect_rss_layer(
                 if layer_id == "L6" and not is_ransom:
                     continue
 
-            # Dual-source heuristic: if ransomware + another vendor name in same item
+            # One feed entry is one source. A name-drop inside the article body is
+            # not corroboration: this used to append a synthetic
+            # "secondary-media-citation" source and set source_count = 2 whenever
+            # the text mentioned any of ~11 org names, which promoted vendor
+            # thought-leadership ("Why Modern SOCs Need Multi-Layered Detections")
+            # and Exchange end-of-support news to credible/B2 dark-web intel.
+            # docs/SOC_Analysis_Agent_Spec.md §T6: 其他 T6 來源（X 帳號、
+            # BleepingComputer 間接報導、Dark Reading 等）一律視為單源，不得單獨升級。
+            # Real corroboration is cross-source and belongs in aggregate.py, which
+            # merges independent feeds carrying the same item.
             sources = [name]
             source_count = 1
-            if darkweb_indirect:
-                # Require dual-source for elevated trust: check if article cites multiple orgs
-                cite_markers = [
-                    "cisa",
-                    "fbi",
-                    "ncsc",
-                    "microsoft",
-                    "mandiant",
-                    "crowdstrike",
-                    "recorded future",
-                    "bleepingcomputer",
-                    "krebsonsecurity",
-                    "the record",
-                    "twcert",
-                ]
-                cites = sum(1 for m in cite_markers if m in f"{title} {summary}".lower())
-                if cites >= 1:
-                    sources.append("secondary-media-citation")
-                    source_count = 2
 
             # Dark-web-indirect single source → forced P3 (no watchlist auto-P0)
-            force_p3 = bool(darkweb_indirect and source_count < 2)
+            force_p3 = bool(darkweb_indirect)
             # R2-2: verification MUST be resolved before assign_priority so that
             # dual-source TW + ransomware can elevate to P0 (credible gate).
             verification, admiralty = assign_verification(
@@ -162,9 +152,6 @@ async def collect_rss_layer(
                 is_darkweb_indirect=darkweb_indirect,
                 source_class=src_class,
             )
-            if darkweb_indirect and source_count < 2:
-                verification = "unverified"
-                admiralty = "C3"
             priority = assign_priority(
                 in_kev=False,
                 known_ransomware_campaign=False,

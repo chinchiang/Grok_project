@@ -9,6 +9,7 @@ routing. That keeps the suite fast and network-free in CI.
 import asyncio
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from backend import main as app_main
@@ -63,10 +64,36 @@ def test_correct_key_is_accepted(monkeypatch, key):
     )
 
 
-def test_no_key_configured_stays_open(monkeypatch):
-    """Local / CI runs without a key must not require one."""
+def test_no_key_configured_fails_closed(monkeypatch):
+    """No key configured ⇒ writes are disabled, not open.
+
+    Loopback binding is not an authentication boundary: a cross-origin POST from
+    any page the analyst has open still executes the handler, since CORS
+    withholds the *response*, not the write.
+    """
     monkeypatch.setattr(app_main, "API_KEY", "")
+    monkeypatch.setattr(app_main, "ALLOW_UNAUTHENTICATED_WRITES", False)
+    with pytest.raises(HTTPException) as exc:
+        asyncio.run(app_main.require_api_key(x_api_key=None, authorization=None))
+    assert exc.value.status_code == 401
+    assert "SOC_CTI_API_KEY" in exc.value.detail["message_en"]
+    assert client.post(SCAN).status_code == 401
+
+
+def test_unauthenticated_override_is_explicit_and_opt_in(monkeypatch):
+    """The old permissive behaviour survives only behind a deliberate env flag."""
+    monkeypatch.setattr(app_main, "API_KEY", "")
+    monkeypatch.setattr(app_main, "ALLOW_UNAUTHENTICATED_WRITES", True)
     asyncio.run(app_main.require_api_key(x_api_key=None, authorization=None))
+    assert app_main.writes_require_key() is False
+
+
+def test_health_reports_the_real_posture(monkeypatch):
+    monkeypatch.setattr(app_main, "API_KEY", "")
+    monkeypatch.setattr(app_main, "ALLOW_UNAUTHENTICATED_WRITES", False)
+    assert app_main.writes_require_key() is True
+    monkeypatch.setattr(app_main, "API_KEY", KEY)
+    assert app_main.writes_require_key() is True
 
 
 def test_comparison_is_constant_time(monkeypatch, with_key):

@@ -113,6 +113,11 @@ const I18N = {
     preMktTitle: "七、先制式技術與市場",
     preWatchTitle: "八、觀察與尚未證實",
     preSrcTitle: "附錄：今日來源",
+    // Truncation is declared, never silent: a capped section says how many rows
+    // it is hiding, so 「顯示 8」 is not mistaken for 「今天只有 8 件」.
+    preShownOf: "顯示 {n}／共 {m} 件",
+    preTotalOf: "共 {m} 件",
+    preTruncHint: "超出版面上限，完整清單請下載 Markdown 或查閱情資列表",
     preCopied: "已複製日報 Markdown",
     preCopyFail: "複製失敗，請改用下載",
     preNoMust: "本日無 P0／P1 必辦項",
@@ -188,6 +193,9 @@ const I18N = {
     scanBlockedNote: "標示為「需 Actions」者非錯誤：該來源不允許瀏覽器跨網域讀取。完整巡檢請至 repo → Actions → Deploy SOC CTI Dashboard → Run workflow。",
     scanCooldown: "冷卻中，請稍候再試",
     scanBusy: "已有巡檢進行中",
+    // 寫入端點預設 fail closed（見 backend/main.py::require_api_key）。401 若不
+    // 明說，畫面只會跳一個 api_error，看起來像壞掉而不是「未設定金鑰」。
+    scanAuth: "寫入端點需 API 金鑰：請設定 SOC_CTI_API_KEY 後重啟服務",
     lastManual: "上次手動",
     lastSched: "上次排程",
     nextCooldown: "下次可巡檢",
@@ -317,6 +325,9 @@ const I18N = {
     preMktTitle: "7. Preemptive tech & market",
     preWatchTitle: "8. Watch & unverified",
     preSrcTitle: "Appendix: sources",
+    preShownOf: "showing {n} of {m}",
+    preTotalOf: "{m} total",
+    preTruncHint: "capped for layout — download the Markdown or use the intel list for the full set",
     preCopied: "Brief Markdown copied",
     preCopyFail: "Copy failed — use download",
     preNoMust: "No P0 / P1 must-do items today",
@@ -392,6 +403,7 @@ const I18N = {
     scanBlockedNote: "Entries marked as needing Actions are not errors: those sources disallow cross-origin reads from a browser. For a full harvest use repo → Actions → Deploy SOC CTI Dashboard → Run workflow.",
     scanCooldown: "Cooling down — try again later",
     scanBusy: "A scan is already running",
+    scanAuth: "Write endpoints need an API key: set SOC_CTI_API_KEY and restart the server",
     lastManual: "Last manual",
     lastSched: "Last scheduled",
     nextCooldown: "Next scan in",

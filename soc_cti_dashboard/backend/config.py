@@ -19,8 +19,18 @@ SCHEDULE_HOURS = (7, 15)
 MANUAL_SCAN_COOLDOWN_SEC = 30 * 60
 
 # --- API security ---
-# When set, POST /api/scan/manual requires X-API-Key or Authorization: Bearer <key>
+# Mutating endpoints (POST /api/scan/manual, POST /api/intel/{id}/verdict) require
+# X-API-Key or Authorization: Bearer <key>.
 API_KEY = (os.environ.get("SOC_CTI_API_KEY") or os.environ.get("API_KEY") or "").strip()
+# Fail closed: with no key configured, writes are refused rather than left open.
+# "It only listens on 127.0.0.1" is not a control — any page the analyst opens can
+# POST to http://127.0.0.1:8787 cross-origin (CORS blocks reading the response,
+# not the write), so an unauthenticated manual scan or analyst verdict is a
+# one-click CSRF away. Set SOC_CTI_ALLOW_UNAUTHENTICATED=1 to opt back out
+# deliberately; the server logs a warning when you do.
+ALLOW_UNAUTHENTICATED_WRITES = (
+    os.environ.get("SOC_CTI_ALLOW_UNAUTHENTICATED") or ""
+).strip().lower() in ("1", "true", "yes", "on")
 # Comma-separated allowed origins. Default: the port run.py actually serves on
 # (8787) — the bundled frontend is same-origin, so CORS only matters when the UI
 # is hosted separately. Production: CORS_ORIGINS=https://chinchiang.github.io,…

@@ -30,6 +30,31 @@ SECTION_TITLES = {
 
 EMPTY_ZH = "本日無重大更新"
 
+# Rows carried in the JSON payload per section. Caps bound the payload size; they
+# are published in payload["section_counts"] so the UI and the Markdown can say
+# 「顯示 N／共 M」 instead of silently dropping the tail.
+SECTION_CAPS = {
+    "must_do": 3,
+    "kev_epss": 40,
+    "exposure": 20,
+    "ot_ics": 20,
+    "psirt": 20,
+    "market": 15,
+    "watch": 20,
+    "sources": 80,
+}
+
+# The Markdown edition prints fewer rows than the payload carries, so it is a
+# second truncation layer on top of SECTION_CAPS. Both are reported.
+MD_LIMITS = {
+    "kev_epss": 25,
+    "exposure": 12,
+    "ot_ics": 12,
+    "psirt": 12,
+    "market": 12,
+    "watch": 12,
+}
+
 
 def _now_taipei() -> datetime:
     return datetime.now(TZ)
@@ -85,17 +110,40 @@ def _so_what(item: dict[str, Any]) -> str:
 
 
 def _action(item: dict[str, Any]) -> tuple[str, str, str]:
-    """Return (action, deadline, owner). OT never includes active scan."""
+    """Return (action, deadline, owner).
+
+    OT never includes an active-scan or unapproved-automation instruction
+    (CLAUDE.md §7), but urgency must still track priority. This used to branch
+    on section before priority, so any P0 that routed to OT/ICS was handed
+    「下次 CAB 窗口（建議 7 日內排程）」 instead of a 24-hour deadline — a
+    misrouted item was silently *de-prioritised* below a correctly routed one.
+    Priority now selects the deadline and OT only constrains the method.
+    """
     owner = item.get("owner_unit") or "IT"
+    priority = item.get("brief_priority")
     if item.get("section") == "ot_ics":
+        if priority == "P0":
+            return (
+                "被動盤點受影響型號與韌體；召開緊急 CAB，於受控窗口套用原廠緩解，"
+                "過渡期以網段／conduit 隔離與加強監控降險。禁止主動掃描或未核准自動化補救。",
+                "24 小時內召開緊急 CAB 並完成緩解決議",
+                "OT",
+            )
+        if priority == "P1":
+            return (
+                "被動盤點受影響型號與韌體；完成緩解評估並提交 CAB 排入最近受控窗口。"
+                "禁止主動掃描或未核准自動化補救。",
+                "72 小時內提交 CAB 決議",
+                "OT",
+            )
         return (
             "被動盤點受影響型號與韌體；經 OT 工程與 CAB 核定後，於受控窗口套用原廠緩解。禁止主動掃描或未核准自動化補救。",
             "下次 CAB 窗口（建議 7 日內排程）",
             "OT",
         )
-    if item.get("brief_priority") == "P0":
+    if priority == "P0":
         return ("套用原廠修補；無法立即修補則虛擬修補／WAF／邊界封鎖。", "24 小時", owner)
-    if item.get("brief_priority") == "P1":
+    if priority == "P1":
         return ("確認資產持有後於變更窗口修補；過渡期採虛擬修補。", "72 小時", owner)
     if item.get("section") == "psirt":
         return ("SBOM 比對受影響元件；PSIRT 準備客戶問答與 CRA 通報評估。", "48 小時", "PSIRT")
@@ -150,6 +198,22 @@ def _slim(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _neg(value: Any) -> float:
+    """Sort helper: higher score first, unscored last."""
+    return -float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else 1.0
+
+
+def _rank_key(item: dict[str, Any]) -> tuple[Any, ...]:
+    return (
+        PRIO_RANK.get(item.get("brief_priority") or "P3", 9),
+        0 if item.get("org_related") else 1,
+        0 if item.get("status_upgrade") else 1,
+        0 if item.get("in_kev") else 1,
+        _neg(item.get("epss")),
+        _neg(item.get("cvss")),
+    )
+
+
 def _exec_summary(must: list[dict], stats: dict[str, Any], dt: datetime) -> list[str]:
     n_p0, n_p1 = stats["p0"], stats["p1"]
     org = stats["org_hits"]
@@ -196,16 +260,13 @@ def compose_brief(
         item = promote_if_upgrade(item, prev)
         classified.append(item)
 
-    classified.sort(
-        key=lambda i: (
-            PRIO_RANK.get(i.get("brief_priority") or "P3", 9),
-            0 if i.get("org_related") else 1,
-            0 if i.get("status_upgrade") else 1,
-        )
-    )
+    # Priority first, then org relevance / upgrade, then the raw signals. The
+    # signal tie-break matters because every section is capped: without it, the
+    # rows that survive truncation inside one priority band are whichever the
+    # feeds happened to return first.
+    classified.sort(key=_rank_key)
 
     must_src = [i for i in classified if i.get("brief_priority") in ("P0", "P1")]
-    must = [_slim(i) for i in must_src[:3]]
 
     sections: dict[str, list[dict[str, Any]]] = {
         "kev_epss": [],
@@ -219,24 +280,23 @@ def compose_brief(
         key = i.get("section") or "watch"
         if key not in sections:
             key = "watch"
-        if key == "kev_epss" or i.get("cve_id") or i.get("in_kev"):
-            # CVE / KEV / EPSS always also appear in section 3
-            if i not in [x for x in classified if False]:
-                pass
-        sections.setdefault(key, []).append(_slim(i))
+        sections[key].append(_slim(i))
 
-    # Section 3 is the KEV / high-EPSS table (unique by CVE or id)
-    kev_table = []
+    # Section 3 is a cross-section KEV / EPSS / CVE table (unique by CVE or id).
+    # The predicate matches classify.assign_section's kev_epss predicate: a row
+    # scored well enough to be routed here must be renderable here. The old
+    # `epss >= 0.1` form silently dropped every KEV-adjacent CVE whose EPSS was
+    # low or absent — and EPSS is null on 97% of real rows.
+    kev_src: list[dict[str, Any]] = []
     seen: set[str] = set()
     for i in classified:
-        if not (i.get("in_kev") or (i.get("epss") is not None and (i.get("epss") or 0) >= 0.1) or i.get("cve_id")):
+        if not (i.get("in_kev") or i.get("epss") is not None or i.get("cve_id")):
             continue
         uid = str(i.get("cve_id") or i.get("id") or i.get("title"))
         if uid in seen:
             continue
         seen.add(uid)
-        kev_table.append(_slim(i))
-    kev_table = kev_table[:40]
+        kev_src.append(_slim(i))
 
     stats = {
         "p0": sum(1 for i in classified if i.get("brief_priority") == "P0"),
@@ -247,8 +307,17 @@ def compose_brief(
         "total": len(classified),
         "failed_sources": failed_sources,
     }
+    all_sources = _collect_sources(classified, failed_sources, dt)
+
+    section_counts: dict[str, dict[str, int]] = {}
+
+    def _cap(key: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        cap = SECTION_CAPS[key]
+        section_counts[key] = {"shown": min(len(rows), cap), "total": len(rows), "cap": cap}
+        return rows[:cap]
+
+    must = _cap("must_do", [_slim(i) for i in must_src])
     exec_lines = _exec_summary(must, stats, dt)
-    sources = _collect_sources(classified, failed_sources, dt)
     payload = {
         "date": dt.strftime("%Y-%m-%d"),
         "weekday_zh": _weekday_zh(dt),
@@ -259,15 +328,25 @@ def compose_brief(
         "stats": stats,
         "exec_summary": exec_lines,
         "must_do": must,
-        "kev_epss": kev_table,
-        "exposure": sections["exposure"][:20],
-        "ot_ics": sections["ot_ics"][:20],
-        "psirt": sections["psirt"][:20],
-        "market": sections["market"][:15],
-        "watch": sections["watch"][:20],
-        "sources": sources,
+        "kev_epss": _cap("kev_epss", kev_src),
+        "exposure": _cap("exposure", sections["exposure"]),
+        "ot_ics": _cap("ot_ics", sections["ot_ics"]),
+        "psirt": _cap("psirt", sections["psirt"]),
+        "market": _cap("market", sections["market"]),
+        "watch": _cap("watch", sections["watch"]),
+        "sources": _cap("sources", all_sources),
         "needs_exec_decision": stats["p0"] > 0,
     }
+    payload["section_counts"] = section_counts
+    # Honest coverage: how many of the classified items a reader can actually
+    # reach. must_do rows are re-listed in their own section, so count uniques.
+    reachable = {
+        str(it.get("id"))
+        for key in ("must_do", "kev_epss", "exposure", "ot_ics", "psirt", "market", "watch")
+        for it in payload[key]
+    }
+    stats["rendered"] = len(reachable)
+    stats["truncated"] = max(0, len(classified) - len(reachable))
     payload["markdown"] = render_markdown(payload)
     payload["exec_markdown"] = render_exec_markdown(payload)
     return payload
@@ -320,7 +399,9 @@ def _collect_sources(items: list[dict[str, Any]], failed: list[dict[str, str]], 
                 "error": f.get("error") or "",
             }
         )
-    return out[:80]
+    # Not truncated here — compose_brief caps it and records the true total so
+    # the appendix can state 「顯示 N／共 M」.
+    return out
 
 
 def _md_item(it: dict[str, Any], *, action: bool = False) -> str:
@@ -352,18 +433,40 @@ def _md_item(it: dict[str, Any], *, action: bool = False) -> str:
     return "\n".join(lines)
 
 
+def _count_note(p: dict[str, Any], key: str, shown: int) -> str:
+    """「顯示 N／共 M 件」 for one section.
+
+    ``shown`` is what this renderer actually prints, ``total`` is how many rows
+    the classifier put in the section before SECTION_CAPS and MD_LIMITS trimmed
+    it. Truncating without saying so reads as 「今天只有這幾件」.
+    """
+    counts = (p.get("section_counts") or {}).get(key) or {}
+    total = int(counts.get("total", shown))
+    if total > shown:
+        return f"（顯示 {shown}／共 {total} 件；完整清單見儀表板或 JSON 輸出）"
+    return f"（共 {total} 件）"
+
+
 def render_markdown(p: dict[str, Any]) -> str:
     date = p["date"]
+    stats = p.get("stats") or {}
     parts = [
         "# 先制式資安日報 Preemptive Cybersecurity Daily Brief",
         f"日期：{date}（{p['weekday_zh']}）｜資料涵蓋：{p['coverage']}｜產出：全球資安管理處 情報分析代理",
         f"產出時間：{p.get('generated_at_utc')} ／ {p.get('generated_at_taipei')}",
         "證據標記：【已證實】【第三方評論】【尚未證實】｜⬆＝既有項目狀態升級",
+        f"本日分類 {stats.get('total', 0)} 件，其中 {stats.get('rendered', 0)} 件列入本報告"
+        + (
+            f"；{stats.get('truncated', 0)} 件因版面上限未列出（各分區標題已註明「顯示 N／共 M」）。"
+            if stats.get("truncated")
+            else "。"
+        ),
         "",
         "## 一、管理階層摘要（3–5 句）",
         *[line if line.endswith("。") else line + "。" for line in p["exec_summary"]],
         "",
-        "## 二、今日必辦 Top 3（P0/P1 行動項）",
+        "## 二、今日必辦 Top 3（P0/P1 行動項）"
+        + _count_note(p, "must_do", len(p["must_do"])),
     ]
     if p["must_do"]:
         for i, it in enumerate(p["must_do"], 1):
@@ -374,11 +477,15 @@ def render_markdown(p: dict[str, Any]) -> str:
         parts.append(EMPTY_ZH)
         parts.append("")
 
-    parts += ["## 三、新增 KEV 與高 EPSS 訊號", ""]
-    if p["kev_epss"]:
+    kev_rows = (p.get("kev_epss") or [])[: MD_LIMITS["kev_epss"]]
+    parts += [
+        f"## {SECTION_TITLES['kev_epss']}" + _count_note(p, "kev_epss", len(kev_rows)),
+        "",
+    ]
+    if kev_rows:
         parts.append("| CVE | 產品 | CVSS | EPSS | KEV | PoC/利用 | 本組織相關 | 來源 |")
         parts.append("|---|---|---|---|---|---|---|---|")
-        for it in p["kev_epss"][:25]:
+        for it in kev_rows:
             sig = it.get("signals") or {}
             parts.append(
                 "| {cve} | {prod} | {cvss} | {epss} | {kev} | {poc} | {org} | {src} |".format(
@@ -398,14 +505,14 @@ def render_markdown(p: dict[str, Any]) -> str:
         parts.append("")
 
     def _sec(key: str, extra: str = "") -> None:
-        parts.append(f"## {SECTION_TITLES[key]}")
+        rows = (p.get(key) or [])[: MD_LIMITS[key]]
+        parts.append(f"## {SECTION_TITLES[key]}" + _count_note(p, key, len(rows)))
         if extra:
             parts.append(extra)
-        rows = p.get(key) or []
         if not rows:
             parts.append(EMPTY_ZH)
         else:
-            for it in rows[:12]:
+            for it in rows:
                 parts.append(_md_item(it, action=key in ("ot_ics", "psirt", "exposure")))
         parts.append("")
 
@@ -418,7 +525,11 @@ def render_markdown(p: dict[str, Any]) -> str:
     _sec("market", extra="此區多為【第三方評論】，不得重製付費報告內文。")
     _sec("watch")
 
-    parts += ["## 附錄：今日全部來源清單（URL＋時間戳）", ""]
+    parts += [
+        "## 附錄：今日全部來源清單（URL＋時間戳）"
+        + _count_note(p, "sources", len(p.get("sources") or [])),
+        "",
+    ]
     if p.get("sources"):
         for s in p["sources"]:
             st = s.get("status") or "ok"
@@ -441,7 +552,7 @@ def render_exec_markdown(p: dict[str, Any]) -> str:
         "## 一、管理階層摘要",
         *p["exec_summary"],
         "",
-        "## 二、今日必辦 Top 3",
+        "## 二、今日必辦 Top 3" + _count_note(p, "must_do", len(p["must_do"])),
     ]
     if p["must_do"]:
         for i, it in enumerate(p["must_do"], 1):

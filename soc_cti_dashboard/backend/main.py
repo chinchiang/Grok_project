@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .config import (
+    ALLOW_UNAUTHENTICATED_WRITES,
     API_KEY,
     CORS_ORIGINS,
     FINANCE_WATCHLIST,
@@ -64,8 +65,27 @@ async def scheduled_harvest() -> None:
         await set_meta("last_staled_count", str(staled))
 
 
+def _log_write_auth_posture() -> None:
+    """Say out loud, at startup, whether writes are protected."""
+    if API_KEY:
+        log.info("write endpoints require an API key (X-API-Key / Bearer)")
+    elif ALLOW_UNAUTHENTICATED_WRITES:
+        log.warning(
+            "SOC_CTI_ALLOW_UNAUTHENTICATED is set: POST /api/scan/manual and "
+            "POST /api/intel/{id}/verdict accept unauthenticated requests. Any "
+            "web page the browser visits can trigger them cross-origin. Set "
+            "SOC_CTI_API_KEY instead."
+        )
+    else:
+        log.warning(
+            "SOC_CTI_API_KEY is not set: write endpoints are disabled (401). "
+            "Set SOC_CTI_API_KEY to enable manual scans and analyst verdicts."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _log_write_auth_posture()
     await init_db()
     # Register 07:00 and 15:00 Asia/Taipei
     for hour in SCHEDULE_HOURS:
@@ -135,17 +155,46 @@ def _key_bytes(value: str) -> bytes:
         return value.encode("utf-8")
 
 
+UNAUTHENTICATED_DETAIL = {
+    "message_zh": (
+        "伺服器未設定 API 金鑰，寫入端點已停用。請設定環境變數 SOC_CTI_API_KEY "
+        "後重啟；僅在明確接受風險時才設定 SOC_CTI_ALLOW_UNAUTHENTICATED=1。"
+    ),
+    "message_en": (
+        "Server has no API key configured; write endpoints are disabled. Set "
+        "SOC_CTI_API_KEY and restart, or set SOC_CTI_ALLOW_UNAUTHENTICATED=1 to "
+        "accept the risk explicitly."
+    ),
+}
+
+INVALID_KEY_DETAIL = {
+    "message_zh": "需要有效 API 金鑰（X-API-Key 或 Authorization: Bearer）",
+    "message_en": "Valid API key required (X-API-Key or Authorization: Bearer)",
+}
+
+
+def writes_require_key() -> bool:
+    return bool(API_KEY) or not ALLOW_UNAUTHENTICATED_WRITES
+
+
 async def require_api_key(
     x_api_key: str | None = Header(None, alias="X-API-Key"),
     authorization: str | None = Header(None),
 ) -> None:
-    """Protect mutating endpoints when SOC_CTI_API_KEY / API_KEY is configured.
+    """Gate mutating endpoints. Fails closed.
 
-    Local / CI without a key remain open. Production should set the env var.
-    Accepts X-API-Key or Authorization: Bearer <token>.
+    Accepts X-API-Key or Authorization: Bearer <token>. With no key configured
+    the endpoint is *disabled* rather than open: binding to loopback is not an
+    authentication boundary — a cross-origin POST from any page the analyst has
+    open still reaches the handler (CORS withholds the response, not the write),
+    so an unauthenticated /api/scan/manual or /verdict is reachable by CSRF.
+    SOC_CTI_ALLOW_UNAUTHENTICATED=1 restores the old permissive behaviour for
+    throwaway local runs, and is announced in the startup log.
     """
     if not API_KEY:
-        return
+        if ALLOW_UNAUTHENTICATED_WRITES:
+            return
+        raise HTTPException(status_code=401, detail=UNAUTHENTICATED_DETAIL)
     provided = (x_api_key or "").strip()
     if not provided and authorization:
         auth = authorization.strip()
@@ -159,13 +208,7 @@ async def require_api_key(
     if not provided or not secrets.compare_digest(
         _key_bytes(provided), API_KEY.encode("utf-8")
     ):
-        raise HTTPException(
-            status_code=401,
-            detail={
-                "message_zh": "需要有效 API 金鑰（X-API-Key 或 Authorization: Bearer）",
-                "message_en": "Valid API key required (X-API-Key or Authorization: Bearer)",
-            },
-        )
+        raise HTTPException(status_code=401, detail=INVALID_KEY_DETAIL)
 
 
 @app.get("/api/health")
@@ -175,7 +218,10 @@ async def health() -> dict[str, Any]:
         "timezone": "Asia/Taipei",
         "server_time": now_iso(),
         "schedule_hours": list(SCHEDULE_HOURS),
-        "api_key_required": bool(API_KEY),
+        # writes_require_key() is the posture the client must satisfy;
+        # write_endpoints_enabled is false when no key is configured at all.
+        "api_key_required": writes_require_key(),
+        "write_endpoints_enabled": bool(API_KEY) or ALLOW_UNAUTHENTICATED_WRITES,
     }
 
 
@@ -445,7 +491,10 @@ async def scan_status() -> dict[str, Any]:
         "last_manual_scan": last,
         "last_scheduled_scan": await get_meta("last_scheduled_scan"),
         "harvest_running": _harvest_lock.locked(),
-        "api_key_required": bool(API_KEY),
+        # writes_require_key() is the posture the client must satisfy;
+        # write_endpoints_enabled is false when no key is configured at all.
+        "api_key_required": writes_require_key(),
+        "write_endpoints_enabled": bool(API_KEY) or ALLOW_UNAUTHENTICATED_WRITES,
     }
 
 

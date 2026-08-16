@@ -2,6 +2,31 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
+  <!-- Content-Security-Policy. GitHub Pages cannot set response headers, so the
+       policy ships in the document; it must therefore come before any resource
+       so nothing loads unpoliced. Consequences of that delivery route: the
+       header-only directives (frame-ancestors, report-uri/report-to, sandbox)
+       are ignored here — clickjacking protection needs X-Frame-Options /
+       frame-ancestors from a real header when this is served behind one.
+       'unsafe-inline' is deliberately absent from both script-src and
+       style-src: app.js renders card HTML with innerHTML from feed-derived
+       text, so if an escapeHtml() gap ever lets markup through, the injected
+       tag has no way to run script or restyle the page.
+       connect-src lists exactly the hosts app.js fetches in static mode (see
+       browserLiveScan(); tests/test_frontend_csp.py keeps the two in step);
+       'self' covers /api/* and data/*.json.
+       img-src needs data: for the SVG favicon and the base64 mascot below. -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'none';
+    script-src 'self';
+    style-src 'self' https://fonts.googleapis.com;
+    font-src https://fonts.gstatic.com;
+    img-src 'self' data:;
+    connect-src 'self' https://raw.githubusercontent.com https://www.cisa.gov https://www.ransomlook.io https://data.ransomware.live;
+    object-src 'none';
+    base-uri 'none';
+    form-action 'none'" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0e17" />
   <meta name="description" content="SOC 即時威脅情資中心：CISA KEV、七層 OSINT 來源、P0–P3 互斥優先級與雙來源核實，臺灣時區每日兩次更新。" />
@@ -12,33 +37,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
-  <style>
-    .yumi-mascot-wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-right: 8px;
-    }
-    .yumi-mascot {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid #00e5ff;
-      box-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
-      transition: transform 0.2s;
-    }
-    .yumi-mascot-wrap:hover .yumi-mascot {
-      transform: scale(1.08);
-    }
-    .yumi-name {
-      font-size: 0.6rem;
-      font-weight: 800;
-      color: #00e5ff;
-      margin-top: 2px;
-      letter-spacing: 0.04em;
-    }
-  </style>
 </head>
 <body>
   <div class="bg-grid"></div>
@@ -241,10 +239,13 @@
 
       <article class="pre-exec" id="preExec"></article>
 
-      <h3 class="section-h" data-i18n="preMustTitle">二、今日必辦 Top 3</h3>
+      <!-- The count badge is a sibling span, not text inside the h3: applyI18n()
+           assigns el.textContent on every [data-i18n] node, which would erase a
+           child element on each language toggle. -->
+      <h3 class="section-h"><span data-i18n="preMustTitle">二、今日必辦 Top 3</span><span class="sec-count" data-count="must_do"></span></h3>
       <div class="pre-must" id="preMust"></div>
 
-      <h3 class="section-h" data-i18n="preKevTitle">三、新增 KEV 與高 EPSS 訊號</h3>
+      <h3 class="section-h"><span data-i18n="preKevTitle">三、新增 KEV 與高 EPSS 訊號</span><span class="sec-count" data-count="kev_epss"></span></h3>
       <div class="table-scroll">
         <table class="acc-table pre-table" id="preKevTable">
           <thead>
@@ -264,28 +265,28 @@
 
       <div class="pre-grid">
         <section>
-          <h3 class="section-h" data-i18n="preExpTitle">四、曝險與攻擊面</h3>
+          <h3 class="section-h"><span data-i18n="preExpTitle">四、曝險與攻擊面</span><span class="sec-count" data-count="exposure"></span></h3>
           <div class="card-list" id="preExpList"></div>
         </section>
         <section>
-          <h3 class="section-h" data-i18n="preOtTitle">五、OT／ICS 專區</h3>
+          <h3 class="section-h"><span data-i18n="preOtTitle">五、OT／ICS 專區</span><span class="sec-count" data-count="ot_ics"></span></h3>
           <div class="principle-box pre-ot-note" data-i18n="preOtNote">OT 只做被動探索與受控窗口驗證；緩解須經 OT 工程與 CAB。禁止主動掃描。</div>
           <div class="card-list" id="preOtList"></div>
         </section>
         <section>
-          <h3 class="section-h" data-i18n="prePsirtTitle">六、產品資安／SBOM／CRA</h3>
+          <h3 class="section-h"><span data-i18n="prePsirtTitle">六、產品資安／SBOM／CRA</span><span class="sec-count" data-count="psirt"></span></h3>
           <div class="card-list" id="prePsirtList"></div>
         </section>
         <section>
-          <h3 class="section-h" data-i18n="preMktTitle">七、先制式技術與市場</h3>
+          <h3 class="section-h"><span data-i18n="preMktTitle">七、先制式技術與市場</span><span class="sec-count" data-count="market"></span></h3>
           <div class="card-list" id="preMktList"></div>
         </section>
       </div>
 
-      <h3 class="section-h" data-i18n="preWatchTitle">八、觀察與尚未證實</h3>
+      <h3 class="section-h"><span data-i18n="preWatchTitle">八、觀察與尚未證實</span><span class="sec-count" data-count="watch"></span></h3>
       <div class="card-list" id="preWatchList"></div>
 
-      <h3 class="section-h" data-i18n="preSrcTitle">附錄：今日來源</h3>
+      <h3 class="section-h"><span data-i18n="preSrcTitle">附錄：今日來源</span><span class="sec-count" data-count="sources"></span></h3>
       <ul class="pre-sources" id="preSources"></ul>
     </section>
 

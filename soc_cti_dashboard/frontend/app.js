@@ -69,21 +69,12 @@ function cardHTML(item) {
   );
   if (item.is_live) tags.push(`<span class="pill live-pill" data-i18n="liveTag">即時</span>`);
   if (ransom) tags.push(`<span class="pill ransom">RANSOM</span>`);
-  if (item.is_tw_industry)
-    tags.push(
-      `<span class="pill" style="background:#4a0028;color:#ff80ab;border-color:#ff4081">TW</span>`
-    );
-  if (item.is_finance)
-    tags.push(
-      `<span class="pill" style="background:#00331a;color:#69f0ae;border-color:#00c853">FIN</span>`
-    );
-  if (item.is_microsoft)
-    tags.push(
-      `<span class="pill" style="background:#0a2540;color:#4fc3f7;border-color:#0288d1">MS</span>`
-    );
+  if (item.is_tw_industry) tags.push(`<span class="pill tw">TW</span>`);
+  if (item.is_finance) tags.push(`<span class="pill fin">FIN</span>`);
+  if (item.is_microsoft) tags.push(`<span class="pill ms">MS</span>`);
   if (item.admiralty)
     tags.push(
-      `<span class="pill" style="background:#1a1a2e;border-color:#555;color:#ccc" title="Admiralty">${item.admiralty}</span>`
+      `<span class="pill admiralty" title="Admiralty">${escapeHtml(item.admiralty)}</span>`
     );
 
   const rationale =
@@ -934,7 +925,7 @@ function briefCardHTML(it) {
   ];
   if (it.org_related)
     tags.push(
-      `<span class="pill" style="background:#2a1040;color:#e1bee7;border-color:#ab47bc">${escapeHtml(t("preOrgHits"))}</span>`
+      `<span class="pill org-hit">${escapeHtml(t("preOrgHits"))}</span>`
     );
   if (it.status_upgrade)
     tags.push(`<span class="pill p2">${escapeHtml(t("preUpgrade"))}</span>`);
@@ -967,14 +958,34 @@ function briefCardHTML(it) {
     </article>`;
 }
 
-function renderBriefList(el, items, limit = 8) {
+// 「顯示 N／共 M」 next to a section heading. `total` comes from the brief
+// payload's section_counts, i.e. how many rows the classifier actually put in
+// that section before the composer's cap trimmed it.
+function setSectionCount(key, shown, total) {
+  const el = document.querySelector(`.sec-count[data-count="${key}"]`);
   if (!el) return;
-  const slice = (items || []).slice(0, limit);
-  if (!slice.length) {
+  const m = Number.isFinite(total) ? total : shown;
+  const truncated = m > shown;
+  el.textContent = truncated
+    ? t("preShownOf").replace("{n}", shown).replace("{m}", m)
+    : t("preTotalOf").replace("{m}", m);
+  el.classList.toggle("is-truncated", truncated);
+  if (truncated) el.title = t("preTruncHint");
+  else el.removeAttribute("title");
+}
+
+// Renders every row the payload carries. The old form re-truncated to 8/6/10 on
+// top of the composer's own caps, so a section could hold 101 items, ship 20 and
+// show 10 — three numbers, none of them stated anywhere in the UI.
+function renderBriefList(el, items, key, counts) {
+  const rows = items || [];
+  setSectionCount(key, rows.length, (counts || {})[key]?.total);
+  if (!el) return;
+  if (!rows.length) {
     el.innerHTML = `<div class="empty">${t("empty")}</div>`;
     return;
   }
-  el.innerHTML = slice.map(briefCardHTML).join("");
+  el.innerHTML = rows.map(briefCardHTML).join("");
 }
 
 async function loadPreemptive() {
@@ -1017,25 +1028,33 @@ async function loadPreemptive() {
       : `<p class="empty">${t("empty")}</p>`;
   }
 
+  const counts = data.section_counts || {};
+
   const mustEl = $("#preMust");
-  if (mustEl) {
+  {
     const must = data.must_do || [];
-    mustEl.innerHTML = must.length
-      ? must
-          .map((it, i) => {
-            const card = briefCardHTML(it);
-            return `<div class="pre-must-item"><div class="pre-rank">${i + 1}</div>${card}</div>`;
-          })
-          .join("")
-      : `<div class="empty">${t("preNoMust")}</div>`;
+    // 「Top 3」 is a deliberate cap, but the reader still needs to know it was
+    // picked out of 125 P0/P1 items rather than being the whole list.
+    setSectionCount("must_do", must.length, counts.must_do?.total);
+    if (mustEl) {
+      mustEl.innerHTML = must.length
+        ? must
+            .map((it, i) => {
+              const card = briefCardHTML(it);
+              return `<div class="pre-must-item"><div class="pre-rank">${i + 1}</div>${card}</div>`;
+            })
+            .join("")
+        : `<div class="empty">${t("preNoMust")}</div>`;
+    }
   }
 
   const body = $("#preKevBody");
-  if (body) {
+  {
     const rows = data.kev_epss || [];
-    body.innerHTML = rows.length
+    setSectionCount("kev_epss", rows.length, counts.kev_epss?.total);
+    if (body)
+      body.innerHTML = rows.length
       ? rows
-          .slice(0, 25)
           .map((it) => {
             const sig = it.signals || {};
             const epss = sig.epss == null ? "—" : Number(sig.epss).toFixed(3);
@@ -1062,18 +1081,19 @@ async function loadPreemptive() {
       : `<tr><td colspan="7">${escapeHtml(t("empty"))}</td></tr>`;
   }
 
-  renderBriefList($("#preExpList"), data.exposure, 8);
-  renderBriefList($("#preOtList"), data.ot_ics, 8);
-  renderBriefList($("#prePsirtList"), data.psirt, 8);
-  renderBriefList($("#preMktList"), data.market, 6);
-  renderBriefList($("#preWatchList"), data.watch, 10);
+  renderBriefList($("#preExpList"), data.exposure, "exposure", counts);
+  renderBriefList($("#preOtList"), data.ot_ics, "ot_ics", counts);
+  renderBriefList($("#prePsirtList"), data.psirt, "psirt", counts);
+  renderBriefList($("#preMktList"), data.market, "market", counts);
+  renderBriefList($("#preWatchList"), data.watch, "watch", counts);
 
   const src = $("#preSources");
-  if (src) {
+  {
     const rows = data.sources || [];
-    src.innerHTML = rows.length
+    setSectionCount("sources", rows.length, counts.sources?.total);
+    if (src)
+      src.innerHTML = rows.length
       ? rows
-          .slice(0, 40)
           .map((s) => {
             const url = safeHref(s.url);
             const name = escapeHtml(s.name || "");
@@ -1201,7 +1221,8 @@ function setupVerdictActions() {
       cache.reviewQueue = null;
     } catch (e) {
       bar.querySelectorAll(".verdict-btn").forEach((b) => (b.disabled = false));
-      showToast(t("verdictFailed"), true);
+      // Same reason as manualScan(): a fail-closed 401 must say what to set.
+      showToast(e.status === 401 ? t("scanAuth") : t("verdictFailed"), true);
     }
   });
 }
@@ -1623,7 +1644,7 @@ async function loadLayers() {
             ${escapeHtml(name)}
             <span class="status-dot ${escapeHtml(L.overall)}" title="${escapeHtml(L.overall)}"></span>
           </h3>
-          <div style="font-size:0.75rem;color:var(--muted)">${escapeHtml(L.schedule_hint || "")}</div>
+          <div class="layer-hint">${escapeHtml(L.schedule_hint || "")}</div>
           <ul>${srcs || `<li>${t("empty")}</li>`}</ul>
         </article>`;
     })
@@ -1652,17 +1673,23 @@ async function manualScan() {
     showToast(t("scanOk"));
     await refreshAll();
   } catch (e) {
-    if (e.status === 501 || e.status === 429 || e.status === 409) {
+    // 401 is now the default posture with no SOC_CTI_API_KEY set, so it has to
+    // reach the analyst as an explanation rather than as a bare "api_error".
+    if (e.status === 401 || e.status === 501 || e.status === 429 || e.status === 409) {
       const d = e.data?.detail;
+      const fallback =
+        e.status === 429
+          ? t("scanCooldown")
+          : e.status === 401
+            ? t("scanAuth")
+            : t("scanBusy");
       const msg =
         typeof d === "object"
           ? currentLang === "zh"
             ? d.message_zh
             : d.message_en
-          : e.status === 429
-            ? t("scanCooldown")
-            : t("scanBusy");
-      showToast(msg || t("scanCooldown"), true);
+          : fallback;
+      showToast(msg || fallback, true);
     } else {
       showToast(String(e.message || "Error"), true);
     }
