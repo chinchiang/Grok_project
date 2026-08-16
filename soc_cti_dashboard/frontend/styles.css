@@ -66,6 +66,31 @@ body { overflow-x: hidden; }
   z-index: 20;
 }
 .brand { display: flex; gap: 12px; align-items: center; }
+/* Mascot: moved out of an inline <style> in index.html so style-src can stay
+   'self' — see the CSP <meta> at the top of the document. */
+.yumi-mascot-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 8px;
+}
+.yumi-mascot {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #00e5ff;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+  transition: transform 0.2s;
+}
+.yumi-mascot-wrap:hover .yumi-mascot { transform: scale(1.08); }
+.yumi-name {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: #00e5ff;
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
 .brand h1 {
   margin: 0;
   font-size: clamp(1.05rem, 2.8vw, 1.45rem);
@@ -402,6 +427,14 @@ main { padding: 14px 14px 40px; max-width: 1480px; margin: 0 auto; }
   border-color: var(--ransom);
   animation: blink 1.4s infinite;
 }
+/* Sector / grading pills — previously built with style="..." attributes in
+   app.js, which forced 'unsafe-inline' into style-src and thereby handed any
+   HTML-injection bug a free CSS channel. */
+.pill.tw { background: #4a0028; color: #ff80ab; border-color: #ff4081; }
+.pill.fin { background: #00331a; color: #69f0ae; border-color: #00c853; }
+.pill.ms { background: #0a2540; color: #4fc3f7; border-color: #0288d1; }
+.pill.admiralty { background: #1a1a2e; color: #ccc; border-color: #555; }
+.pill.org-hit { background: #2a1040; color: #e1bee7; border-color: #ab47bc; }
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.65; }
@@ -779,6 +812,18 @@ button.meta-cve-btn.copied .meta-copy-icon {
   font-size: 1rem;
   font-weight: 900;
 }
+/* 顯示 N／共 M — every capped section declares what it is hiding. */
+.sec-count {
+  margin-left: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.sec-count.is-truncated {
+  color: var(--p2);
+  cursor: help;
+}
 .ransom-h {
   color: var(--p0);
   text-shadow: 0 0 12px rgba(255, 23, 68, 0.4);
@@ -820,6 +865,7 @@ button.meta-cve-btn.copied .meta-copy-icon {
 .status-dot.degraded { background: var(--bad); box-shadow: 0 0 10px var(--bad); }
 .status-dot.not_configured { background: #607d8b; }
 .status-dot.unknown { background: #455a64; }
+.layer-hint { font-size: 0.75rem; color: var(--muted); }
 .layer-card ul {
   list-style: none;
   margin: 10px 0 0;

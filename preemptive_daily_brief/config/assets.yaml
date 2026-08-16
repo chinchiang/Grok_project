@@ -1,6 +1,12 @@
 # 本組織技術堆疊關鍵字 — 命中則優先級升一級並標〔本組織相關〕
 # 臺灣 ODM/EMS 電子製造：企業 IT + 量產 OT/ICS + 產品資安 PSIRT/SBOM
 # 營運據點：台灣／中國／美國／墨西哥／捷克
+#
+# 比對規則（lib/classify.py::keyword_regex）：ASCII 關鍵字以詞界錨定、CJK 以子字串、
+# 純數字視為台股代號且須有市場語境。因為命中會「升一級」，關鍵字必須能唯一指向本組織
+# 實際持有的資產 — 通用詞（Gateway、Exchange、ICS、Spring、Apache）即使加了詞界仍會
+# 命中 "Check Point Security Gateway"、"IKEv1 key exchange"、"Spring cleaning"，
+# 故一律改為帶廠商／產品限定的完整名稱。
 
 org:
   name_zh: 臺灣 ODM/EMS 電子製造集團
@@ -29,7 +35,7 @@ assets:
     kind: network
     sites: [台灣, 中國, 美國, 墨西哥, 捷克]
   - key: citrix
-    keywords: [Citrix, NetScaler, ADC, Gateway]
+    keywords: [Citrix, NetScaler, Citrix ADC, NetScaler ADC, Citrix Gateway, NetScaler Gateway]
     owner: IT
     kind: remote_access
     sites: [台灣, 美國]
@@ -39,7 +45,7 @@ assets:
     kind: virtualization
     sites: [台灣, 中國, 美國, 墨西哥, 捷克]
   - key: microsoft
-    keywords: [Windows Server, Exchange, SharePoint, Entra, Azure AD, Defender, M365, Outlook]
+    keywords: [Windows Server, Microsoft Exchange, Exchange Server, OWA, SharePoint, Entra, Azure AD, Defender, M365, Outlook]
     owner: IT
     kind: enterprise
     sites: [台灣, 中國, 美國, 墨西哥, 捷克]
@@ -73,7 +79,9 @@ assets:
     sites: [台灣, 中國, 美國, 墨西哥, 捷克]
     iec62443: conduit
   - key: scada
-    keywords: [SCADA, HMI, ICS, PLC, DCS, 工業控制]
+    # 裸 "ICS" 已移除：它是「這是一則 ICS 情資」的訊號，不是「本組織持有此資產」的證據，
+    # 不該據以升一級。OT/ICS 版面路由仍由 classify.py::OT_HINTS 的 "ics" 負責，不受影響。
+    keywords: [SCADA, HMI, PLC, DCS, 工業控制]
     owner: OT
     kind: ics
     sites: [台灣, 中國, 美國, 墨西哥, 捷克]
@@ -88,7 +96,8 @@ assets:
     kind: supply_chain
     sites: [台灣]
   - key: open_source
-    keywords: [OpenSSL, Log4j, Log4Shell, Spring, Jenkins, GitLab, Apache, nginx, OpenSSH]
+    # 單行：io_yaml.py 的 fallback parser 不支援跨行 flow list。
+    keywords: [OpenSSL, Log4j, Log4Shell, Spring Framework, Spring Boot, Spring Cloud, Jenkins, GitLab, Apache HTTP Server, Apache Tomcat, Apache Struts, Apache Kafka, nginx, OpenSSH]
     owner: PSIRT
     kind: sbom
     sites: [台灣, 中國, 美國, 墨西哥, 捷克]

@@ -157,7 +157,7 @@ python scripts/export_static.py
 - `GET /api/review-queue` — 待人工複核佇列（P3 · 未核實 · 未判定）  
 - `GET /api/rule-accuracy` — 各規則面向的 precision 與複核覆蓋率  
 - `POST /api/intel/{id}/verdict` — 記錄分析師判定（需金鑰；body：`{"verdict":"true_positive|false_positive|unknown","note":"…"}`）  
-- `POST /api/scan/manual` — 手動巡檢（30 分鐘冷卻；設定金鑰後需帶驗證標頭）  
+- `POST /api/scan/manual` — 手動巡檢（30 分鐘冷卻；需金鑰，未設金鑰時端點停用回 401）  
 
 `GET /api/intel` 另支援 `status=open|stale`、`verdict=…`、`unreviewed=true` 篩選。
 
@@ -165,7 +165,8 @@ python scripts/export_static.py
 
 | 變數 | 預設 | 說明 |
 |------|------|------|
-| `SOC_CTI_API_KEY`（或 `API_KEY`） | 未設＝**不驗證** | 設定後 `POST /api/scan/manual` 與判定端點需帶 `X-API-Key: <key>` 或 `Authorization: Bearer <key>`（常數時間比對）。內網／共享部署建議必設 |
+| `SOC_CTI_API_KEY`（或 `API_KEY`） | 未設＝**寫入端點停用（401）** | 設定後 `POST /api/scan/manual` 與判定端點需帶 `X-API-Key: <key>` 或 `Authorization: Bearer <key>`（常數時間比對）。**必設** |
+| `SOC_CTI_ALLOW_UNAUTHENTICATED` | `0` | 設 `1` 才恢復「未設金鑰即免驗證」的舊行為，僅供拋棄式本機測試；啟動時會記錄警告 |
 | `CORS_ORIGINS` | `http://127.0.0.1:8787,http://localhost:8787` | 逗號分隔允許來源。內建前端與 API **同源**，僅前端分離部署時需調整 |
 | `EPSS_P2_THRESHOLD` | 沿用 `EPSS_TOP_MIN`（`0.5`） | **P2 判級**門檻，與抓取門檻 `EPSS_TOP_MIN` 獨立；調整會直接改變評鑑結果 |
 
@@ -174,6 +175,10 @@ $env:SOC_CTI_API_KEY = "your-long-random-key"
 $env:EPSS_P2_THRESHOLD = "0.6"   # 收緊 P2（預設 0.5）
 ```
 
+> **為何預設 fail closed**：綁 `127.0.0.1` 不是身分驗證邊界。分析師瀏覽的任何網頁都能跨來源
+> `POST http://127.0.0.1:8787/api/scan/manual`——CORS 擋的是**回應**，不是這次寫入，因此未驗證的
+> 手動巡檢與分析師判定等於一個 CSRF 就能觸發。沒設金鑰時寫入端點回 401，而不是開著。
+
 ```bash
 # 記錄一筆判定
 curl -X POST http://127.0.0.1:8787/api/intel/<id>/verdict \
@@ -181,7 +186,28 @@ curl -X POST http://127.0.0.1:8787/api/intel/<id>/verdict \
   -d '{"verdict":"false_positive","note":"媒體單篇，非台廠"}'
 ```
 
-> `GET /api/health` 與 `GET /api/scan/status` 會回報 `api_key_required`，可確認金鑰是否生效。
+> `GET /api/health` 與 `GET /api/scan/status` 會回報 `api_key_required`（用戶端必須滿足的姿態）與
+> `write_endpoints_enabled`（完全未設金鑰且未開啟豁免時為 `false`），可確認金鑰是否生效。
+
+## 前端安全（CSP）
+
+`index.html` 開頭以 `<meta http-equiv="Content-Security-Policy">` 交付政策——GitHub Pages 無法設回應標頭，
+所以只能走文件內宣告，且必須排在任何資源之前。目前政策：`default-src 'none'`，`script-src 'self'`，
+`style-src 'self' https://fonts.googleapis.com`，`font-src https://fonts.gstatic.com`，`img-src 'self' data:`，
+`connect-src 'self'` ＋ 四個即時來源網域，並鎖上 `object-src`／`base-uri`／`form-action`。
+
+`script-src` 與 `style-src` **都沒有** `'unsafe-inline'`：卡片內容是用 `innerHTML` 從來源文字組出來的，
+一旦 `escapeHtml()` 有漏，注入的標籤也拿不到執行或改版面的能力。代價是兩條規則：
+
+- 樣式一律寫在 `styles.css`，不要用 `<style>` 區塊或 `style="…"` 屬性。
+- **新增瀏覽器端即時來源時，必須同步把網域加進 `connect-src`**，否則 `browserLiveScan()` 只會回報該來源
+  「不可達」，看不出是政策擋掉的。
+
+`tests/test_frontend_csp.py` 雙向守住這件事：app.js 抓取的每個網域都必須在 `connect-src` 內，
+`connect-src` 也不得留下 app.js 已不再使用的網域。
+
+> 以 `<meta>` 交付時，僅限標頭的指令（`frame-ancestors`、`report-uri`／`report-to`、`sandbox`）會被忽略。
+> 若改由反向代理服務此頁，請在標頭補上 `X-Frame-Options` 或 `frame-ancestors` 以防點擊劫持。
 
 ## 程式結構
 

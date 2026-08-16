@@ -146,6 +146,7 @@ async def init_db() -> None:
             "WHERE first_seen IS NULL OR last_seen IS NULL"
         )
         await _backfill_html_entities(db)
+        await _backfill_fake_corroboration(db)
         await db.commit()
 
 
@@ -176,6 +177,68 @@ async def _backfill_html_entities(db: aiosqlite.Connection) -> int:
             "WHERE id=?",
             (*cleaned, item_id),
         )
+        fixed += 1
+    return fixed
+
+
+SYNTHETIC_SOURCE = "secondary-media-citation"
+
+
+async def _backfill_fake_corroboration(db: aiosqlite.Connection) -> int:
+    """Retract trust that was granted by a fabricated second source.
+
+    collectors/rss.py used to append SYNTHETIC_SOURCE and claim two sources
+    whenever a dark-web-indirect article merely name-dropped an org, which
+    graded single-source trade press as credible / B2 / P2. The collector no
+    longer does this, but the database survives between runs (restored from the
+    Actions cache), so rows already written keep their inflated grade until they
+    are rewritten -- and they are only rewritten while the feed still carries
+    them. Dropping the synthetic source leaves one real source, and a
+    single-source dark-web-indirect item is unverified / C3 / P3 by spec
+    (priority.assign_priority with force_p3_review=True short-circuits, and
+    assign_verification returns C3), so the new values are fully determined.
+
+    Idempotent: repaired rows no longer contain SYNTHETIC_SOURCE.
+    """
+    cur = await db.execute(
+        "SELECT id, sources_json, extras_json FROM intel_items WHERE sources_json LIKE ?",
+        (f"%{SYNTHETIC_SOURCE}%",),
+    )
+    rows = await cur.fetchall()
+    await cur.close()
+
+    fixed = 0
+    for item_id, sources_json, extras_json in rows:
+        try:
+            sources = json.loads(sources_json or "[]")
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(sources, list) or SYNTHETIC_SOURCE not in sources:
+            continue
+        real = [s for s in sources if s != SYNTHETIC_SOURCE]
+        try:
+            extras = json.loads(extras_json or "{}")
+        except json.JSONDecodeError:
+            extras = {}
+        if isinstance(extras, dict):
+            extras["evidence_count"] = len(real)
+            extras_out = json.dumps(extras, ensure_ascii=False, default=str)
+        else:
+            extras_out = extras_json
+
+        if len(real) >= 2:
+            # Genuinely corroborated by other feeds (aggregate.py merged them);
+            # only the phantom source and the inflated count need removing.
+            await db.execute(
+                "UPDATE intel_items SET sources_json=?, extras_json=? WHERE id=?",
+                (json.dumps(real, ensure_ascii=False), extras_out, item_id),
+            )
+        else:
+            await db.execute(
+                "UPDATE intel_items SET sources_json=?, extras_json=?, "
+                "verification='unverified', admiralty='C3', priority='P3' WHERE id=?",
+                (json.dumps(real, ensure_ascii=False), extras_out, item_id),
+            )
         fixed += 1
     return fixed
 
