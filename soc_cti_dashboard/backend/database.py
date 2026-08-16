@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 from .config import DB_PATH, DATA_DIR, TZ_TAIPEI
+from .dates import normalize_feed_date
 from .textclean import ENTITY_RE, clean_text
 
 
@@ -147,6 +148,7 @@ async def init_db() -> None:
         )
         await _backfill_html_entities(db)
         await _backfill_fake_corroboration(db)
+        await _backfill_feed_dates(db)
         await db.commit()
 
 
@@ -243,6 +245,58 @@ async def _backfill_fake_corroboration(db: aiosqlite.Connection) -> int:
     return fixed
 
 
+# The two shapes dates.normalize_feed_date can produce: a bare day, or a Taipei
+# timestamp (Asia/Taipei has had no DST since 1979, so the offset is always +08).
+# GLOB, not LIKE: it has character classes and is case-sensitive, and '+' / ':'
+# are literals in it.
+_CANONICAL_DAY_GLOB = "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]"
+_CANONICAL_TS_GLOB = _CANONICAL_DAY_GLOB + "T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]+08:00"
+
+
+def _noncanonical_date_sql(column: str) -> str:
+    return (
+        f"({column} IS NOT NULL AND {column} <> '' "
+        f"AND {column} NOT GLOB '{_CANONICAL_DAY_GLOB}' "
+        f"AND {column} NOT GLOB '{_CANONICAL_TS_GLOB}')"
+    )
+
+
+async def _backfill_feed_dates(db: aiosqlite.Connection) -> int:
+    """Rewrite feed dates stored in a format the day bucket cannot read.
+
+    RSS mandates RFC-822, so collectors stored ``'Mon, 20 Jul 2026 20:03:43
+    +0530'`` verbatim; ``substr(…, 1, 10)`` turns that into ``'Mon, 20 Ju'`` and
+    the row disappears from every sparkline (see dates.py for the full account).
+    upsert_intel now normalises on write, but the database is restored from the
+    Actions cache between runs and a row is only rewritten while its feed still
+    carries it — without this, the existing 30-day history would stay broken
+    permanently, which is the whole point of keeping the cache.
+
+    Idempotent: every value normalize_feed_date returns is one of the two
+    canonical shapes the SELECT excludes, so a second pass matches nothing.
+    """
+    cur = await db.execute(
+        "SELECT id, date_added, published_at FROM intel_items "
+        f"WHERE {_noncanonical_date_sql('date_added')} "
+        f"OR {_noncanonical_date_sql('published_at')}"
+    )
+    rows = await cur.fetchall()
+    await cur.close()
+
+    fixed = 0
+    for item_id, date_added, published_at in rows:
+        new_added = normalize_feed_date(date_added)
+        new_published = normalize_feed_date(published_at)
+        if (new_added, new_published) == (date_added, published_at):
+            continue
+        await db.execute(
+            "UPDATE intel_items SET date_added=?, published_at=? WHERE id=?",
+            (new_added, new_published, item_id),
+        )
+        fixed += 1
+    return fixed
+
+
 def _pack_extras(item: dict[str, Any]) -> str:
     """Serialize ops/display extras into extras_json."""
     if item.get("extras_json"):
@@ -276,6 +330,11 @@ async def upsert_intel(item: dict[str, Any]) -> None:
     item.setdefault("is_microsoft", 0)
     item.setdefault("ms_entities_json", "[]")
     item["extras_json"] = _pack_extras(item)
+    # Single choke point for date formats. Collectors hand over whatever their
+    # feed emitted — RFC-822 from RSS, RFC-3339 from Atom, a bare day from KEV —
+    # and every consumer below reads these two columns as ISO (see dates.py).
+    item["published_at"] = normalize_feed_date(item.get("published_at"))
+    item["date_added"] = normalize_feed_date(item.get("date_added"))
     item.setdefault("first_seen", item.get("fetched_at") or now_iso())
     item.setdefault("last_seen", item.get("fetched_at") or now_iso())
 
@@ -343,7 +402,12 @@ async def upsert_intel(item: dict[str, Any]) -> None:
 
 
 async def items_for_aggregation(days: int = 14, limit: int = 1200) -> list[dict[str, Any]]:
-    """Recent items considered for cross-source corroboration (2.5)."""
+    """Recent items considered for cross-source corroboration (2.5).
+
+    The cutoff compares strings, so it only bounds anything while the columns
+    hold ISO (upsert_intel guarantees it): an RFC-822 published_at used to sort
+    above every cutoff — 'M' > '2' — and let the window admit rows of any age.
+    """
     cutoff = days_ago_taipei(days)
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -712,7 +776,13 @@ def _entity_clause(
 
 
 async def _series_30d(db: aiosqlite.Connection, where_sql: str, params: list[Any] | None = None) -> list[dict[str, Any]]:
-    """Build last-30-day daily counts for sparklines (date, count)."""
+    """Build last-30-day daily counts for sparklines (date, count).
+
+    The bare substr is only a day because upsert_intel normalises both date
+    columns to ISO and _backfill_feed_dates repairs the cached rows; a raw RSS
+    RFC-822 value slices to 'Mon, 20 Ju' and drops the row from the chart. See
+    dates.py.
+    """
     series: list[dict[str, Any]] = []
     async with db.execute(
         f"""

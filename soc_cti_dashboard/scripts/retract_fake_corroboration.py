@@ -24,6 +24,8 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
+from backend.dates import day_bucket
+
 SYNTHETIC_SOURCE = "secondary-media-citation"
 DATA_DIR = Path(__file__).resolve().parent.parent / "frontend" / "data"
 
@@ -113,7 +115,12 @@ def _sync_kpis(data_dir: Path) -> str:
         return str(i.get("first_seen") or i.get("fetched_at") or "")
 
     def day(i: dict) -> str:
-        return str(i.get("date_added") or i.get("published_at") or i.get("fetched_at") or "")[:10]
+        # day_bucket, not a [:10] slice: exports written before dates.py landed
+        # still carry RFC-822 published_at values, which slice to 'Mon, 20 Ju'
+        # and would zero out the very buckets this is meant to re-derive.
+        return day_bucket(
+            i.get("date_added") or i.get("published_at") or i.get("fetched_at") or ""
+        )
 
     windows = {}
     for prio in ("P0", "P1", "P2", "P3"):
