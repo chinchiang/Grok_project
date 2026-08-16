@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import secrets
 from contextlib import asynccontextmanager
@@ -56,13 +57,38 @@ scheduler = AsyncIOScheduler(timezone=TZ_TAIPEI)
 _harvest_lock = asyncio.Lock()
 
 
+def _load_last_harvest_metrics() -> dict[str, Any] | None:
+    """Best-effort parse of the structured blob written by run_full_harvest."""
+    raw = None
+    # get_meta is async; callers must await a wrapper. This sync helper is only
+    # used after the value has already been fetched.
+    return None
+
+
+async def _last_harvest() -> dict[str, Any] | None:
+    raw = await get_meta("last_harvest_metrics")
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+        return data if isinstance(data, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
 async def scheduled_harvest() -> None:
     async with _harvest_lock:
         summary = await run_full_harvest()
-        staled = await mark_stale_items()
+        # mark_stale is already inside run_full_harvest; keep a meta timestamp
         await set_meta("last_scheduled_scan", now_iso())
         await set_meta("last_scan_summary", str(summary.get("steps")))
-        await set_meta("last_staled_count", str(staled))
+        metrics = summary.get("metrics") or {}
+        log.info(
+            "scheduled_harvest done failure_rate=%s steps_failed=%s items=%s",
+            metrics.get("failure_rate"),
+            metrics.get("steps_failed"),
+            metrics.get("items_collected"),
+        )
 
 
 def _log_write_auth_posture() -> None:
@@ -108,9 +134,15 @@ async def lifespan(app: FastAPI):
 async def _bootstrap() -> None:
     async with _harvest_lock:
         try:
-            await run_full_harvest()
+            summary = await run_full_harvest()
             await set_meta("last_scheduled_scan", now_iso())
             await set_meta("bootstrap_done", "1")
+            metrics = summary.get("metrics") or {}
+            log.info(
+                "bootstrap harvest done failure_rate=%s items=%s",
+                metrics.get("failure_rate"),
+                metrics.get("items_collected"),
+            )
         except Exception:
             # Was a bare pass: a first-run failure left the dashboard empty with
             # no explanation anywhere. Record it so /api/health-adjacent state
@@ -213,6 +245,7 @@ async def require_api_key(
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
+    last = await _last_harvest()
     return {
         "status": "ok",
         "timezone": "Asia/Taipei",
@@ -222,6 +255,18 @@ async def health() -> dict[str, Any]:
         # write_endpoints_enabled is false when no key is configured at all.
         "api_key_required": writes_require_key(),
         "write_endpoints_enabled": bool(API_KEY) or ALLOW_UNAUTHENTICATED_WRITES,
+        "last_harvest": (
+            {
+                "finished_at": last.get("finished_at"),
+                "failure_rate": last.get("failure_rate"),
+                "steps_failed": last.get("steps_failed"),
+                "nested_feed_failures": last.get("nested_feed_failures"),
+                "items_collected": last.get("items_collected"),
+                "duration_sec": last.get("duration_sec"),
+            }
+            if last
+            else None
+        ),
     }
 
 
@@ -230,6 +275,16 @@ async def api_kpis() -> dict[str, Any]:
     kpis = await get_kpis()
     kpis["last_scheduled_scan"] = await get_meta("last_scheduled_scan")
     kpis["last_manual_scan"] = await get_meta("last_manual_scan")
+    last = await _last_harvest()
+    if last:
+        kpis["last_harvest"] = {
+            "failure_rate": last.get("failure_rate"),
+            "steps_failed": last.get("steps_failed"),
+            "nested_feed_failures": last.get("nested_feed_failures"),
+            "items_collected": last.get("items_collected"),
+            "duration_sec": last.get("duration_sec"),
+            "finished_at": last.get("finished_at"),
+        }
     return kpis
 
 
@@ -418,11 +473,13 @@ async def api_ot_catalog() -> dict[str, Any]:
         4: {
             "id": 4,
             "name_zh": "框架與知識庫（非即時，但極重要）",
-            "name_en": "Frameworks & knowledge bases (not live news)",
+            "name_en": "框架與知識庫（非即時，但極重要）",
             "note_zh": "MITRE ATT&CK for ICS 等為威脅建模／偵測對照基準，非 RSS 新聞流。",
             "note_en": "MITRE ATT&CK for ICS etc. are modeling/detection baselines, not RSS streams.",
         },
     }
+    # Fix accidental zh copy in name_en for cat 4
+    cats[4]["name_en"] = "Frameworks & knowledge bases (not live news)"
     by_cat: dict[int, list] = {1: [], 2: [], 3: [], 4: []}
     for s in OT_IT_SOURCE_CATALOG:
         by_cat.setdefault(int(s.get("cat") or 0), []).append(s)
@@ -456,6 +513,7 @@ async def api_layers() -> dict[str, Any]:
         else:
             overall = "degraded"
         layers_out.append({**L, "overall": overall, "sources": srcs})
+    last = await _last_harvest()
     return {
         "layers": layers_out,
         "schedule": {
@@ -466,6 +524,7 @@ async def api_layers() -> dict[str, Any]:
         },
         "last_scheduled_scan": await get_meta("last_scheduled_scan"),
         "last_manual_scan": await get_meta("last_manual_scan"),
+        "last_harvest": last,
     }
 
 
@@ -484,6 +543,7 @@ async def scan_status() -> dict[str, Any]:
             allowed = remaining <= 0
         except ValueError:
             allowed = True
+    harvest_metrics = await _last_harvest()
     return {
         "manual_scan_allowed": allowed,
         "cooldown_remaining_sec": remaining,
@@ -495,6 +555,7 @@ async def scan_status() -> dict[str, Any]:
         # write_endpoints_enabled is false when no key is configured at all.
         "api_key_required": writes_require_key(),
         "write_endpoints_enabled": bool(API_KEY) or ALLOW_UNAUTHENTICATED_WRITES,
+        "last_harvest": harvest_metrics,
     }
 
 
@@ -531,7 +592,8 @@ async def manual_scan(_: None = Depends(require_api_key)) -> dict[str, Any]:
     return {
         "ok": True,
         "finished_at": now_iso(),
-        "summary": summary,
+        "summary": summary.get("steps"),
+        "metrics": summary.get("metrics"),
         "next_manual_available_in_sec": MANUAL_SCAN_COOLDOWN_SEC,
     }
 
