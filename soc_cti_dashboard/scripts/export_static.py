@@ -9,12 +9,19 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import sys
 from pathlib import Path
 
 # Allow running as script: python scripts/export_static.py
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    stream=sys.stdout,
+)
 
 from backend.collectors import run_full_harvest
 from backend.config import (
@@ -86,7 +93,25 @@ async def export() -> None:
     print("[export] running harvest…")
     summary = await run_full_harvest()
     await set_meta("last_scheduled_scan", now_iso())
-    print("[export] harvest done:", json.dumps(summary.get("steps", {}), ensure_ascii=False)[:500])
+
+    metrics = summary.get("metrics") or {}
+    # Human-readable line for Actions logs; the structured JSON line is already
+    # emitted by log_harvest_metrics() inside run_full_harvest.
+    print(
+        "[export] harvest metrics:",
+        json.dumps(
+            {
+                "failure_rate": metrics.get("failure_rate"),
+                "steps_ok": metrics.get("steps_ok"),
+                "steps_failed": metrics.get("steps_failed"),
+                "nested_feed_failures": metrics.get("nested_feed_failures"),
+                "items_collected": metrics.get("items_collected"),
+                "duration_sec": metrics.get("duration_sec"),
+                "failed": metrics.get("failed"),
+            },
+            ensure_ascii=False,
+        ),
+    )
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -95,6 +120,15 @@ async def export() -> None:
     kpis["last_manual_scan"] = await get_meta("last_manual_scan")
     kpis["static_export"] = True
     kpis["exported_at"] = now_iso()
+    # Surface last harvest observability on the KPI payload for operators
+    kpis["last_harvest"] = {
+        "failure_rate": metrics.get("failure_rate"),
+        "steps_failed": metrics.get("steps_failed"),
+        "nested_feed_failures": metrics.get("nested_feed_failures"),
+        "items_collected": metrics.get("items_collected"),
+        "duration_sec": metrics.get("duration_sec"),
+        "finished_at": metrics.get("finished_at"),
+    }
 
     items = slim_all(await query_intel(limit=400))
     by_priority = {
@@ -205,6 +239,7 @@ async def export() -> None:
             },
             "last_scheduled_scan": await get_meta("last_scheduled_scan"),
             "last_manual_scan": await get_meta("last_manual_scan"),
+            "last_harvest": metrics,
         },
         "scan-status.json": {
             "manual_scan_allowed": False,
@@ -214,6 +249,15 @@ async def export() -> None:
             "last_scheduled_scan": await get_meta("last_scheduled_scan"),
             "harvest_running": False,
             "static_mode": True,
+            "last_harvest": {
+                "failure_rate": metrics.get("failure_rate"),
+                "steps_failed": metrics.get("steps_failed"),
+                "nested_feed_failures": metrics.get("nested_feed_failures"),
+                "items_collected": metrics.get("items_collected"),
+                "duration_sec": metrics.get("duration_sec"),
+                "finished_at": metrics.get("finished_at"),
+                "failed": metrics.get("failed"),
+            },
             "note_zh": "GitHub Pages 為靜態站，請用 GitHub Actions「Run workflow」觸發更新",
             "note_en": "Static GitHub Pages site — trigger update via Actions workflow_dispatch",
         },
@@ -222,6 +266,7 @@ async def export() -> None:
             "timezone": "Asia/Taipei",
             "mode": "static",
             "harvest_summary": summary.get("steps"),
+            "harvest_metrics": metrics,
         },
         "ot-catalog.json": {
             "categories": [

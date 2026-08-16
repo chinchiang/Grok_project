@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import json
+import logging
+from datetime import datetime
 from typing import Any
+
 from ..config import (
     TWCERT_NEWS_RSS,
     TWCERT_NEWS_EN_RSS,
@@ -12,7 +16,7 @@ from ..config import (
     TWCERT_TVN_GNEWS_RSS,
     LAYERS,
 )
-from ..database import now_iso
+from ..database import now_iso, set_meta
 
 from ._base import _mark
 from .breaches import collect_hibp_breaches
@@ -24,9 +28,140 @@ from .osint import collect_x_darkweb_accounts, dual_source_darkweb_verify
 from .ransom import collect_ransomlook, collect_ransomware_live, dual_source_ransom_trackers
 from .rss import collect_registered_intel_feeds, collect_rss_layer
 
+log = logging.getLogger("soc_cti.harvest")
+
+
+def _step_ok(step: Any) -> bool:
+    """Treat a step as successful when it reports ok=True or (legacy) has a count."""
+    if not isinstance(step, dict):
+        return False
+    if "ok" in step:
+        return bool(step.get("ok"))
+    # Nested aggregates (e.g. easm, intel_feeds) without a top-level ok flag:
+    # success if no explicit error and at least one child looks healthy.
+    if step.get("error"):
+        return False
+    return True
+
+
+def _step_item_count(step: Any) -> int:
+    if not isinstance(step, dict):
+        return 0
+    for key in ("count", "elevated", "dual_elevated", "staled", "_total"):
+        val = step.get(key)
+        if isinstance(val, (int, float)) and not isinstance(val, bool):
+            return int(val)
+    # Nested feed map: sum child counts
+    total = 0
+    for k, v in step.items():
+        if k.startswith("_"):
+            continue
+        if isinstance(v, dict) and isinstance(v.get("count"), (int, float)):
+            total += int(v["count"])
+    return total
+
+
+def build_harvest_metrics(results: dict[str, Any]) -> dict[str, Any]:
+    """Derive a compact, structured harvest summary for logs and scan_meta.
+
+    Designed to be one JSON object per harvest — easy to grep in Actions logs
+    or ship to a log aggregator. Failure rate is over *top-level steps* (not
+    every nested feed), so a single flaky RSS does not drown the headline
+    figure when intel_feeds still reports overall success.
+    """
+    steps = results.get("steps") or {}
+    if not isinstance(steps, dict):
+        steps = {}
+
+    failed: list[dict[str, str]] = []
+    ok_names: list[str] = []
+    items_collected = 0
+
+    for name, step in steps.items():
+        if not isinstance(step, dict):
+            continue
+        items_collected += _step_item_count(step)
+        if _step_ok(step):
+            ok_names.append(name)
+            # Surface nested feed failures inside an otherwise-ok aggregate
+            if name == "intel_feeds":
+                for feed_id, feed in step.items():
+                    if feed_id.startswith("_"):
+                        continue
+                    if isinstance(feed, dict) and feed.get("ok") is False:
+                        failed.append(
+                            {
+                                "step": f"intel_feeds.{feed_id}",
+                                "error": str(feed.get("error") or "unknown")[:300],
+                            }
+                        )
+        else:
+            failed.append(
+                {
+                    "step": name,
+                    "error": str(step.get("error") or step.get("detail") or "unknown")[:300],
+                }
+            )
+
+    steps_total = len([k for k, v in steps.items() if isinstance(v, dict)])
+    steps_failed = len([f for f in failed if not f["step"].startswith("intel_feeds.")])
+    # Count nested feed failures separately so the headline rate stays stable
+    nested_feed_failures = len([f for f in failed if f["step"].startswith("intel_feeds.")])
+    steps_ok = max(0, steps_total - steps_failed)
+    failure_rate = round(steps_failed / steps_total, 4) if steps_total else 0.0
+
+    duration_sec: float | None = None
+    started = results.get("started_at")
+    finished = results.get("finished_at")
+    if started and finished:
+        try:
+            t0 = datetime.fromisoformat(str(started))
+            t1 = datetime.fromisoformat(str(finished))
+            duration_sec = round((t1 - t0).total_seconds(), 2)
+        except (TypeError, ValueError):
+            duration_sec = None
+
+    return {
+        "event": "harvest_complete",
+        "started_at": started,
+        "finished_at": finished,
+        "duration_sec": duration_sec,
+        "steps_total": steps_total,
+        "steps_ok": steps_ok,
+        "steps_failed": steps_failed,
+        "nested_feed_failures": nested_feed_failures,
+        "failure_rate": failure_rate,
+        "items_collected": items_collected,
+        "failed": failed,
+        "ok_steps": ok_names,
+    }
+
+
+def log_harvest_metrics(metrics: dict[str, Any]) -> None:
+    """Emit one structured JSON line. Actions / journald can parse it as-is."""
+    # Prefer a pure JSON line so log shippers do not need a custom formatter.
+    payload = json.dumps(metrics, ensure_ascii=False, default=str, separators=(",", ":"))
+    if metrics.get("steps_failed") or metrics.get("nested_feed_failures"):
+        log.warning(payload)
+    else:
+        log.info(payload)
+
+
+async def persist_harvest_metrics(metrics: dict[str, Any]) -> None:
+    """Store the last run in scan_meta for API / static export consumers."""
+    await set_meta("last_harvest_metrics", json.dumps(metrics, ensure_ascii=False, default=str))
+    await set_meta(
+        "last_harvest_failure_rate",
+        str(metrics.get("failure_rate", 0)),
+    )
+    await set_meta(
+        "last_harvest_failed_steps",
+        str(metrics.get("steps_failed", 0)),
+    )
+
 
 async def run_full_harvest() -> dict[str, Any]:
-    """Run all configured collectors; return summary."""
+    """Run all configured collectors; return summary with structured metrics."""
     results: dict[str, Any] = {"started_at": now_iso(), "steps": {}}
 
     # L1 KEV + EPSS enrichment + EPSS top-score feed
@@ -208,4 +343,14 @@ async def run_full_harvest() -> dict[str, Any]:
 
     results["finished_at"] = now_iso()
     results["layers"] = LAYERS
+
+    metrics = build_harvest_metrics(results)
+    results["metrics"] = metrics
+    log_harvest_metrics(metrics)
+    try:
+        await persist_harvest_metrics(metrics)
+    except Exception:
+        # Logging must not fail the harvest; meta write is best-effort.
+        log.exception("could not persist harvest metrics to scan_meta")
+
     return results
