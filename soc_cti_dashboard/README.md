@@ -112,6 +112,12 @@ https://chinchiang.github.io/Grok_project/
 - 逾 **14 天**未再觀測的項目轉為 `stale`，退出「未結」計數（資料保留，仍可查詢）；再次被觀測會自動回到 `open`。
 - KPI 同時提供 **未結（open）／全期（total）／近 7 日新增／近 30 日新增**，避免「P0 只增不減」造成告警疲乏。
 - 所有日界改以 **Asia/Taipei** 計算（SQLite `date('now')` 為 UTC，臺灣每日前 8 小時的「近 7 日」都會差一天）。
+- 來源時間戳在**寫入時**一律正規化為 ISO-8601（Asia/Taipei）：`backend/dates.py::normalize_feed_date`，由 `upsert_intel` 統一套用。
+  RSS 2.0 規定 RFC-822（`Mon, 20 Jul 2026 20:03:43 +0530`），而日分桶取的是前 10 碼——切出來是 `Mon, 20 Ju`，
+  對不上任何一天，**這些項目因此從未出現在任何 30 天趨勢圖**（部署中的 400 筆匯出有 63 筆如此，L6／L7 為主）；
+  同一個字串與 `>= '2026-08-02'` 比大小又恆為真（`'M' > '2'`），讓 14 天佐證窗實際上等於全表。
+  無法解析者存 `NULL`，讓日期回退到必為 ISO 的 `fetched_at`。DB 由 Actions cache 沿用，
+  故 `init_db()` 另以 `_backfill_feed_dates()` 修既有列（等冪）。
 - 核實度分兩軸呈現：整體，以及**排除 L1 後的 OSINT 核實率**（L1 幾乎全是 KEV，本質即已證實，會淹沒 OSINT 的真實佐證品質）。
 
 ### 複核佇列與規則準確率（回饋迴路）
@@ -225,6 +231,7 @@ backend/
     osint.py         #   L6 X OSINT 與新聞雙源交叉驗證
     harvest.py       #   run_full_harvest 編排
   aggregate.py       # 跨來源佐證（巡檢後）
+  dates.py           # 來源時間戳正規化（RFC-822／RFC-3339 → Taipei ISO）
   priority.py        # P0–P3 規則與核實狀態
   ops.py             # SOP／Owner／SLA／判定依據
   database.py        # SQLite、KPI、生命週期、分析師判定

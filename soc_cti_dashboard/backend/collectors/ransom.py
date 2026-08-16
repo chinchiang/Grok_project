@@ -32,6 +32,7 @@ from ..config import (
     USER_AGENT,
 )
 from ..database import now_iso, upsert_intel
+from ..dates import day_bucket
 from ..ops import explain_priority, guess_assets, pick_sop
 from ..priority import assign_priority, enrich_flags
 
@@ -387,7 +388,12 @@ async def _upsert_ransom_victim_item(
             "known_ransomware_campaign": 1,
             "epss": None,
             "cvss": None,
-            "date_added": (discovered or published or "")[:10] or None,
+            # day_bucket, not a [:10] slice: RansomLook's RSS fallback dates its
+            # posts in RFC-822, which sliced to 'Mon, 20 Ju' — and date_added is
+            # the first COALESCE key, so it decided the sparkline bucket.
+            # (upsert_intel would drop that to NULL now; bucketing here keeps the
+            # real post date instead of falling back to the harvest time.)
+            "date_added": day_bucket(discovered or published) or None,
             "published_at": published or discovered or None,
             "fetched_at": now_iso(),
             "url": link,
