@@ -16,14 +16,14 @@ const I18N = {
     dutySayHealth: "來源健康度僅 {n}%，請至「來源與排程」確認失效層級。",
     tabOverview: "總覽",
     tabHighRisk: "P0／P1 高風險",
-    tabTaiwan: "🇹🇼 臺灣專區",
-    tabOt: "⚙️ OT／ICS",
-    tabDark: "🌑 暗網／外洩",
-    tabEms: "🏭 臺灣電子製造",
-    tabFinance: "💰 金融專區",
-    tabMicrosoft: "🪟 微軟專區",
-    tabPreemptive: "⚔ 先制式資安",
-    tabReview: "🔎 複核佇列",
+    tabTaiwan: "臺灣專區",
+    tabOt: "OT／ICS",
+    tabDark: "暗網／外洩",
+    tabEms: "臺灣電子製造",
+    tabFinance: "金融專區",
+    tabMicrosoft: "微軟專區",
+    tabPreemptive: "先制式資安",
+    tabReview: "複核佇列",
     tabSources: "來源與排程",
     // 營運概況四卡
     opsP0: "P0 緊急",
@@ -53,7 +53,7 @@ const I18N = {
     darkPrinciple:
       "暗網雙來源核實原則：Ransomware.live 與 RansomLook 交叉比對；雙源命中標「可信」。單一來源（含 X OSINT）一律「未核實」，且僅進入 P3 人工複核佇列，不得因監控名單關鍵字自動升 P0，亦不得單獨開立 IR 工單。",
     // 電子製造看板
-    emsTitle: "🏭 臺灣電子製造監控看板",
+    emsTitle: "臺灣電子製造監控看板",
     emsDesc:
       "電子五哥 5 家、半導體與電子製造次產業監控名單（中英別名／股號）；勒索徽章置頂。名單為監控範圍，非統計數字。",
     emsHitTotal: "名單命中",
@@ -65,7 +65,7 @@ const I18N = {
     watchNotStats: "非統計數字 · 名單導向",
     twRansomSection: "🔐 勒索相關（置頂強調）",
     // 金融專區
-    finTitle: "💰 金融專區",
+    finTitle: "金融專區",
     finDesc:
       "銀行／支付／證券／保險與 SWIFT 等金融關鍵字命中；勒索置頂，KEV 獨立列出。監控名單為範圍，非統計數字。",
     finStatTotal: "金融相關",
@@ -76,7 +76,7 @@ const I18N = {
     finKevSection: "KEV 金融相關",
     finOtherSection: "其他金融情資",
     // 微軟專區
-    msTitle: "🪟 微軟專區",
+    msTitle: "微軟專區",
     msDesc:
       "Windows 作業系統、企業平台（Exchange／SharePoint／Entra／Defender／M365）與 Microsoft Threat Intelligence 預警；KEV 與 P1 獨立分區，官方旁證另列。",
     msStatTotal: "微軟相關",
@@ -93,7 +93,7 @@ const I18N = {
     msConfirmedSection: "官方旁證（Confirmed／MSRC／MS Blog）",
     msOtherSection: "其他微軟情資",
     // 先制式資安日報
-    preTitle: "⚔ 先制式資安日報",
+    preTitle: "先制式資安日報",
     preDesc:
       "不是「昨天被打了什麼」，而是今天必須先切斷攻擊鏈第一環。KEV／EPSS／CVSS 三訊號排序，對映本組織 IT＋OT＋PSIRT 堆疊。",
     preOrgHits: "本組織相關",
@@ -130,7 +130,7 @@ const I18N = {
     preNeedsDecision: "需管理階層決策",
     preNoDecision: "無需管理階層決策",
     // 複核佇列 / 規則準確率
-    reviewTitle: "🔎 複核佇列與規則準確率",
+    reviewTitle: "複核佇列與規則準確率",
     reviewPrinciple:
       "未核實的單源情資只進人工複核佇列，不得單獨開立 IR 工單。在此標記「真陽性／偽陽性」後，系統即可計算每條規則的實際精確率（precision），作為調整監控名單、EPSS 門檻與來源分級的依據——否則規則調整只能憑感覺。",
     ruleAccuracyTitle: "規則準確率（依分析師判定）",
@@ -227,14 +227,14 @@ const I18N = {
     dutySayHealth: "Source health is only {n}% — check Sources & schedule for the failing layer.",
     tabOverview: "Overview",
     tabHighRisk: "P0 / P1 High risk",
-    tabTaiwan: "🇹🇼 Taiwan",
-    tabOt: "⚙️ OT / ICS",
-    tabDark: "🌑 Dark web / Breach",
-    tabEms: "🏭 TW electronics mfg",
-    tabFinance: "💰 Finance",
-    tabMicrosoft: "🪟 Microsoft",
-    tabPreemptive: "⚔ Preemptive",
-    tabReview: "🔎 Review queue",
+    tabTaiwan: "Taiwan",
+    tabOt: "OT / ICS",
+    tabDark: "Dark web / Breach",
+    tabEms: "TW electronics mfg",
+    tabFinance: "Finance",
+    tabMicrosoft: "Microsoft",
+    tabPreemptive: "Preemptive",
+    tabReview: "Review queue",
     tabSources: "Sources & schedule",
     // Ops KPIs
     opsP0: "P0 Critical",
@@ -264,7 +264,7 @@ const I18N = {
     darkPrinciple:
       "Dark-web dual-source rule: cross-check Ransomware.live × RansomLook. Dual hit = Credible. Single-source (incl. X OSINT) = Unverified, P3 human-review queue only — watchlist keywords alone cannot auto-P0; never open an IR ticket alone.",
     // EMS board
-    emsTitle: "🏭 TW electronics manufacturing watchboard",
+    emsTitle: "TW electronics manufacturing watchboard",
     emsDesc:
       "Big-5 (5 firms), semi & electronics mfg watchlists (aliases / tickers); ransomware pinned. Lists are scope, not statistics.",
     emsHitTotal: "Watchlist hits",
@@ -276,7 +276,7 @@ const I18N = {
     watchNotStats: "Not statistics · list-based scope",
     twRansomSection: "🔐 Ransomware (pinned)",
     // Finance zone
-    finTitle: "💰 Finance zone",
+    finTitle: "Finance zone",
     finDesc:
       "Banking / payments / securities / insurance & SWIFT keyword hits; ransomware pinned, KEV listed separately. Watchlist is scope, not statistics.",
     finStatTotal: "Finance-related",
@@ -287,7 +287,7 @@ const I18N = {
     finKevSection: "KEV finance-related",
     finOtherSection: "Other finance intel",
     // Microsoft zone
-    msTitle: "🪟 Microsoft zone",
+    msTitle: "Microsoft zone",
     msDesc:
       "Windows OS, enterprise platforms (Exchange / SharePoint / Entra / Defender / M365) and Microsoft Threat Intelligence warnings; KEV and P1 sectioned separately, official corroboration listed on its own.",
     msStatTotal: "Microsoft-related",
@@ -304,7 +304,7 @@ const I18N = {
     msConfirmedSection: "Official corroboration (Confirmed / MSRC / MS Blog)",
     msOtherSection: "Other Microsoft intel",
     // Preemptive daily brief
-    preTitle: "⚔ Preemptive cybersecurity brief",
+    preTitle: "Preemptive cybersecurity brief",
     preDesc:
       "Not what hit yesterday — what must be cut today so the first link of the chain never forms. Ranked by KEV / EPSS / CVSS and mapped to this org's IT + OT + PSIRT stack.",
     preOrgHits: "Org-relevant",
@@ -340,7 +340,7 @@ const I18N = {
     preNeedsDecision: "Exec decision needed",
     preNoDecision: "No exec decision needed",
     // Review queue / rule accuracy
-    reviewTitle: "🔎 Review queue & rule accuracy",
+    reviewTitle: "Review queue & rule accuracy",
     reviewPrinciple:
       "Unverified single-source intel enters the human-review queue only and must never open an IR ticket on its own. Marking items true/false positive here is what makes per-rule precision measurable — the evidence for tuning watchlists, EPSS thresholds and source grading instead of guessing.",
     ruleAccuracyTitle: "Rule accuracy (from analyst verdicts)",

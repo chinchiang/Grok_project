@@ -1,1 +1,1614 @@
-SEE_ARTIFACTS_STYLES
+/* ============================================================
+   Design tokens
+
+   The palette used to be Material's A400/A700 accents — pure #ffea00,
+   #ff1744, #e040fb — all at maximum chroma, all on screen at once, each
+   wrapped in a coloured glow. Everything shouted, so nothing read as
+   urgent, which is the opposite of what an operations console needs.
+
+   Now: one neutral surface ramp, and colour reserved for meaning. The
+   priority hues keep their traffic-light order (red, amber, gold, teal) so
+   the existing mental model survives, but they sit in a controlled
+   lightness band instead of competing for attention. Every text colour
+   below clears 5:1 against both --panel and --bg (WCAG AA needs 4.5).
+   ============================================================ */
+:root {
+  /* Surfaces, dark to light */
+  --bg: #0b0f17;
+  --bg2: #111726;
+  --panel: #151c2c;
+  --panel-2: #1b2334;
+  --panel-3: #212b40;
+  --border: #26314a;
+  --border-soft: #1e2637;
+
+  /* Text */
+  --text: #e8edf7;
+  --muted: #9fb0cd;
+  --faint: #7d8da9;
+
+  /* Priority — traffic-light order kept, chroma pulled back */
+  --p0: #ff6b74;
+  --p0-bg: #2c1219;
+  --p1: #f5a63d;
+  --p1-bg: #2c1f0f;
+  --p2: #e5c55c;
+  --p2-bg: #272212;
+  --p3: #6fd3e0;
+  --p3-bg: #12262b;
+
+  /* Verification */
+  --confirmed: #52c98d;
+  --credible: #6ba5f9;
+  --unverified: #b39cf8;
+
+  /* Domain + status */
+  --tw: #f2789f;
+  --ransom: #ff6b74;
+  --ok: #52c98d;
+  --warn: #f5a63d;
+  --bad: #ff6b74;
+
+  /* One interactive accent. If it glows, it is clickable. */
+  --accent: #4fd1e0;
+  --accent-dim: rgba(79, 209, 224, 0.16);
+
+  /* Spacing scale (4px base) — replaces the ad-hoc 9/14/22px values */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.38);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  /* Decorative glow, deliberately weak. Anything stronger competes with
+     the priority colours for the operator's eye. */
+  --glow: 0 0 16px rgba(79, 209, 224, 0.18);
+
+  /* Comfortable measure for prose. At 1440px an uncapped summary ran to
+     ~180 characters a line, roughly twice the readable limit. */
+  --measure: 78ch;
+
+  --tap: 44px;  /* minimum touch target */
+
+  font-family: "Noto Sans TC", system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100%;
+}
+body { overflow-x: hidden; }
+
+/* A faint grid for depth. The red and cyan washes that used to sit on top
+   tinted the priority colours sitting over them, so they are gone. */
+.bg-grid {
+  position: fixed;
+  inset: 0;
+  background:
+    linear-gradient(rgba(38, 49, 74, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(38, 49, 74, 0.16) 1px, transparent 1px);
+  background-size: 44px 44px, 44px 44px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.topbar, .tabs, main, .footer { position: relative; z-index: 1; }
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
+  padding: var(--s3) var(--s5);
+  background: var(--bg2);
+  background: color-mix(in srgb, var(--bg2) 92%, transparent);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  backdrop-filter: blur(10px);
+  z-index: 20;
+}
+.brand { display: flex; gap: 12px; align-items: center; }
+/* Mascot: moved out of an inline <style> in index.html so style-src can stay
+   'self' — see the CSP <meta> at the top of the document. */
+.yumi-mascot-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-right: 8px;
+}
+.yumi-mascot {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+  box-shadow: var(--glow);
+  transition: transform 0.2s;
+}
+.yumi-mascot-wrap:hover .yumi-mascot { transform: scale(1.08); }
+.yumi-name {
+  font-size: 0.6rem;
+  font-weight: 800;
+  color: var(--accent);
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+.brand h1 {
+  margin: 0;
+  font-size: clamp(1.05rem, 2.8vw, 1.45rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+.subtitle { margin: 2px 0 0; color: var(--muted); font-size: 0.78rem; }
+.logo-pulse {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--p0);
+  box-shadow: 0 0 0 0 rgba(255, 107, 116, 0.55);
+  animation: pulse 1.6s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 107, 116, 0.55); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 107, 116, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 107, 116, 0); }
+}
+
+.top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.clock {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: var(--s2) var(--s3);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-weight: 700;
+  font-family: inherit;
+  padding: 10px var(--s4);
+  min-height: var(--tap);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn:hover { background: var(--panel-3); border-color: var(--accent); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+/* The one primary action on the page, so it is the one solid fill. */
+.scan-btn {
+  background: var(--p0);
+  border-color: var(--p0);
+  color: #1a0d10;
+  font-weight: 800;
+}
+.scan-btn:hover { background: #ff8189; border-color: #ff8189; }
+.lang-btn { min-width: 52px; }
+
+/* Horizontal tab strip. On a phone this scrolls, so it needs to say so:
+   snap points stop tabs half-cut, and the mask fades the overflow edge
+   instead of letting a label vanish mid-character. */
+.tabs {
+  display: flex;
+  gap: var(--s1);
+  padding: var(--s2) var(--s4);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  background: color-mix(in srgb, var(--bg2) 88%, transparent);
+  position: sticky;
+  top: 0;
+  z-index: 19;
+  backdrop-filter: blur(10px);
+}
+.tabs::-webkit-scrollbar { height: 3px; }
+.tabs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.tab {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 9px var(--s3);
+  min-height: 38px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.tab:hover { background: var(--panel-2); color: var(--text); }
+.tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tab.active {
+  color: var(--bg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+main { padding: var(--s4) var(--s4) var(--s6); max-width: 1480px; margin: 0 auto; }
+
+.panel-sub {
+  width: 100%;
+  margin: 4px 0 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.kpi-row.risk-kpi {
+  grid-template-columns: repeat(5, 1fr);
+}
+.kpi-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.kpi-unit {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+.spark {
+  display: block;
+  width: 100%;
+  max-width: 140px;
+  height: 32px;
+  margin-top: 6px;
+  opacity: 0.9;
+}
+.kpi-unverified {
+  border-style: dashed !important;
+  border-color: var(--unverified) !important;
+  box-shadow: var(--shadow-sm);
+}
+.kpi-unverified::before { background: var(--unverified); }
+.kpi-breach::before { background: var(--p0); }
+.kpi-big5::before { background: var(--tw); }
+.kpi-semi::before { background: var(--p1); }
+.kpi-ems::before { background: var(--p3); }
+
+.watch-lists {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.watch-card {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.watch-card h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+.watch-note {
+  margin: 0 0 8px;
+  font-size: 0.72rem;
+  color: var(--p1);
+  font-weight: 700;
+}
+.watch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.watch-chips span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.trend-panel {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.trend-panel h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+.trend-panel canvas {
+  width: 100%;
+  max-height: 160px;
+}
+.trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.card-unverified {
+  border-style: dashed !important;
+  border-color: var(--unverified) !important;
+}
+.card-live {
+  outline: 1px solid var(--accent);
+}
+.card-rationale {
+  font-size: 0.78rem;
+  color: var(--p2);
+  background: #2a2400;
+  border-left: 3px solid var(--p2);
+  padding: 6px 8px;
+  margin: 8px 0;
+  border-radius: 6px;
+}
+.card-ops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 6px 0;
+}
+.card-ops b { color: var(--credible); }
+.card-assets {
+  font-size: 0.72rem;
+  color: #b2ff59;
+  margin-bottom: 6px;
+}
+.pill.live-pill {
+  background: #003d4d;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal.hidden { display: none; }
+.modal-card {
+  background: var(--panel);
+  border: 2px solid var(--p3);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  max-width: 480px;
+  width: 92%;
+  max-height: 80vh;
+  overflow: auto;
+}
+.modal-card ul { padding-left: 18px; }
+.modal-card li.ok { color: var(--confirmed); }
+.modal-card li.bad { color: var(--p0); }
+
+@media (max-width: 1100px) {
+  .kpi-row.risk-kpi { grid-template-columns: repeat(2, 1fr); }
+  .watch-lists { grid-template-columns: 1fr; }
+}
+.kpi {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+.kpi::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 6px;
+}
+.kpi-p0::before { background: var(--p0); }
+.kpi-kev::before { background: var(--p1); }
+.kpi-tw::before { background: var(--tw); }
+.kpi-health::before { background: var(--confirmed); }
+.kpi-label { font-size: 0.78rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.kpi-value {
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 900;
+  line-height: 1.1;
+  margin: 6px 0 4px;
+  font-family: "JetBrains Mono", monospace;
+}
+.kpi-p0 .kpi-value { color: var(--p0); }
+.kpi-kev .kpi-value { color: var(--p1); }
+.kpi-tw .kpi-value { color: var(--tw); }
+.kpi-health .kpi-value { color: var(--confirmed); }
+.kpi-hint { font-size: 0.75rem; color: var(--muted); }
+
+.scan-meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0 0 12px;
+  font-family: "JetBrains Mono", monospace;
+}
+
+.view { display: none; }
+.view.active { display: block; }
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.panel-sub {
+  width: 100%;
+  margin: 0 0 4px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.panel-head h2 { margin: 0; font-size: 1.15rem; font-weight: 900; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.72rem;
+  font-weight: 900;
+  padding: 3px 9px;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+}
+.pill.p0 { background: var(--p0); color: #2a0d10; }
+.pill.p1 { background: var(--p1); color: #1a0a00; }
+.pill.p2 { background: var(--p2); color: #1a1600; }
+.pill.p3 { background: var(--p3); color: var(--panel); }
+.pill.v-confirmed { background: #003d1f; color: var(--confirmed); border-color: var(--confirmed); }
+.pill.v-credible { background: #0a1f4d; color: var(--credible); border-color: var(--credible); }
+.pill.v-unverified { background: #3a0048; color: var(--unverified); border-color: var(--unverified); }
+.pill.ransom {
+  background: #5c0011;
+  color: var(--p0);
+  border-color: var(--ransom);
+  animation: blink 1.4s infinite;
+}
+/* Sector / grading pills — previously built with style="..." attributes in
+   app.js, which forced 'unsafe-inline' into style-src and thereby handed any
+   HTML-injection bug a free CSS channel. */
+.pill.tw { background: #4a0028; color: var(--tw); border-color: var(--tw); }
+.pill.fin { background: #00331a; color: var(--ok); border-color: var(--ok); }
+.pill.ms { background: #0a2540; color: var(--credible); border-color: var(--credible); }
+.pill.admiralty { background: #1a1a2e; color: #ccc; border-color: #555; }
+.pill.org-hit { background: #2a1040; color: var(--unverified); border-color: var(--unverified); }
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+.priority-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.prio-col {
+  background: var(--bg2);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  min-height: 220px;
+}
+.prio-col[data-p="P0"] { border-color: var(--p0); box-shadow: inset 0 0 0 1px rgba(255, 107, 116, 0.12); }
+.prio-col[data-p="P1"] { border-color: var(--p1); }
+.prio-col[data-p="P2"] { border-color: #b0a000; }
+.prio-col[data-p="P3"] { border-color: #007a8a; }
+.prio-col h3 {
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-list { display: flex; flex-direction: column; gap: 10px; }
+.card-list.stream { max-width: 960px; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  padding: var(--s3) var(--s4);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s, background 0.15s;
+}
+.card:hover { border-color: var(--panel-3); background: var(--panel-2); }
+/* The left edge carries the priority. The old rules also washed a coloured
+   gradient across 40% of the card, which tinted the body text behind it. */
+.card.p0 { border-left-color: var(--p0); }
+.card.p1 { border-left-color: var(--p1); }
+.card.p2 { border-left-color: var(--p2); }
+.card.p3 { border-left-color: var(--p3); }
+.card.ransom-glow {
+  border-color: var(--border);
+  border-color: color-mix(in srgb, var(--ransom) 45%, var(--border));
+  box-shadow: var(--shadow-sm);
+}
+.card-top {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+/* Unified timestamp — always top-right of card */
+.card-time {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 2px 0 0;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--faint);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  line-height: 1.4;
+  text-align: right;
+}
+.card-time-empty {
+  min-width: 0;
+  padding: 0;
+}
+.card h4 {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.card p {
+  margin: 0;
+  /* Uncapped, a summary ran the full 1440px card — about 180 characters a
+     line, so the eye loses its place on every return sweep. */
+  max-width: var(--measure);
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Card footer: labeled chips so analysts can scan fields, not a flat string */
+.card-meta {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(36, 51, 82, 0.85);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-family: "Noto Sans TC", system-ui, sans-serif;
+}
+.meta-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: rgba(8, 14, 28, 0.55);
+  line-height: 1.35;
+}
+.meta-k {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+.meta-v {
+  font-weight: 700;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.74rem;
+  color: var(--text);
+  word-break: break-all;
+}
+/* CVE — primary ID + one-click copy */
+.meta-cve {
+  background: rgba(79, 209, 224, 0.08);
+  border-color: rgba(79, 209, 224, 0.35);
+}
+.meta-cve .meta-k { color: var(--p3); opacity: 1; }
+.meta-cve .meta-v {
+  color: #7df0ff;
+  letter-spacing: 0.02em;
+}
+button.meta-cve-btn {
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+button.meta-cve-btn:hover {
+  background: rgba(79, 209, 224, 0.16);
+  border-color: rgba(79, 209, 224, 0.65);
+  box-shadow: 0 0 0 1px var(--accent-dim);
+}
+button.meta-cve-btn:focus-visible {
+  outline: 2px solid var(--p3);
+  outline-offset: 2px;
+}
+button.meta-cve-btn:active {
+  transform: translateY(1px);
+}
+button.meta-cve-btn.copied {
+  background: rgba(0, 230, 118, 0.14);
+  border-color: rgba(0, 230, 118, 0.55);
+}
+button.meta-cve-btn.copied .meta-v,
+button.meta-cve-btn.copied .meta-k,
+button.meta-cve-btn.copied .meta-copy-icon {
+  color: var(--ok);
+}
+.meta-copy-icon {
+  margin-left: 2px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #5ad8e8;
+  opacity: 0.9;
+  line-height: 1;
+}
+/* Source */
+.meta-source {
+  background: rgba(41, 121, 255, 0.1);
+  border-color: rgba(41, 121, 255, 0.28);
+}
+.meta-source .meta-k { color: var(--credible); opacity: 1; }
+.meta-source .meta-v {
+  color: #bbdefb;
+  font-family: "Noto Sans TC", system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+/* Layer (L0–L6) */
+.meta-layer {
+  background: rgba(158, 158, 158, 0.08);
+  border-color: rgba(158, 158, 158, 0.28);
+}
+.meta-layer .meta-k { color: var(--muted); opacity: 1; }
+.meta-layer .meta-v { color: var(--text); }
+/* EPSS — tiered by risk */
+.meta-epss .meta-k { opacity: 1; }
+.meta-epss.epss-high {
+  background: rgba(255, 107, 116, 0.12);
+  border-color: rgba(255, 107, 116, 0.45);
+}
+.meta-epss.epss-high .meta-k,
+.meta-epss.epss-high .meta-v { color: var(--p0); }
+.meta-epss.epss-mid {
+  background: rgba(255, 145, 0, 0.12);
+  border-color: rgba(255, 145, 0, 0.4);
+}
+.meta-epss.epss-mid .meta-k,
+.meta-epss.epss-mid .meta-v { color: var(--p1); }
+.meta-epss.epss-low {
+  background: rgba(0, 230, 118, 0.08);
+  border-color: rgba(0, 230, 118, 0.28);
+}
+.meta-epss.epss-low .meta-k,
+.meta-epss.epss-low .meta-v { color: var(--ok); }
+/* Source link as clear CTA, not another plain meta string */
+.meta-link {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(79, 209, 224, 0.4);
+  background: rgba(79, 209, 224, 0.1);
+  color: var(--p3);
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.meta-link:hover {
+  background: rgba(79, 209, 224, 0.2);
+  border-color: var(--p3);
+  color: #b8f8ff;
+  text-decoration: none;
+}
+.card a:not(.meta-link) {
+  color: var(--p3);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.card a:not(.meta-link):hover { text-decoration: underline; }
+.empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 16px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  align-items: center;
+}
+.filters select, .filters input[type="search"] {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-weight: 600;
+  min-width: 140px;
+}
+.filters input[type="search"] { flex: 1; min-width: 160px; }
+.chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: var(--panel);
+  border: 2px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+.tw-banner {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--tw);
+  border-radius: var(--radius);
+  padding: var(--s4) var(--s5);
+  margin-bottom: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.tw-banner.finance-banner {
+  background: var(--panel);
+  border-left-color: var(--ok);
+  box-shadow: var(--shadow-sm);
+}
+.tw-banner.ms-banner {
+  background: var(--panel);
+  border-left-color: var(--credible);
+  box-shadow: var(--shadow-sm);
+}
+.tw-banner h2 { margin: 0 0 6px; font-size: 1.15rem; }
+.tw-banner p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.tw-stats { display: flex; gap: 18px; flex-wrap: wrap; }
+.tw-stats div {
+  text-align: center;
+  background: #1a0a14;
+  border: 2px solid var(--tw);
+  border-radius: 12px;
+  padding: 10px 16px;
+  min-width: 90px;
+}
+.finance-banner .tw-stats div {
+  background: #0a1f14;
+  border-color: var(--ok);
+}
+.ms-banner .tw-stats div {
+  background: #0a1624;
+  border-color: var(--credible);
+}
+.tw-stats span {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 900;
+  font-family: "JetBrains Mono", monospace;
+  color: var(--tw);
+}
+.finance-banner .tw-stats span { color: var(--ok); }
+.ms-banner .tw-stats span { color: var(--credible); }
+.tw-stats .hot span {
+  color: var(--p0);
+  text-shadow: none;
+}
+.tw-stats small { color: var(--muted); font-size: 0.72rem; font-weight: 700; }
+.entity-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.entity-chips span {
+  background: #2a1030;
+  border: 1px solid var(--tw);
+  color: var(--tw);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+#view-finance .entity-chips span {
+  background: #0d2818;
+  border-color: var(--ok);
+  color: #b9f6ca;
+}
+#view-microsoft .entity-chips span {
+  background: #0d1f30;
+  border-color: var(--credible);
+  color: #b3e5fc;
+}
+.section-h {
+  margin: 18px 0 10px;
+  font-size: 1rem;
+  font-weight: 900;
+}
+/* 顯示 N／共 M — every capped section declares what it is hiding. */
+.sec-count {
+  margin-left: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.sec-count.is-truncated {
+  color: var(--p2);
+  cursor: help;
+}
+.ransom-h {
+  color: var(--p0);
+  text-shadow: none;
+}
+
+.layers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.layer-card {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+.layer-card h3 {
+  margin: 0 0 6px;
+  font-size: 0.98rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.layer-id {
+  font-family: "JetBrains Mono", monospace;
+  background: #001a22;
+  color: var(--p3);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+.status-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  display: inline-block;
+}
+.status-dot.healthy { background: var(--ok); box-shadow: 0 0 6px rgba(82, 201, 141, 0.5); }
+.status-dot.partial { background: var(--warn); box-shadow: 0 0 6px rgba(245, 166, 61, 0.5); }
+.status-dot.degraded { background: var(--bad); box-shadow: 0 0 6px rgba(255, 107, 116, 0.5); }
+.status-dot.not_configured { background: #607d8b; }
+.status-dot.unknown { background: #455a64; }
+.layer-hint { font-size: 0.75rem; color: var(--muted); }
+.layer-card ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+.layer-card li {
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 6px 0;
+  border-top: 1px solid #1e2a42;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.layer-card .src-name { color: var(--text); font-weight: 700; }
+.schedule-badge {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--p3);
+  background: var(--panel);
+  border: 1px solid #00838f;
+  padding: 8px 12px;
+  border-radius: 999px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 16px;
+  left: 16px;
+  max-width: 420px;
+  margin-left: auto;
+  background: #1a2744;
+  border: 2px solid var(--p3);
+  color: #fff;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  z-index: 50;
+}
+.toast.error { border-color: var(--p0); background: #3a0612; }
+.toast.hidden { display: none; }
+
+.footer {
+  text-align: center;
+  padding: 18px 12px 28px;
+  color: #5d7294;
+  font-size: 0.72rem;
+  border-top: 1px solid var(--border);
+}
+
+/* —— 總覽：營運四卡 · 專區磚 · 方法論 —— */
+.section-title {
+  margin: 18px 0 10px;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: var(--text);
+}
+.panel-head.row-between {
+  align-items: flex-start;
+}
+.panel-head.row-between > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.ops-kpi .kpi-p0::before { background: var(--p0); }
+.ops-kpi .kpi-p1::before { background: var(--p1); }
+.ops-kpi .kpi-verify::before { background: var(--credible); }
+.ops-kpi .kpi-health::before { background: var(--confirmed); }
+.ops-kpi .kpi-p0 .kpi-value { color: var(--p0); }
+.ops-kpi .kpi-p1 .kpi-value { color: var(--p1); }
+.ops-kpi .kpi-verify .kpi-value { color: var(--credible); }
+.ops-kpi .kpi-health .kpi-value { color: var(--confirmed); }
+
+.nav-tiles {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.nav-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 14px 12px;
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+  font-family: inherit;
+}
+.nav-tile:hover {
+  transform: translateY(-2px);
+  border-color: var(--p3);
+  box-shadow: var(--glow);
+}
+.nav-tile:focus-visible {
+  outline: 2px solid var(--p3);
+  outline-offset: 2px;
+}
+.nav-tile-ico {
+  font-size: 1.45rem;
+  line-height: 1;
+}
+.nav-tile-name {
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+.nav-tile-count {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--p3);
+  margin-top: 2px;
+}
+
+.principle-banner {
+  margin-bottom: 16px;
+}
+.principle-banner h2 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+.principle-box {
+  /* A standing note, not an alarm: neutral surface, one coloured rule, and
+     body weight. It used to be 700-weight tinted text in a violet box. */
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--unverified);
+  border-radius: var(--radius);
+  padding: var(--s4);
+  max-width: var(--measure);
+  font-size: 0.86rem;
+  font-weight: 400;
+  line-height: 1.65;
+  color: var(--muted);
+  box-shadow: var(--shadow-sm);
+}
+
+/* OT/ICS source catalog */
+.ot-catalog {
+  margin: 0 0 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ot-cat-heading {
+  margin: 8px 0 4px;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: var(--p3);
+}
+.ot-cat-block {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+.ot-cat-block summary {
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--text);
+  list-style: none;
+}
+.ot-cat-block summary::-webkit-details-marker { display: none; }
+.ot-cat-block[open] {
+  border-color: #3d5a80;
+  box-shadow: var(--shadow-sm);
+}
+.ot-cat-note {
+  margin: 8px 0 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.ot-cat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ot-cat-list li {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.4;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.ot-cat-list a {
+  color: var(--p3);
+  text-decoration: none;
+}
+.ot-cat-list a:hover { text-decoration: underline; }
+.ot-cat-role {
+  margin-top: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.ot-cat-usage {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #7a90b0;
+}
+.ot-cat-usage .muted { color: var(--faint); }
+
+.method-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.method-card {
+  background: var(--panel);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+.method-card h4 {
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: var(--p3);
+}
+.method-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.method-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.method-list li .pill { flex-shrink: 0; }
+.method-card > p {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.ems-watch .watch-card {
+  border-color: #4a3060;
+}
+
+.fin-watch {
+  grid-template-columns: 1fr;
+}
+.fin-watch .watch-card {
+  border-color: #1b5e20;
+}
+
+.ms-watch {
+  grid-template-columns: 1fr;
+}
+.ms-watch .watch-card {
+  border-color: #0d47a1;
+}
+
+@media (max-width: 1100px) {
+  .priority-grid { grid-template-columns: 1fr 1fr; }
+  .kpi-row { grid-template-columns: 1fr 1fr; }
+  .nav-tiles { grid-template-columns: repeat(3, 1fr); }
+  .method-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   Phone layout (<= 640px)
+
+   The old rules collapsed every grid to a single column, which turned four
+   KPI numbers into four full-width blocks and roughly 520px of scrolling
+   to read four figures. A phone has less room, so the density has to go
+   up, not down: two columns for anything that is a number with a label,
+   and the chrome around it shrinks to give the content the screen.
+   ============================================================ */
+@media (max-width: 640px) {
+  /* Header on one line: mascot + title left, actions right. It used to
+     stack into three rows and eat ~190px before any content appeared. */
+  .topbar {
+    padding: var(--s2) var(--s3);
+    gap: var(--s2);
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+  .brand { gap: var(--s2); min-width: 0; flex: 1 1 auto; overflow: hidden; }
+  .brand > div:last-child { min-width: 0; }
+  /* One line, clipped if it has to be. Left to wrap, the title broke into
+     four lines and pushed the whole page down. */
+  .brand h1 {
+    font-size: 0.98rem;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .subtitle { display: none; }        /* the tabs below say the same thing */
+  .yumi-mascot { width: 32px; height: 32px; }
+  .yumi-mascot-wrap { margin-right: 0; }
+  .yumi-name { display: none; }
+  .logo-pulse { width: 8px; height: 8px; flex: 0 0 auto; }
+  .top-actions { gap: var(--s2); flex-wrap: nowrap; flex: 0 0 auto; }
+  /* The scan button and language toggle earn their space; the clock does
+     not — the meta line under the tabs already carries the harvest time. */
+  .clock { display: none; }
+  .lang-btn { min-width: 0; padding: 8px 12px; font-size: 0.8rem; }
+  .scan-btn { padding: 8px 14px; font-size: 0.82rem; }
+
+  .tabs { padding: var(--s2) var(--s3); }
+  .tab { font-size: 0.84rem; padding: 9px var(--s3); }
+
+  main { padding: var(--s3) var(--s3) var(--s6); }
+
+  /* Two across, so four KPIs fit one screen instead of four scrolls. */
+  .kpi-row, .kpi-row.risk-kpi, .priority-grid { grid-template-columns: 1fr 1fr; gap: var(--s2); }
+  .nav-tiles { grid-template-columns: 1fr 1fr; gap: var(--s2); }
+  .kpi { padding: var(--s3); }
+  .kpi-value { font-size: 1.7rem; }
+  .kpi-label { font-size: 0.72rem; }
+  .kpi-sub { font-size: 0.68rem; }
+  .spark { max-width: 100%; }
+
+  .card, .watch-card, .zone-card { padding: var(--s3); }
+  .card h3, .card h4 { font-size: 0.95rem; }
+
+  /* Controls: full width and thumb-sized. */
+  .filters { gap: var(--s2); }
+  .filters select, .filters input {
+    width: 100%;
+    min-width: 0;
+    min-height: var(--tap);
+  }
+  .btn { min-height: var(--tap); }
+
+  /* Tables stay scrollable but stop pretending to be 620px wide. */
+  .table-scroll { margin-bottom: var(--s4); }
+  .acc-table { font-size: 0.78rem; min-width: 520px; }
+  .acc-table th, .acc-table td { padding: var(--s2) var(--s3); }
+}
+
+/* Touch pointers, phone or tablet: the CVE chip is a copy button and was
+   only 22px tall, well under a comfortable thumb target. */
+@media (hover: none), (max-width: 900px) {
+  .meta-chip { min-height: 32px; padding: 6px var(--s2); }
+  button.meta-cve-btn { min-height: 36px; }
+}
+
+/* Very narrow phones (iPhone SE and similar). Two columns still beat one
+   here for KPIs, so only the tiles — which carry longer labels — drop. */
+@media (max-width: 360px) {
+  .brand h1 { font-size: 0.9rem; }
+  .scan-btn { padding: 8px 10px; }
+  .kpi-value { font-size: 1.5rem; }
+}
+
+/* --- Review queue & rule accuracy (2.9) --- */
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 22px;
+}
+.acc-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.acc-table th,
+.acc-table td {
+  padding: 9px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+/* Counts read as columns of digits, so they align on the right edge and
+   the header stays put while a long table scrolls. */
+.acc-table th:not(:first-child),
+.acc-table td:not(:first-child) { text-align: right; }
+.acc-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: var(--muted);
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--panel-2);
+}
+.acc-table tbody tr:last-child td { border-bottom: none; }
+.acc-table td:first-child { font-family: "JetBrains Mono", ui-monospace, monospace; }
+.acc-good { color: var(--ok); }
+.acc-mid { color: var(--p2); }
+.acc-bad { color: var(--bad); }
+
+.verdict-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.verdict-btn { font-size: 0.78rem; padding: 5px 12px; }
+.verdict-btn.v-tp { border-color: var(--ok); color: var(--ok); }
+.verdict-btn.v-fp { border-color: #d50000; color: var(--p0); }
+.verdict-btn.v-unk { border-color: #546e7a; color: var(--muted); }
+.verdict-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.verdict-done { color: var(--ok); font-weight: 700; font-size: 0.82rem; }
+
+.tab:focus-visible,
+.verdict-btn:focus-visible,
+.nav-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Browser live-scan: a CORS-blocked source is not a failure, so it must not
+   read as one next to genuine errors. */
+.modal-card li.info { color: var(--credible); }
+.modal-card li.scan-note {
+  list-style: none;
+  margin: 10px -8px 0;
+  padding: 8px 10px;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--muted);
+  background: var(--panel);
+  border-left: 3px solid var(--credible);
+  border-radius: 6px;
+}
+
+/* --- On-duty operator (Kano) --- */
+.duty-panel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+  background: linear-gradient(100deg, #101a30, var(--panel) 60%);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+}
+.duty-panel::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--p3);
+}
+.duty-panel[data-state="alert"] { border-color: #5a1024; }
+.duty-panel[data-state="alert"]::before { background: var(--p0); }
+.duty-panel[data-state="warn"]::before { background: var(--warn); }
+.duty-panel[data-state="review"]::before { background: var(--unverified); }
+
+.duty-avatar-wrap { position: relative; flex: 0 0 auto; }
+.duty-avatar {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: block;
+  border: 2px solid var(--p3);
+  background: #0a1020;
+  box-shadow: var(--glow);
+}
+.duty-avatar-photo { object-fit: cover; object-position: top center; }
+.duty-panel[data-state="alert"] .duty-avatar {
+  border-color: var(--p0);
+  box-shadow: 0 2px 10px rgba(255, 107, 116, 0.24);
+}
+.duty-pulse {
+  position: absolute;
+  right: 2px;
+  bottom: 6px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--ok);
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 6px rgba(82, 201, 141, 0.5);
+}
+.duty-panel[data-state="alert"] .duty-pulse {
+  background: var(--p0);
+  box-shadow: 0 0 6px rgba(255, 107, 116, 0.5);
+  animation: pulse 1.6s infinite;
+}
+
+.duty-body { min-width: 0; flex: 1; }
+.duty-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.duty-role {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.duty-name {
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #fff;
+}
+.duty-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--p3);
+  font-variant-numeric: tabular-nums;
+}
+.duty-say {
+  margin: 6px 0 8px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+.duty-panel[data-state="alert"] .duty-say { color: var(--p0); font-weight: 700; }
+.duty-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+.duty-stats b {
+  color: #fff;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .duty-panel { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .duty-avatar { width: 60px; height: 60px; }
+}
+
+/* --- Preemptive cybersecurity daily brief --- */
+.tw-banner.pre-banner {
+  background: var(--panel);
+  border-left-color: var(--unverified);
+  box-shadow: var(--shadow-sm);
+}
+.pre-banner .tw-stats div {
+  background: var(--panel-2);
+  border-color: var(--unverified);
+}
+.pre-banner .tw-stats span { color: var(--muted); }
+.pre-meta {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+.pre-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0 16px;
+}
+.pre-legend { display: flex; flex-wrap: wrap; gap: 6px; }
+.pre-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pre-exec {
+  background: var(--panel);
+  border: 2px solid #5e35b1;
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 18px;
+}
+.pre-exec h3 { margin: 0 0 8px; font-size: 1.02rem; }
+.pre-exec p { margin: 0 0 8px; line-height: 1.65; color: var(--muted); }
+.pre-exec p:last-child { margin-bottom: 0; }
+.pre-must {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+@media (min-width: 900px) {
+  .pre-must { grid-template-columns: 1fr 1fr 1fr; }
+}
+.pre-must-item { display: flex; gap: 8px; align-items: stretch; }
+.pre-rank {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--unverified);
+  color: #fff;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 8px;
+}
+.pre-must-item .card { flex: 1; }
+.pre-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px 18px;
+}
+@media (min-width: 900px) {
+  .pre-grid { grid-template-columns: 1fr 1fr; }
+}
+.pre-ot-note { margin-bottom: 10px; }
+.pre-card.org, .pre-card.pre-org { box-shadow: inset 3px 0 0 var(--unverified); }
+.pre-sources {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.pre-sources li {
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--border);
+  word-break: break-all;
+}
+.pre-sources a { color: #b39ddb; }
+.pre-sources time { display: block; font-size: 0.7rem; opacity: 0.75; }
+.nav-tile-preemptive { border-color: var(--unverified); }
+.nav-tile-preemptive .nav-tile-ico { filter: saturate(1.2); }
+@media (max-width: 640px) {
+  .pre-toolbar { flex-direction: column; align-items: stretch; }
+  .pre-actions .btn { width: 100%; min-height: 44px; }
+  .pre-must { grid-template-columns: 1fr; }
+}
