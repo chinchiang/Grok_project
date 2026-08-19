@@ -25,6 +25,11 @@ const I18N = {
     tabPreemptive: "先制式資安",
     tabReview: "複核佇列",
     tabSources: "來源與排程",
+    navOverview: "總覽",
+    navHighRisk: "高風險",
+    navPreemptive: "先制",
+    navReview: "複核",
+    navSources: "來源",
     // 營運概況四卡
     opsP0: "P0 緊急",
     opsP0Hint: "需立即處置",
@@ -236,6 +241,11 @@ const I18N = {
     tabPreemptive: "Preemptive",
     tabReview: "Review queue",
     tabSources: "Sources & schedule",
+    navOverview: "Overview",
+    navHighRisk: "High risk",
+    navPreemptive: "Preempt",
+    navReview: "Review",
+    navSources: "Sources",
     // Ops KPIs
     opsP0: "P0 Critical",
     opsP0Hint: "Immediate action",

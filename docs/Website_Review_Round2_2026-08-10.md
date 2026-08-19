@@ -156,19 +156,24 @@ def test_kev_without_elevation_is_p1():
 
 ## 四、第一輪未處理項目（狀態追蹤）
 
+> **狀態更新：2026-08-19。本表全部結案。**
+> 這張追蹤表與第三輪報告的第三節是同一份清單，逐項的落地位置與驗證方式記在
+> **`Website_Review_Round3_2026-08-10.md` 第三節**，該處為主；此處只留結果，
+> 避免兩份文件各記一半而再度失準。
+
 | 項目 | 章節（第一輪） | 狀態 | 備註 |
 |------|--------------|------|------|
-| 監控名單字界比對 | 2.2 | ⏳ 未處理 | 建議與 R2-2 一起做，同屬誤報控制 |
-| L2/L7 單源 credible／Admiralty 兩軸分離 | 2.3 | ⏳ 未處理 | |
-| 跨來源事件聚合（source_count 恆為 1） | 2.5 | ⏳ 未處理 | |
-| 雙源比對改「域名＋集團＋日期」三要件 | 2.6 | ⏳ 未處理 | |
-| 情資生命週期／KPI 時間窗 | 2.7 | ⏳ 未處理 | |
-| UTC 日界、breach KPI 含 ThreatFox、JSON LIKE | 2.8 | ⏳ 未處理 | |
-| 分析師回饋迴路 | 2.9 | ⏳ 未處理 | 長期最重要 |
-| Actions DB 持久化（actions/cache） | 3.2 | ⏳ 未處理 | |
-| CORS 收斂＋manual scan token | 3.3 | ⏳ 未處理 | |
-| 靜態匯出剝除 raw_json | 3.4 | ⏳ 未處理 | |
-| 依賴鎖版、workflow timeout | 四.2/四.4 | ⏳ 未處理 | |
+| 監控名單字界比對 | 2.2 | ✅ `6516911` | `priority.py:65 _alias_regex()` |
+| L2/L7 單源 credible／Admiralty 兩軸分離 | 2.3 | ✅ `773498b` | `assign_verification(source_class=…)` |
+| 跨來源事件聚合（source_count 恆為 1） | 2.5 | ✅ `6516911` | 新增 `backend/aggregate.py` |
+| 雙源比對改「域名＋集團＋日期」三要件 | 2.6 | ✅ `6516911` | `collectors/ransom.py` |
+| 情資生命週期／KPI 時間窗 | 2.7 | ✅ `6516911` | `first_seen`／`last_seen`／`STALE_AFTER_DAYS` |
+| UTC 日界、breach KPI 含 ThreatFox、JSON LIKE | 2.8 | ✅ `6516911` | `today_taipei()`；改用 `json_each()` |
+| 分析師回饋迴路 | 2.9 | ✅ `6516911` | `set_analyst_verdict()`／`get_rule_accuracy()`＋複核佇列分頁 |
+| Actions DB 持久化（actions/cache） | 3.2 | ✅ `6516911` | workflow「Restore intel database」 |
+| CORS 收斂＋manual scan token | 3.3 | ✅ `bd61f76` | `CORS_ORIGINS` env ＋ `X-API-Key`／Bearer |
+| 靜態匯出剝除 raw_json | 3.4 | ✅ `6516911` | `export_static.py:55 _DROP_FIELDS` |
+| 依賴鎖版、workflow timeout | 四.2/四.4 | ✅ `6516911` | `requirements.txt` 上界；`timeout-minutes: 10`／`30` |
 
 ---
 
