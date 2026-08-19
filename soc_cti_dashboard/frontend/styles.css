@@ -1612,3 +1612,40 @@ button.meta-cve-btn.copied .meta-copy-icon {
   .pre-actions .btn { width: 100%; min-height: 44px; }
   .pre-must { grid-template-columns: 1fr; }
 }
+
+/* ============================================================
+   Reduced motion
+
+   Three animations run forever on this page — the header status dot, the
+   duty-panel alert dot, and the RANSOM pill's blink — plus hover transforms
+   and colour transitions. For a viewer with vestibular sensitivity that is
+   not decoration, it is a page that will not sit still, and the OS-level
+   preference is how they say so.
+
+   The animations are switched off rather than fast-forwarded: snapping to a
+   keyframe's end state would drop the halo declared on the dots, whereas
+   `animation: none` leaves each element exactly as its static rules paint
+   it. No information is carried by the motion alone — the status dot keeps
+   its colour, the RANSOM pill keeps its border and label — so nothing is
+   lost by holding still.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Hover effects that move rather than recolour. */
+  .yumi-mascot-wrap:hover .yumi-mascot,
+  .btn:hover,
+  .card:hover,
+  .nav-tile:hover {
+    transform: none !important;
+  }
+  /* Momentum scrolling on the tab strip is motion the user did not ask for
+     beyond their own swipe; snapping is fine, gliding to a stop is not. */
+  .tabs { scroll-snap-type: none; }
+}

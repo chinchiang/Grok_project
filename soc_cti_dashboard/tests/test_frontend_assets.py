@@ -113,3 +113,44 @@ def test_every_i18n_key_used_in_the_page_exists_in_both_languages():
     for lang, keys in tables.items():
         missing = sorted(used - keys)
         assert missing == [], f"{lang} is missing keys used in index.html: {missing}"
+
+
+def test_reduced_motion_is_honoured():
+    """Two commit messages claimed `prefers-reduced-motion` support and
+    neither delivered it, so it gets a guard rather than trust.
+
+    The page runs three infinite animations (two status-dot pulses and the
+    RANSOM pill blink). A viewer who has asked their OS to reduce motion
+    must not get them.
+    """
+    css = STYLES.read_text(encoding="utf-8")
+    assert "prefers-reduced-motion" in css, (
+        "the page animates indefinitely and offers no way to opt out"
+    )
+
+    block = re.search(
+        r"@media[^{]*prefers-reduced-motion:\s*reduce[^{]*\{(.*?)\n\}\s*$",
+        css,
+        re.S,
+    )
+    assert block, "could not isolate the reduced-motion block"
+    body = block.group(1)
+    assert re.search(r"animation:\s*none", body), (
+        "reduced-motion block does not stop the animations"
+    )
+    assert "transition-duration" in body, (
+        "reduced-motion block does not shorten transitions"
+    )
+
+
+def test_every_infinite_animation_is_inside_the_reduced_motion_sweep():
+    """The sweep uses a universal selector, so a new animation is covered
+    automatically — unless someone adds one with !important, which would win
+    over it. This fails if that ever happens."""
+    css = STYLES.read_text(encoding="utf-8")
+    forced = [
+        line.strip()
+        for line in css.splitlines()
+        if re.search(r"animation[^;]*infinite[^;]*!important", line)
+    ]
+    assert forced == [], f"animation outruns the reduced-motion sweep: {forced}"

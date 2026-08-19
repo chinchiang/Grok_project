@@ -163,33 +163,54 @@ API key 與 CORS 的實作其實在後續的 `bb5901b`、測試在 `1c3cd4a`。�
 
 ## 三、第一輪未處理項目（狀態追蹤）
 
-| 項目 | 章節 | 狀態 | 備註 |
-|------|------|------|------|
-| 監控名單字界比對 | 2.2 | ⏳ | **優先度提升**——P0 gate 已生效，子字串誤中現在是 P0 誤報的主要剩餘來源（見 R3-1） |
-| L2/L7 單源 credible／Admiralty 兩軸 | 2.3 | ⏳ | **優先度提升為本輪第一**（R3-1） |
-| 跨來源事件聚合 | 2.5 | ⏳ | |
-| 雙源比對三要件（域名＋集團＋日期） | 2.6 | ⏳ | |
-| 情資生命週期／KPI 時間窗 | 2.7 | ⏳ | |
-| UTC 日界、breach KPI 含 ThreatFox、JSON LIKE | 2.8 | ⏳ | |
-| 分析師回饋迴路 | 2.9 | ⏳ | 長期最重要 |
-| Actions DB 持久化 | 3.2 | ⏳ | |
-| 靜態匯出剝除 raw_json | 3.4 | ⏳ | 曾在 commit 訊息中宣稱完成，實際未做（R3-5） |
-| 依賴鎖版、workflow timeout | 四.2／四.4 | ⏳ | |
+> **狀態更新：2026-08-19。本節以下全部結案。**
+> 本報告其餘章節是 2026-08-10 當下的快照，不隨後續開發變動；只有本節與第四節是
+> 追蹤表，會跟著實作更新。這次更新前，這張表把 10 個**已經完成**的項目標成
+> ⏳ 未處理，任何人照著它排工作都會重做一遍已完成的事。
+>
+> 下列狀態逐項對照現行程式碼驗證，不是憑 commit 訊息認定——`3.4` 當初就是
+> commit 訊息宣稱完成而實際未做（R3-5），所以這裡記的是**在哪個檔案的哪個符號**，
+> 可以直接複查。
+
+| 項目 | 章節 | 狀態 | 落地位置與驗證 |
+|------|------|------|--------|
+| 監控名單字界比對 | 2.2 | ✅ `6516911` | `priority.py:65 _alias_regex()`；實測 `umc` 不再命中 `documents`，仍命中 `UMC said` |
+| L2/L7 單源 credible／Admiralty 兩軸 | 2.3 | ✅ `773498b` | `priority.py:309 assign_verification(source_class=…)` ＋ `SINGLE_SOURCE_CREDIBLE_CLASSES`；`config.py` 的 `SOURCE_CLASS_REGISTRY`／`derive_source_class()` |
+| 跨來源事件聚合 | 2.5 | ✅ `6516911` | 新增 `backend/aggregate.py`：`find_corroborations()`、`_independent()`（要求來源名稱與連結網域皆不同） |
+| 雙源比對三要件（域名＋集團＋日期） | 2.6 | ✅ `6516911` | `collectors/ransom.py` 的 `_victim_domain()`／`_group_key()`／`_victim_day()` |
+| 情資生命週期／KPI 時間窗 | 2.7 | ✅ `6516911` | `database.py` 的 `first_seen`／`last_seen`／`status` 遷移與 `STALE_AFTER_DAYS`；匯出的 `kpis.json` 含 `priority_windows` 與 `stale_after_days` |
+| UTC 日界、breach KPI 含 ThreatFox、JSON LIKE | 2.8 | ✅ `6516911` | `database.py` 的 `today_taipei()`／`days_ago_taipei()`；實體查詢改用 `json_each()` 取代 LIKE |
+| 分析師回饋迴路 | 2.9 | ✅ `6516911` | `database.py:504 set_analyst_verdict()`、`:520 get_rule_accuracy()`；API 新增 `POST /api/intel/{id}/verdict`、`GET /api/review-queue`、`GET /api/rule-accuracy`；前端「複核佇列」分頁 |
+| Actions DB 持久化 | 3.2 | ✅ `6516911` | workflow「Restore intel database」步驟，`actions/cache` 快取 `soc_cti_dashboard/data` |
+| 靜態匯出剝除 raw_json | 3.4 | ✅ `6516911` | `scripts/export_static.py:55 _DROP_FIELDS`（含 `raw_json`／`extras_json`／`summary_en`／`title_en`）；實測匯出的 400 筆無 `raw_json` |
+| 依賴鎖版、workflow timeout | 四.2／四.4 | ✅ `6516911` | `requirements.txt` 8 個套件皆有上界；workflow 兩個 job 分別 `timeout-minutes: 10`／`30` |
 
 ---
 
 ## 四、更新後的優先順序
 
-| 優先 | 項目 | 對應 | 工作量 |
-|------|------|------|--------|
-| 🟠 本週 | `assign_verification` 加 source_class，媒體單源不得 credible ＋ 迴歸測試 | R3-1 | 小–中 |
-| 🟠 本週 | 監控名單字界比對（與上一項同屬 P0 誤報控制） | 2.2 | 小–中 |
-| 🟠 本週 | 微軟專區：補 UI 或改 README | R3-2 | 小 |
-| 🟡 本週 | sanity job 安裝 requirements.txt | R3-3 | 極小 |
-| 🟡 本週 | `explain_priority` 三處接線、CORS 預設埠、`compare_digest`、README 補三個 env | R3-4／6／7 | 極小 |
-| 🟡 本月 | 靜態匯出剝 raw_json、依賴鎖版、workflow timeout | 3.4／四.2／四.4 | 小 |
-| 🟡 本月 | Actions DB 持久化、KPI 時間窗＋UTC 日界 | 3.2／2.7／2.8 | 中 |
-| 🟢 下季 | Admiralty 兩軸完整化、事件聚合、分析師回饋迴路 | 2.3／2.5／2.9 | 大 |
+> **狀態更新：2026-08-19。本表所列工作全部完成，保留作為紀錄。**
+
+| 優先 | 項目 | 對應 | 工作量 | 狀態 |
+|------|------|------|--------|------|
+| 🟠 本週 | `assign_verification` 加 source_class，媒體單源不得 credible ＋ 迴歸測試 | R3-1 | 小–中 | ✅ `773498b` |
+| 🟠 本週 | 監控名單字界比對（與上一項同屬 P0 誤報控制） | 2.2 | 小–中 | ✅ `6516911` |
+| 🟠 本週 | 微軟專區：補 UI 或改 README | R3-2 | 小 | ✅ `773498b` |
+| 🟡 本週 | sanity job 安裝 requirements.txt | R3-3 | 極小 | ✅ `bd61f76` |
+| 🟡 本週 | `explain_priority` 三處接線、CORS 預設埠、`compare_digest`、README 補三個 env | R3-4／6／7 | 極小 | ✅ `bd61f76` |
+| 🟡 本月 | 靜態匯出剝 raw_json、依賴鎖版、workflow timeout | 3.4／四.2／四.4 | 小 | ✅ `6516911` |
+| 🟡 本月 | Actions DB 持久化、KPI 時間窗＋UTC 日界 | 3.2／2.7／2.8 | 中 | ✅ `6516911` |
+| 🟢 下季 | Admiralty 兩軸完整化、事件聚合、分析師回饋迴路 | 2.3／2.5／2.9 | 大 | ✅ `773498b`／`6516911` |
+
+### 本報告之後才發生、且尚未處理的事項
+
+追蹤表清空不代表沒有待辦。這三項是第三輪之後才出現的，記在這裡以免又被遺忘：
+
+| 項目 | 來源 | 狀態 |
+|------|------|------|
+| 手機版底部導覽列 | `ee1d491`／`bc23e70` 的 commit 訊息宣稱實作，實際只寫入佔位字串，功能從未存在 | ⏳ 待決定是否要做 |
+| `prefers-reduced-motion` | `f596a3d`／`7d6c48f` 的 commit 訊息宣稱加入，實際同樣未落地 | ✅ 已補（見 `styles.css` 末段） |
+| 線上站點實測 | 歷次審查皆未含（審查環境的 egress 擋住 `chinchiang.github.io`） | ⏳ 需人工開頁確認 |
 
 ---
 
