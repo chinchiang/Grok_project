@@ -254,3 +254,35 @@ def test_colours_come_only_from_tokens():
         "colours declared outside :root — these do not follow the theme:\n  "
         + "\n  ".join(literals[:10])
     )
+
+
+def test_zone_tiles_divide_evenly_into_their_column_counts():
+    """The tile row is laid out at 3 or 9 columns because nine tiles divide
+    evenly by both, which is what makes every row full and every tile the
+    same width. A six-column grid left three orphans and half a row of white
+    space; a flex row that grew the last line filled the width but wrapped to
+    7 + 2 at ~1024px with two tiles stretched to triple width.
+
+    Add or remove a zone and neither count works any more, so this fails and
+    the column counts have to be chosen again.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    css = STYLES.read_text(encoding="utf-8")
+
+    tiles = len(re.findall(r'class="nav-tile[ "]', html))
+    assert tiles, "no zone tiles found"
+
+    counts = {int(n) for n in re.findall(r"\.nav-tiles\s*\{[^}]*?repeat\((\d+), 1fr\)", css)}
+    counts |= {
+        int(n)
+        for n in re.findall(
+            r"@media[^{]*\{\s*\.nav-tiles\s*\{[^}]*?repeat\((\d+), 1fr\)", css
+        )
+    }
+    assert counts, "the tile grid declares no fixed column count"
+
+    bad = sorted(c for c in counts if tiles % c)
+    assert bad == [], (
+        f"{tiles} zone tiles do not divide evenly into column count(s) {bad} — "
+        f"the last row will be ragged"
+    )
