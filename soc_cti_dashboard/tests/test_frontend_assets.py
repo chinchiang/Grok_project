@@ -154,3 +154,66 @@ def test_every_infinite_animation_is_inside_the_reduced_motion_sweep():
         if re.search(r"animation[^;]*infinite[^;]*!important", line)
     ]
     assert forced == [], f"animation outruns the reduced-motion sweep: {forced}"
+
+
+# --- phone shortcut bar --------------------------------------------------------
+
+BNAV_VIEWS = ["overview", "highrisk", "preemptive", "review", "sources"]
+
+
+def test_bottom_nav_targets_are_real_views():
+    """A shortcut pointing at a view that does not exist is a dead button.
+    Both ends are in index.html, so they can drift in one edit."""
+    html = INDEX.read_text(encoding="utf-8")
+    shortcuts = re.findall(r'class="bnav-item"[^>]*data-view="(\w+)"', html)
+    assert shortcuts == BNAV_VIEWS, f"unexpected shortcut set: {shortcuts}"
+    for view in shortcuts:
+        assert f'data-view="{view}"' in html and f'id="view-{view}"' in html, (
+            f"shortcut {view} has no matching tab or panel"
+        )
+
+
+def test_bottom_nav_does_not_pose_as_a_second_tablist():
+    """The buttons drive the same panels as the tablist above. Marking them
+    role="tab" would tell a screen reader there are two sets of tabs for one
+    set of panels; they are navigation, and carry aria-current instead."""
+    html = INDEX.read_text(encoding="utf-8")
+    bar = re.search(r'<nav class="bottom-nav".*?</nav>', html, re.S)
+    assert bar, "bottom nav markup missing"
+    assert 'role="tab"' not in bar.group(0), "shortcut bar claims to be a tablist"
+    assert "aria-label=" in bar.group(0), "shortcut bar has no accessible name"
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    assert "aria-current" in app, "active shortcut is never announced"
+
+
+def test_bottom_nav_is_phone_only_and_content_clears_it():
+    """Fixed to the bottom edge, it covers the end of the page unless main
+    reserves the space — and on iOS it needs the safe-area inset or the home
+    indicator sits on top of it."""
+    css = STYLES.read_text(encoding="utf-8")
+    assert re.search(r"\.bottom-nav\s*\{\s*display:\s*none", css), (
+        "the bar is not hidden by default, so it would show on desktop too"
+    )
+    # There is more than one 640px block; the bar only has to live in one.
+    phone_blocks = re.findall(
+        r"@media \(max-width: 640px\) \{(.*?)\n\}", css, re.S
+    )
+    assert phone_blocks, "no phone breakpoint at all"
+    assert any(".bottom-nav" in b for b in phone_blocks), (
+        "the bar is never shown at phone widths"
+    )
+    assert "safe-area-inset-bottom" in css, "no safe-area inset for the home indicator"
+    assert re.search(r"main\s*\{\s*padding-bottom:\s*calc\(", css), (
+        "main does not reserve space for the fixed bar"
+    )
+
+
+def test_bottom_nav_highlight_is_driven_by_the_shared_activate_path():
+    """If the bar tracked its own clicks instead, opening a zone from a tile
+    or the tab strip would leave a stale highlight."""
+    app = (FRONTEND / "app.js").read_text(encoding="utf-8")
+    activate = re.search(r"function activateTab\(tab\) \{(.*?)\n\}", app, re.S)
+    assert activate, "activateTab not found"
+    assert "syncBottomNav" in activate.group(1), (
+        "activateTab does not sync the shortcut bar, so the highlight can go stale"
+    )

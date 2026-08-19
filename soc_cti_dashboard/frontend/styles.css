@@ -1614,6 +1614,83 @@ button.meta-cve-btn.copied .meta-copy-icon {
 }
 
 /* ============================================================
+   Phone shortcut bar
+
+   Eleven zones do not fit across a phone, so this carries the five an
+   operator opens most and the scrolling tab strip above keeps the rest. It
+   is hidden entirely above 640px, where the strip already shows every zone
+   without scrolling.
+
+   Fixed to the bottom edge, which means two things: main needs matching
+   bottom padding or the last card sits under the bar forever, and the bar
+   needs the safe-area inset or iOS puts the home indicator through it.
+   ============================================================ */
+.bottom-nav { display: none; }
+
+@media (max-width: 640px) {
+  .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    background: var(--bg2);
+    background: color-mix(in srgb, var(--bg2) 96%, transparent);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .bnav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 56px;
+    padding: var(--s2) 2px;
+    border: none;
+    border-top: 2px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    font-family: inherit;
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .bnav-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .bnav-ico {
+    width: 21px;
+    height: 21px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  /* Colour alone would be the only cue, so the active item also gets the top
+     rule — the same device the cards use for priority. */
+  .bnav-item.active {
+    color: var(--accent);
+    border-top-color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .bnav-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Clear the bar: 56px of button, its safe-area inset, and a gap. */
+  main { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--s5)); }
+  .footer { margin-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--s3)); }
+}
+
+/* ============================================================
    Reduced motion
 
    Three animations run forever on this page — the header status dot, the

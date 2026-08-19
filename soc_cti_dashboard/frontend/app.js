@@ -1749,7 +1749,26 @@ function activateTab(tab) {
   const view = tab.dataset.view;
   $$(".view").forEach((v) => v.classList.remove("active"));
   $(`#view-${view}`)?.classList.add("active");
+  syncBottomNav(view);
   return view;
+}
+
+/**
+ * Mirror the active view onto the phone shortcut bar.
+ *
+ * Called from activateTab rather than from the bar's own click handler, so
+ * the highlight is right however the view changed — top tab, zone tile, the
+ * "view all" button, or the bar itself. Six of the eleven zones have no
+ * shortcut here; when one of those is open, nothing is highlighted, which is
+ * the truth rather than a stale mark left on the last shortcut used.
+ */
+function syncBottomNav(view) {
+  $$(".bnav-item").forEach((b) => {
+    const on = b.dataset.view === view;
+    b.classList.toggle("active", on);
+    if (on) b.setAttribute("aria-current", "true");
+    else b.removeAttribute("aria-current");
+  });
 }
 
 function setupTabs() {
@@ -1777,6 +1796,18 @@ function setupTabs() {
     });
   });
   $("#btnViewAllHigh")?.addEventListener("click", () => goToView("highrisk"));
+
+  // The shortcut bar routes through goToView, i.e. it clicks the real tab, so
+  // loading and state changes stay on one path instead of a parallel one.
+  $$(".bnav-item").forEach((b) => {
+    b.addEventListener("click", () => {
+      const v = b.dataset.view;
+      if (v) goToView(v);
+    });
+  });
+  // The first view is marked active in the HTML, so activateTab has not run
+  // yet and the bar would start with nothing highlighted.
+  syncBottomNav($(".tab.active")?.dataset.view);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
