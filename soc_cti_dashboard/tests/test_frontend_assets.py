@@ -217,3 +217,40 @@ def test_bottom_nav_highlight_is_driven_by_the_shared_activate_path():
     assert "syncBottomNav" in activate.group(1), (
         "activateTab does not sync the shortcut bar, so the highlight can go stale"
     )
+
+
+def test_colours_come_only_from_tokens():
+    """Converting the sheet from dark to light exposed why this matters:
+    the hex literals were easy to find and fix, but a dozen `rgba(...)`
+    values picked for a dark background survived the sweep and turned into
+    dark chips with dark ink on a white page. The invariant that prevents a
+    repeat is simple — every colour is declared once, in :root.
+
+    Neutral shadows and overlays are exempt: they are black or white at low
+    alpha and work on any background.
+    """
+    css = STYLES.read_text(encoding="utf-8")
+    root = re.search(r":root\s*\{(.*?)\n\}", css, re.S)
+    assert root, "no :root block"
+    body = css[root.end():]
+
+    literals = []
+    for lineno, line in enumerate(body.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith(("/*", "*")):
+            continue
+        for m in re.finditer(r"#[0-9a-fA-F]{3,8}\b", stripped):
+            literals.append(f"{stripped[:70]}  ({m.group(0)})")
+        for m in re.finditer(r"rgba?\(([^)]*)\)", stripped):
+            nums = [n.strip() for n in m.group(1).split(",")]
+            # black / white at any alpha is theme-neutral
+            if len(nums) >= 3 and (
+                all(n == "0" for n in nums[:3]) or all(n == "255" for n in nums[:3])
+            ):
+                continue
+            literals.append(f"{stripped[:70]}  ({m.group(0)})")
+
+    assert literals == [], (
+        "colours declared outside :root — these do not follow the theme:\n  "
+        + "\n  ".join(literals[:10])
+    )
