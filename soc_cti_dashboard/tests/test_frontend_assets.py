@@ -217,3 +217,72 @@ def test_bottom_nav_highlight_is_driven_by_the_shared_activate_path():
     assert "syncBottomNav" in activate.group(1), (
         "activateTab does not sync the shortcut bar, so the highlight can go stale"
     )
+
+
+def test_colours_come_only_from_tokens():
+    """Converting the sheet from dark to light exposed why this matters:
+    the hex literals were easy to find and fix, but a dozen `rgba(...)`
+    values picked for a dark background survived the sweep and turned into
+    dark chips with dark ink on a white page. The invariant that prevents a
+    repeat is simple — every colour is declared once, in :root.
+
+    Neutral shadows and overlays are exempt: they are black or white at low
+    alpha and work on any background.
+    """
+    css = STYLES.read_text(encoding="utf-8")
+    root = re.search(r":root\s*\{(.*?)\n\}", css, re.S)
+    assert root, "no :root block"
+    body = css[root.end():]
+
+    literals = []
+    for lineno, line in enumerate(body.splitlines(), 1):
+        stripped = line.strip()
+        if stripped.startswith(("/*", "*")):
+            continue
+        for m in re.finditer(r"#[0-9a-fA-F]{3,8}\b", stripped):
+            literals.append(f"{stripped[:70]}  ({m.group(0)})")
+        for m in re.finditer(r"rgba?\(([^)]*)\)", stripped):
+            nums = [n.strip() for n in m.group(1).split(",")]
+            # black / white at any alpha is theme-neutral
+            if len(nums) >= 3 and (
+                all(n == "0" for n in nums[:3]) or all(n == "255" for n in nums[:3])
+            ):
+                continue
+            literals.append(f"{stripped[:70]}  ({m.group(0)})")
+
+    assert literals == [], (
+        "colours declared outside :root — these do not follow the theme:\n  "
+        + "\n  ".join(literals[:10])
+    )
+
+
+def test_zone_tiles_divide_evenly_into_their_column_counts():
+    """The tile row is laid out at 3 or 9 columns because nine tiles divide
+    evenly by both, which is what makes every row full and every tile the
+    same width. A six-column grid left three orphans and half a row of white
+    space; a flex row that grew the last line filled the width but wrapped to
+    7 + 2 at ~1024px with two tiles stretched to triple width.
+
+    Add or remove a zone and neither count works any more, so this fails and
+    the column counts have to be chosen again.
+    """
+    html = INDEX.read_text(encoding="utf-8")
+    css = STYLES.read_text(encoding="utf-8")
+
+    tiles = len(re.findall(r'class="nav-tile[ "]', html))
+    assert tiles, "no zone tiles found"
+
+    counts = {int(n) for n in re.findall(r"\.nav-tiles\s*\{[^}]*?repeat\((\d+), 1fr\)", css)}
+    counts |= {
+        int(n)
+        for n in re.findall(
+            r"@media[^{]*\{\s*\.nav-tiles\s*\{[^}]*?repeat\((\d+), 1fr\)", css
+        )
+    }
+    assert counts, "the tile grid declares no fixed column count"
+
+    bad = sorted(c for c in counts if tiles % c)
+    assert bad == [], (
+        f"{tiles} zone tiles do not divide evenly into column count(s) {bad} — "
+        f"the last row will be ragged"
+    )
