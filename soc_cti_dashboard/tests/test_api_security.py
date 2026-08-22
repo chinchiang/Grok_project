@@ -145,3 +145,18 @@ def test_preflight_from_allowed_origin_is_permitted():
         headers={"Origin": origin, "Access-Control-Request-Method": "POST"},
     )
     assert r.headers.get("access-control-allow-origin") == origin
+
+
+def test_security_headers_are_set_on_api_responses():
+    r = client.options(
+        SCAN,
+        headers={
+            "Origin": "https://evil.example.com",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    assert r.headers.get("x-content-type-options") == "nosniff"
+    assert r.headers.get("x-frame-options") == "DENY"
+    csp = r.headers.get("content-security-policy") or ""
+    assert "script-src 'self'" in csp
+    assert "frame-ancestors 'none'" in csp

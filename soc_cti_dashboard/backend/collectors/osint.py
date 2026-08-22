@@ -5,11 +5,7 @@ from __future__ import annotations
 import json
 import re
 import time
-import feedparser
 from ..config import (
-    SOURCE_CLASS_OSINT,
-    BLEEPING_RSS,
-    THEHACKERNEWS_RSS,
     X_OSINT_ACCOUNTS,
     X_OSINT_MAX_ITEMS,
     X_NITTER_MIRRORS,
@@ -18,10 +14,9 @@ from ..config import (
 )
 from ..database import delete_source_health, now_iso, upsert_intel
 from ..ops import explain_priority, pick_sop
-from ..priority import assign_priority, assign_verification, enrich_flags
+from ..priority import assign_priority, enrich_flags
 
-from ._base import _client, _id, _mark, _parse_rss_entries, _strip_html
-from .rss import collect_rss_layer
+from ._base import _client, _id, _mark, _parse_rss_entries
 
 
 async def collect_x_osint_accounts(max_items: int | None = None) -> int:
@@ -335,306 +330,18 @@ async def collect_x_darkweb_accounts(max_items: int | None = None) -> int:
     return await collect_x_osint_accounts(max_items=max_items)
 
 async def dual_source_darkweb_verify() -> int:
+    """BC × THN corroboration belongs in aggregate.py.
+
+    Re-ingesting those feeds here as darkweb-indirect and elevating on a
+    3-token title overlap duplicated INTEL_FEEDS rows and produced false
+    dual-source P0s. Harvest still calls this name.
     """
-    L6 dual-source: pull two independent news feeds and elevate items
-    that appear in both (title similarity) as credible ransomware intel.
-    """
-    t0 = time.perf_counter()
-    items_a: list[dict[str, str]] = []
-    items_b: list[dict[str, str]] = []
-
-    async def load(url: str) -> list[dict[str, str]]:
-        async with await _client() as client:
-            r = await client.get(url)
-            r.raise_for_status()
-            feed = feedparser.parse(r.text)
-        out = []
-        for e in feed.entries[:50]:
-            title = (e.get("title") or "").strip()
-            summary = _strip_html(e.get("summary") or e.get("description") or "")
-            out.append(
-                {
-                    "title": title,
-                    "summary": summary,
-                    "link": e.get("link") or "",
-                    "published": e.get("published") or "",
-                }
-            )
-        return out
-
-    try:
-        items_a = await load(BLEEPING_RSS)
-        items_b = await load(THEHACKERNEWS_RSS)
-    except Exception as e:
-        await _mark(
-            "darkweb_dual",
-            "L6",
-            "Dark Web Dual-Source Verify",
-            ok=False,
-            error=str(e)[:500],
-        )
-        # still try single-source harvests
-        n1 = await collect_rss_layer(
-            source_id="bleeping_rss",
-            layer_id="L6",
-            name="BleepingComputer (indirect DW)",
-            url=BLEEPING_RSS,
-            darkweb_indirect=True,
-            max_items=35,
-        )
-        n2 = await collect_rss_layer(
-            source_id="thn_rss",
-            layer_id="L6",
-            name="The Hacker News (indirect DW)",
-            url=THEHACKERNEWS_RSS,
-            darkweb_indirect=True,
-            max_items=35,
-        )
-        return n1 + n2
-
-    def tokens(s: str) -> set[str]:
-        return {w for w in re.findall(r"[a-z0-9\u4e00-\u9fff]{4,}", s.lower())}
-
-    elevated = 0
-    # Ingest A with dual check against B
-    for a in items_a:
-        ta = tokens(a["title"])
-        dual = False
-        partner = None
-        for b in items_b:
-            tb = tokens(b["title"])
-            if not ta or not tb:
-                continue
-            inter = len(ta & tb)
-            fa = enrich_flags(a["title"], a["summary"])
-            if inter >= 3 and (
-                fa["is_ransomware"]
-                or "ransomware" in a["title"].lower()
-                or fa["is_tw_industry"]
-                or fa["is_finance"]
-                or fa["is_microsoft"]
-            ):
-                dual = True
-                partner = b
-                break
-
-        flags = enrich_flags(a["title"], a["summary"])
-        is_ransom = flags["is_ransomware"]
-        is_tw = flags["is_tw_industry"]
-        is_finance = flags["is_finance"]
-        is_ms = flags["is_microsoft"]
-        # only keep ransomware / category / CVE related to control noise
-        cve_m = re.findall(r"CVE-\d{4}-\d{4,7}", f"{a['title']} {a['summary']}", re.I)
-        if not (is_ransom or is_tw or is_finance or is_ms or cve_m or dual):
-            continue
-
-        sources = ["BleepingComputer"]
-        source_count = 1
-        if dual and partner:
-            sources.append("The Hacker News")
-            source_count = 2
-            elevated += 1
-
-        # Single-source dual-track news → P3 review; dual-source may elevate.
-        force_p3 = source_count < 2
-        # R2-2: verification before priority (dual-source TW + ransom → P0)
-        verification, admiralty = assign_verification(
-            in_kev=False,
-            layer_id="L6",
-            source_count=source_count,
-            is_darkweb_indirect=True,
-            source_class=SOURCE_CLASS_OSINT,
-        )
-        if source_count < 2:
-            verification = "unverified"
-            admiralty = "C3"
-        priority = assign_priority(
-            in_kev=False,
-            known_ransomware_campaign=False,
-            is_ransomware=is_ransom,
-            is_tw_industry=is_tw,
-            epss=None,
-            source_count=source_count,
-            layer_id="L6",
-            force_p3_review=force_p3,
-            verification=verification,
-        )
-
-        title = a["title"]
-        title_zh = title
-        title_en = title
-        if is_ransom:
-            title_zh = f"🔐 勒索相關｜{title}"
-            title_en = f"🔐 Ransomware｜{title}"
-        if is_tw:
-            title_zh = f"🇹🇼 台灣電子／半導體｜{title_zh}"
-            title_en = f"🇹🇼 TW Electronics/Semi｜{title_en}"
-        if is_finance:
-            title_zh = f"💰 金融相關｜{title_zh}"
-            title_en = f"💰 Finance｜{title_en}"
-        if is_ms:
-            title_zh = f"🪟 微軟相關｜{title_zh}"
-            title_en = f"🪟 Microsoft｜{title_en}"
-        if source_count < 2:
-            title_zh = f"[未核實 Unverified] {title_zh}"
-            title_en = f"[Unverified] {title_en}"
-
-        await upsert_intel(
-            {
-                "id": _id("dw", a["title"], a["link"]),
-                "title": title_zh,
-                "title_en": title_en,
-                "summary": a["summary"][:1200]
-                + (
-                    f"\n\n[雙來源核實] 第二來源：{partner['title']}"
-                    if partner
-                    else "\n\n[單來源] 暗網間接情資 — 標示為未核實"
-                ),
-                "summary_en": a["summary"][:1200]
-                + (
-                    f"\n\n[Dual-source verified] Partner: {partner['title']}"
-                    if partner
-                    else "\n\n[Single source] Indirect dark-web intel — Unverified"
-                ),
-                "priority": priority,
-                "verification": verification,
-                "layer_id": "L6",
-                "source_name": "Indirect Dark Web (news dual-track)",
-                "sources_json": json.dumps(sources),
-                "cve_id": cve_m[0].upper() if cve_m else None,
-                "product": "",
-                "vendor": "",
-                "is_ransomware": 1 if is_ransom else 0,
-                "is_tw_industry": 1 if is_tw else 0,
-                "tw_entities_json": json.dumps(flags["tw_entities"], ensure_ascii=False),
-                "is_finance": 1 if is_finance else 0,
-                "finance_entities_json": json.dumps(
-                    flags["finance_entities"], ensure_ascii=False
-                ),
-                "is_microsoft": 1 if is_ms else 0,
-                "ms_entities_json": json.dumps(flags["ms_entities"], ensure_ascii=False),
-                "known_ransomware_campaign": 0,
-                "epss": None,
-                "cvss": None,
-                "date_added": None,
-                "published_at": a["published"],
-                "fetched_at": now_iso(),
-                "url": a["link"],
-                "admiralty": admiralty,
-                "raw_json": json.dumps(a, ensure_ascii=False)[:4000],
-                "tags_json": json.dumps(
-                    ["darkweb-indirect"]
-                    + (["dual-source"] if source_count >= 2 else ["unverified"])
-                    + (["ransomware"] if is_ransom else [])
-                    + (["tw-industry"] if is_tw else [])
-                    + (["finance"] if is_finance else [])
-                    + (["microsoft"] if is_ms else [])
-                ),
-            }
-        )
-
-    # Also ingest THN-only ransomware / category items as unverified
-    for b in items_b:
-        flags = enrich_flags(b["title"], b["summary"])
-        if not (
-            flags["is_ransomware"]
-            or flags["is_tw_industry"]
-            or flags["is_finance"]
-            or flags["is_microsoft"]
-        ):
-            continue
-        # skip if already dual-elevated via A
-        tags = ["darkweb-indirect", "unverified"]
-        if flags["is_ransomware"]:
-            tags.append("ransomware")
-        if flags["is_tw_industry"]:
-            tags.append("tw-industry")
-        if flags["is_finance"]:
-            tags.append("finance")
-        if flags["is_microsoft"]:
-            tags.append("microsoft")
-        await upsert_intel(
-            {
-                "id": _id("dwthn", b["title"], b["link"]),
-                "title": f"[未核實 Unverified] 🔐 {b['title']}"
-                if flags["is_ransomware"]
-                else f"[未核實 Unverified] {b['title']}",
-                "title_en": f"[Unverified] 🔐 {b['title']}"
-                if flags["is_ransomware"]
-                else f"[Unverified] {b['title']}",
-                "summary": (
-                    b["summary"][:1200]
-                    + "\n\n[單來源] The Hacker News — 未核實 → P3 複核佇列"
-                ),
-                "summary_en": (
-                    b["summary"][:1200]
-                    + "\n\n[Single source] The Hacker News — Unverified → P3 review"
-                ),
-                "priority": assign_priority(
-                    in_kev=False,
-                    known_ransomware_campaign=False,
-                    is_ransomware=flags["is_ransomware"],
-                    is_tw_industry=flags["is_tw_industry"],
-                    epss=None,
-                    source_count=1,
-                    layer_id="L6",
-                    force_p3_review=True,
-                    verification="unverified",
-                ),
-                "verification": "unverified",
-                "layer_id": "L6",
-                "source_name": "The Hacker News (indirect DW)",
-                "sources_json": json.dumps(["The Hacker News"]),
-                "cve_id": None,
-                "product": "",
-                "vendor": "",
-                "is_ransomware": 1 if flags["is_ransomware"] else 0,
-                "is_tw_industry": 1 if flags["is_tw_industry"] else 0,
-                "tw_entities_json": json.dumps(flags["tw_entities"], ensure_ascii=False),
-                "is_finance": 1 if flags["is_finance"] else 0,
-                "finance_entities_json": json.dumps(
-                    flags["finance_entities"], ensure_ascii=False
-                ),
-                "is_microsoft": 1 if flags["is_microsoft"] else 0,
-                "ms_entities_json": json.dumps(flags["ms_entities"], ensure_ascii=False),
-                "known_ransomware_campaign": 0,
-                "epss": None,
-                "cvss": None,
-                "date_added": None,
-                "published_at": b["published"],
-                "fetched_at": now_iso(),
-                "url": b["link"],
-                "admiralty": "C3",
-                "raw_json": json.dumps(b, ensure_ascii=False)[:4000],
-                "tags_json": json.dumps(tags),
-            }
-        )
-
-    ms = int((time.perf_counter() - t0) * 1000)
-    total = elevated  # health metric focus on dual elevations
     await _mark(
         "darkweb_dual",
         "L6",
         "Dark Web Dual-Source Verify",
         ok=True,
-        count=total,
-        latency_ms=ms,
-        detail=f"dual-elevated={elevated}; feeds A={len(items_a)} B={len(items_b)}",
+        count=0,
+        detail="deferred to aggregate_cross_source_events (feeds already in INTEL_FEEDS)",
     )
-    await _mark(
-        "bleeping_rss",
-        "L6",
-        "BleepingComputer (indirect DW)",
-        ok=True,
-        count=len(items_a),
-        latency_ms=ms,
-    )
-    await _mark(
-        "thn_rss",
-        "L6",
-        "The Hacker News (indirect DW)",
-        ok=True,
-        count=len(items_b),
-        latency_ms=ms,
-    )
-    return elevated
+    return 0

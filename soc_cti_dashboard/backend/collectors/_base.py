@@ -7,7 +7,7 @@ import feedparser
 import httpx
 from ..config import USER_AGENT, HTTP_TIMEOUT
 from ..database import now_iso, upsert_source_health
-from ..textclean import clean_text
+from ..textclean import clean_text, redact_secrets
 
 
 def _id(*parts: str) -> str:
@@ -39,12 +39,12 @@ async def _mark(
             "layer_id": layer_id,
             "name": name,
             "last_success": ts if ok else None,
-            "last_error": error,
+            "last_error": redact_secrets(error) if error else None,
             "last_attempt": ts,
             "status": "healthy" if ok else "degraded",
             "item_count": count,
             "latency_ms": latency_ms,
-            "detail": detail or ("OK" if ok else error),
+            "detail": redact_secrets(detail or ("OK" if ok else error)),
         }
     )
 
@@ -58,7 +58,7 @@ def _parse_rss_entries(
     feed = feedparser.parse(content)
     out: list[dict[str, str]] = []
     for e in feed.entries[:limit]:
-        title = (e.get("title") or "").strip()
+        title = _strip_html(e.get("title") or "").strip()
         if not title:
             continue
         # Drop non-intel Google News noise (privacy policy, about, etc.)

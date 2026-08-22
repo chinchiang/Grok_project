@@ -62,6 +62,16 @@ def test_no_unsafe_escape_hatches(directive):
     assert not any(v == "*" or v.startswith("*.") for v in values), values
 
 
+def test_script_src_is_exactly_self():
+    assert _policy()["script-src"] == ["'self'"]
+
+
+def test_no_wildcard_on_any_directive():
+    for name, values in _policy().items():
+        assert "*" not in values, name
+        assert not any(v.startswith("*.") for v in values), name
+
+
 def test_injection_sinks_are_closed():
     policy = _policy()
     assert policy.get("object-src") == ["'none'"]

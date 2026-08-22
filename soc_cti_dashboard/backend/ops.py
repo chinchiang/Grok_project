@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .config import EPSS_P2_THRESHOLD
+
 # SOP T-01 ~ T-08 初動處置建議
 SOP_CATALOG: dict[str, dict[str, str]] = {
     "T-01": {
@@ -141,10 +143,10 @@ def explain_priority(
             "Rationale: In CISA KEV (confirmed ITW) and not P0 → exclusive P1",
         )
     if priority == "P2":
-        if epss is not None and epss >= 0.5:
+        if epss is not None and epss >= EPSS_P2_THRESHOLD:
             return (
-                f"判定依據：非 KEV，EPSS={epss:.3f} ≥ 0.5 → P2 預測利用",
-                f"Rationale: not KEV, EPSS={epss:.3f} ≥ 0.5 → P2 predictive",
+                f"判定依據：非 KEV，EPSS={epss:.3f} ≥ {EPSS_P2_THRESHOLD} → P2 預測利用",
+                f"Rationale: not KEV, EPSS={epss:.3f} ≥ {EPSS_P2_THRESHOLD} → P2 predictive",
             )
         if dual_verified or source_count >= 2:
             return (

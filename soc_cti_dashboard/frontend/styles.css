@@ -89,7 +89,7 @@
   --measure: 78ch;
   --tap: 44px;
 
-  font-family: "Noto Sans TC", system-ui, sans-serif;
+  font-family: "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
   color-scheme: light;
 }
 
@@ -175,7 +175,7 @@ body { overflow-x: hidden; }
 
 .top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .clock {
-  font-family: "JetBrains Mono", monospace;
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
   font-weight: 700;
   font-size: var(--fs-base);
   color: var(--muted);
@@ -455,7 +455,7 @@ main { padding: var(--s4) var(--s4) var(--s6); max-width: 1480px; margin: 0 auto
   font-weight: 700;
   line-height: 1.1;
   margin: 6px 0 4px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 .kpi-p0 .kpi-value { color: var(--p0); }
 .kpi-kev .kpi-value { color: var(--p1); }
@@ -467,7 +467,7 @@ main { padding: var(--s4) var(--s4) var(--s6); max-width: 1480px; margin: 0 auto
   color: var(--muted);
   font-size: var(--fs-sm);
   margin: 0 0 12px;
-  font-family: "JetBrains Mono", monospace;
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
 .view { display: none; }
@@ -594,7 +594,7 @@ main { padding: var(--s4) var(--s4) var(--s6); max-width: 1480px; margin: 0 auto
   flex-shrink: 0;
   margin-left: auto;
   padding: 2px 0 0;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
   font-size: var(--fs-xs);
   font-weight: 600;
   color: var(--faint);
@@ -636,7 +636,7 @@ main { padding: var(--s4) var(--s4) var(--s6); max-width: 1480px; margin: 0 auto
   align-items: center;
   gap: 6px;
   font-size: var(--fs-xs);
-  font-family: "Noto Sans TC", system-ui, sans-serif;
+  font-family: "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
 }
 .meta-chip {
   display: inline-flex;
@@ -659,7 +659,7 @@ main { padding: var(--s4) var(--s4) var(--s6); max-width: 1480px; margin: 0 auto
 }
 .meta-v {
   font-weight: 700;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
   font-size: var(--fs-xs);
   color: var(--text);
   word-break: break-all;
@@ -719,7 +719,7 @@ button.meta-cve-btn.copied .meta-copy-icon {
 .meta-source .meta-k { color: var(--credible); opacity: 1; }
 .meta-source .meta-v {
   color: var(--credible);
-  font-family: "Noto Sans TC", system-ui, sans-serif;
+  font-family: "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
   font-weight: 600;
   font-size: var(--fs-xs);
 }
@@ -867,7 +867,7 @@ button.meta-cve-btn.copied .meta-copy-icon {
   display: block;
   font-size: var(--fs-2xl);
   font-weight: 700;
-  font-family: "JetBrains Mono", monospace;
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
   color: var(--tw);
 }
 .finance-banner .tw-stats span { color: var(--ok); }
@@ -944,7 +944,7 @@ button.meta-cve-btn.copied .meta-copy-icon {
   gap: 8px;
 }
 .layer-id {
-  font-family: "JetBrains Mono", monospace;
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
   background: var(--panel-2);
   color: var(--p3);
   padding: 2px 8px;
@@ -1093,7 +1093,7 @@ button.meta-cve-btn.copied .meta-copy-icon {
   font-weight: 700;
 }
 .nav-tile-count {
-  font-family: "JetBrains Mono", monospace;
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
   font-size: var(--fs-base);
   font-weight: 600;
   color: var(--p3);
@@ -1391,7 +1391,7 @@ button.meta-cve-btn.copied .meta-copy-icon {
   background: var(--panel-2);
 }
 .acc-table tbody tr:last-child td { border-bottom: none; }
-.acc-table td:first-child { font-family: "JetBrains Mono", ui-monospace, monospace; }
+.acc-table td:first-child { font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, monospace; }
 .acc-good { color: var(--ok); }
 .acc-mid { color: var(--p2); }
 .acc-bad { color: var(--bad); }
@@ -1559,7 +1559,7 @@ button.meta-cve-btn.copied .meta-copy-icon {
   margin: 8px 0 0;
   font-size: var(--fs-sm);
   color: var(--muted);
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-family: "Cascadia Mono", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 .pre-toolbar {
   display: flex;

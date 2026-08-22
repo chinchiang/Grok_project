@@ -35,6 +35,8 @@ def keys(hits):
         ("record ids 37963, 391144938, 45090", "pegatron ticker in a number"),
         ("2026-07-20t19:02:03.782357+00:00", "asus ticker in a timestamp"),
         ("影響筆數：2303416", "umc/novatek ticker in a record count"),
+        ("Windows Installer MSI package failed", "msi installer homonym"),
+        ("ASX listed miners rally on metals", "australian securities exchange"),
     ],
 )
 def test_no_false_positive(text, label):
@@ -57,7 +59,8 @@ def test_kyowa_is_not_outlook_web_access():
         ("Quanta Computer hit by ransomware", "quanta"),
         ("台積電傳出供應鏈事件", "tsmc"),
         ("廣達遭勒索軟體攻擊", "quanta"),
-        ("MSI released a BIOS fix", "msi"),
+        ("Micro-Star released a BIOS fix", "msi"),
+        ("微星發布 BIOS 更新", "msi"),
         ("MSI, Gigabyte and Asus issued advisories", "gigabyte"),
         ("Lite-On disclosed an incident", "liteon"),
     ],

@@ -214,7 +214,13 @@ async def collect_threatfox(
                 k in (tag_s + " " + fam).lower()
                 for k in ("ransom", "locker", "lockbit", "blackcat", "akira", "clop")
             )
-            verification, admiralty = "credible", "B2"
+            verification, admiralty = assign_verification(
+                in_kev=False,
+                layer_id="L3",
+                source_count=1,
+                is_darkweb_indirect=False,
+                source_class=SOURCE_CLASS_COMMUNITY,
+            )
             priority = assign_priority(
                 in_kev=False,
                 known_ransomware_campaign=False,
@@ -256,7 +262,7 @@ async def collect_threatfox(
                     "ms_entities_json": json.dumps(
                         flags["ms_entities"], ensure_ascii=False
                     ),
-                    "known_ransomware_campaign": 1 if is_ransom else 0,
+                    "known_ransomware_campaign": 0,
                     "epss": None,
                     "cvss": None,
                     "date_added": (b["first_seen"] or "")[:10] or now_iso()[:10],

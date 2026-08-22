@@ -21,7 +21,7 @@ from ..config import (
     HTTP_TIMEOUT,
 )
 from ..database import now_iso, upsert_intel, upsert_source_health
-from ..priority import assign_priority, enrich_flags
+from ..priority import assign_priority, assign_verification, enrich_flags
 
 from ._base import _client, _id, _mark
 
@@ -97,7 +97,12 @@ async def _upsert_easm_finding(
         m = re.findall(r"CVE-\d{4}-\d{4,7}", " ".join(vulns), re.I)
         cve_id = m[0].upper() if m else None
 
-    verification, admiralty = "credible", "B2"
+    verification, admiralty = assign_verification(
+        in_kev=False,
+        layer_id="L4",
+        source_count=1,
+        is_darkweb_indirect=False,
+    )
     priority = assign_priority(
         in_kev=False,
         known_ransomware_campaign=False,

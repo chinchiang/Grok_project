@@ -20,7 +20,7 @@
 https://chinchiang.github.io/Grok_project/
 ```
 
-> GitHub Pages 為**靜態站**：瀏覽器內「立即巡檢」會提示改用 Actions 手動更新。本機 `python run.py` 仍支援完整 API 與 30 分鐘冷卻巡檢。
+> GitHub Pages 為**靜態站**：瀏覽器內「立即巡檢」只抓 CISA KEV 鏡像與勒索追蹤站（RansomLook 通常被 CORS 擋住），**不是**完整 harvest。完整更新請至 **Actions → Deploy SOC CTI Dashboard → Run workflow**。本機 `python run.py` 支援完整 API；寫入（巡檢／判定）需在右上角「金鑰」貼上 `SOC_CTI_API_KEY`（只存在該分頁 sessionStorage）。
 
 ### 排程（Actions cron → 臺灣時間）
 
@@ -67,8 +67,8 @@ https://chinchiang.github.io/Grok_project/
 
 ### 核實狀態
 
-- **已證實 Confirmed**：官方 KEV 等  
-- **可信 Credible**：≥ 2 獨立來源；或**官方／PSIRT／研究單位**之單一來源  
+- **已證實 Confirmed**：列入 CISA KEV（`in_kev`）。L1 其他 feed（CISA News、NSA GNews、EPSS 預測分數）**不是**已證實。  
+- **可信 Credible**：≥ 2 獨立來源；或**官方／PSIRT／研究單位**之單一來源（依 `source_class`，不依層級）  
 - **未核實 Unverified**：**媒體／社群／OSINT 之單源**（尤其暗網間接、X OSINT）；未核實不得單獨開立 IR 工單  
 
 ### 來源可靠度分級（單源可信門檻）
@@ -93,7 +93,7 @@ https://chinchiang.github.io/Grok_project/
 巡檢後會執行 `backend/aggregate.py`：
 
 - **同一事件的判定**：相同 CVE，或標題 token 重疊度 ≥ 0.55（中文以 bigram 切分）；
-- **獨立性檢查**：來源名稱不同，且**連結網域不同**——同一篇文章的 Google News 鏡像與原站 feed 不算兩個來源；
+- **獨立性檢查**：來源名稱（含 ICS／GNews 後綴的同一出版社）不同，且**連結網域不同**。Google News 文章連結會還原成出版社網域，因此站內 RSS 與其 GNews 鏡像不算兩個來源；兩家不同媒體即使都經 GNews 仍可互證。
 - **不合併記錄**：分析師仍能分別開啟各家報導，只是佐證數、核實狀態與優先級依實際來源數重算。
 
 > 實測（400 筆語料）：同一個 SharePoint RCE 被 CISA KEV、BleepingComputer、The Hacker News、Microsoft GNews 四個獨立來源報導，原本各自為政，現在正確聚合，5 筆由 P3 升為 P2。
@@ -194,12 +194,14 @@ curl -X POST http://127.0.0.1:8787/api/intel/<id>/verdict \
 
 > `GET /api/health` 與 `GET /api/scan/status` 會回報 `api_key_required`（用戶端必須滿足的姿態）與
 > `write_endpoints_enabled`（完全未設金鑰且未開啟豁免時為 `false`），可確認金鑰是否生效。
+> 本機 UI 以 `X-API-Key` 送出右上角「金鑰」的值（只存在該分頁 sessionStorage）。
+> 公開 GitHub Pages 匯出**不含** L4 EASM 與 HIBP 網域監控——那些是攻擊面資料，只留本機 API。
 
 ## 前端安全（CSP）
 
 `index.html` 開頭以 `<meta http-equiv="Content-Security-Policy">` 交付政策——GitHub Pages 無法設回應標頭，
 所以只能走文件內宣告，且必須排在任何資源之前。目前政策：`default-src 'none'`，`script-src 'self'`，
-`style-src 'self' https://fonts.googleapis.com`，`font-src https://fonts.gstatic.com`，`img-src 'self' data:`，
+`style-src 'self'`，`font-src 'self'`，`img-src 'self' data:`，
 `connect-src 'self'` ＋ 四個即時來源網域，並鎖上 `object-src`／`base-uri`／`form-action`。
 
 `script-src` 與 `style-src` **都沒有** `'unsafe-inline'`：卡片內容是用 `innerHTML` 從來源文字組出來的，
@@ -213,7 +215,7 @@ curl -X POST http://127.0.0.1:8787/api/intel/<id>/verdict \
 `connect-src` 也不得留下 app.js 已不再使用的網域。
 
 > 以 `<meta>` 交付時，僅限標頭的指令（`frame-ancestors`、`report-uri`／`report-to`、`sandbox`）會被忽略。
-> 若改由反向代理服務此頁，請在標頭補上 `X-Frame-Options` 或 `frame-ancestors` 以防點擊劫持。
+> 本機 FastAPI 另以回應標頭交付同一 CSP，並加上 `X-Frame-Options: DENY` 與 `X-Content-Type-Options: nosniff`。GitHub Pages 仍只能靠文件內 `<meta>`（`frame-ancestors` 在 meta 會被忽略）。
 
 ## 程式結構
 

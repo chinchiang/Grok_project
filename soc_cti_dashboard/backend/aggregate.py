@@ -21,9 +21,11 @@ Corroboration requires all of:
 
 from __future__ import annotations
 
+import base64
 import re
 from collections import defaultdict
 from typing import Any, Iterable
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .database import apply_aggregation, items_for_aggregation
 from .ops import explain_priority
@@ -88,19 +90,101 @@ def event_cves(item: dict[str, Any]) -> set[str]:
     return found
 
 
-def link_domain(url: str) -> str:
-    s = (url or "").strip().lower()
-    s = re.sub(r"^[a-z]+://", "", s).split("/")[0]
+def _registrable_host(host: str) -> str:
+    s = (host or "").strip().lower().strip(".")
     s = re.sub(r"^www\d?\.", "", s)
-    # Google News proxies the real publisher; treat all of them as one domain so
-    # a site feed and its own GNews mirror never corroborate each other.
     return s
+
+
+def _is_gnews_host(host: str) -> bool:
+    h = _registrable_host(host)
+    return h == "news.google.com" or h.startswith("news.google.")
+
+
+def _publisher_from_gnews(url: str) -> str:
+    """Recover the publisher host from a Google News article/search URL.
+
+    Item links are usually ``news.google.com/rss/articles/<base64>`` with the
+    original URL embedded in the token; some feeds put it in ``?url=``. If we
+    cannot unwrap, the caller keeps the google host so two opaque GNews items
+    collapse to one domain rather than counting as two outlets.
+    """
+    parsed = urlparse(url or "")
+    qs = parse_qs(parsed.query)
+    for key in ("url", "u"):
+        for raw in qs.get(key) or []:
+            raw = unquote(raw)
+            if raw.startswith("http"):
+                host = _registrable_host(urlparse(raw).hostname or "")
+                if host and "google." not in host:
+                    return host
+    m = re.search(r"/articles/([^/?]+)", parsed.path or "")
+    if not m:
+        return ""
+    token = m.group(1)
+    pad = "=" * ((4 - len(token) % 4) % 4)
+    blob = b""
+    for decoder in (base64.urlsafe_b64decode, base64.b64decode):
+        try:
+            blob = decoder(token + pad)
+            break
+        except Exception:
+            continue
+    if not blob:
+        return ""
+    text = blob.decode("utf-8", "replace") + "\n" + blob.decode("latin-1", "replace")
+    for found in re.findall(r"https?://[^\s\x00-\x1f\"'<>\\]+", text):
+        host = _registrable_host(urlparse(found).hostname or "")
+        if host and "google." not in host:
+            return host
+    for run in re.findall(rb"[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:/[^\x00-\x1f]*)?", blob):
+        s = run.decode("ascii", "ignore")
+        host = _registrable_host(s.split("/")[0])
+        if host and "google." not in host and "." in host:
+            return host
+    return ""
+
+
+def link_domain(url: str) -> str:
+    s = (url or "").strip()
+    host = ""
+    if s:
+        parsed = urlparse(s if "://" in s else f"https://{s}")
+        host = _registrable_host(parsed.hostname or "")
+        if not host:
+            host = _registrable_host(re.sub(r"^[a-z]+://", "", s.lower()).split("/")[0])
+    if _is_gnews_host(host):
+        return _publisher_from_gnews(s) or "news.google.com"
+    return host
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
     if not a or not b:
         return 0.0
     return len(a & b) / len(a | b)
+
+
+_FAMILY_NOISE = re.compile(
+    r"\b(ics|ot|google news|gnews|rss|indirect|dw|live|csv mirror|advisories)\b",
+    re.I,
+)
+
+
+def _source_family(name: str) -> str:
+    """Publisher stem: 'The Hacker News ICS' and 'The Hacker News' are one outlet."""
+    s = _FAMILY_NOISE.sub(" ", name or "")
+    s = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", " ", s.lower())
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _same_publisher_family(a: str, b: str) -> bool:
+    fa, fb = _source_family(a), _source_family(b)
+    if not fa or not fb:
+        return False
+    if fa == fb:
+        return True
+    shorter, longer = (fa, fb) if len(fa) <= len(fb) else (fb, fa)
+    return len(shorter) >= 8 and shorter in longer
 
 
 def _independent(a: dict[str, Any], b: dict[str, Any]) -> bool:
@@ -110,6 +194,8 @@ def _independent(a: dict[str, Any], b: dict[str, Any]) -> bool:
     sa = (a.get("source_name") or "").strip().lower()
     sb = (b.get("source_name") or "").strip().lower()
     if not sa or not sb or sa == sb:
+        return False
+    if _same_publisher_family(a.get("source_name") or "", b.get("source_name") or ""):
         return False
     da, db_ = link_domain(a.get("url") or ""), link_domain(b.get("url") or "")
     if da and db_ and da == db_:

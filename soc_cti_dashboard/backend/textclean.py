@@ -12,6 +12,9 @@ import html
 import re
 
 _TAG_RE = re.compile(r"<[^>]+>")
+_SECRET_QS = re.compile(
+    r"(?i)(key|api[_-]?key|auth[-_]?key|hibp-api-key|secret|token)=([^&\s]+)"
+)
 _WS_RE = re.compile(r"\s+")
 # Same collapsing, but blind to newlines so structured summaries keep their lines.
 _INLINE_WS_RE = re.compile(r"[^\S\n]+")
@@ -19,6 +22,11 @@ _BLANK_LINES_RE = re.compile(r"\n{3,}")
 
 # Cheap pre-filter for the backfill: only rows that could hold an entity.
 ENTITY_RE = re.compile(r"&(?:[a-zA-Z][a-zA-Z0-9]{1,31}|#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6});")
+
+
+def redact_secrets(s: str | None) -> str:
+    """Strip credential query-string values before they land in logs or JSON."""
+    return _SECRET_QS.sub(lambda m: f"{m.group(1)}=***", s or "")
 
 
 def clean_text(s: str | None, *, keep_newlines: bool = False) -> str:

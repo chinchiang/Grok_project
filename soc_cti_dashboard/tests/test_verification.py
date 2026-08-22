@@ -71,10 +71,27 @@ def test_kev_and_l1_unaffected_by_class():
         in_kev=True, layer_id="L1", source_count=1, is_darkweb_indirect=False,
         source_class=SOURCE_CLASS_MEDIA,
     ) == ("confirmed", "A1")
+    # L1 is not a free pass: CISA News / NSA GNews are not KEV.
     assert assign_verification(
         in_kev=False, layer_id="L1", source_count=1, is_darkweb_indirect=False,
         source_class=SOURCE_CLASS_MEDIA,
-    ) == ("confirmed", "A2")
+    ) == ("unverified", "C3")
+    assert assign_verification(
+        in_kev=False, layer_id="L1", source_count=1, is_darkweb_indirect=False,
+        source_class=SOURCE_CLASS_OFFICIAL_GOV,
+    ) == ("credible", "B2")
+
+
+def test_research_on_l6_is_single_source_credible():
+    """DFIR / SANS ISC live on L6; class, not layer, grants single-source credit."""
+    v, _ = assign_verification(
+        in_kev=False,
+        layer_id="L6",
+        source_count=1,
+        is_darkweb_indirect=False,
+        source_class=SOURCE_CLASS_RESEARCH,
+    )
+    assert v == "credible"
 
 
 # --- the end-to-end regression this change exists for -----------------------

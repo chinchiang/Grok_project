@@ -19,8 +19,8 @@
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'none';
     script-src 'self';
-    style-src 'self' https://fonts.googleapis.com;
-    font-src https://fonts.gstatic.com;
+    style-src 'self';
+    font-src 'self';
     img-src 'self' data:;
     connect-src 'self' https://raw.githubusercontent.com https://www.cisa.gov https://www.ransomlook.io https://data.ransomware.live;
     object-src 'none';
@@ -34,9 +34,6 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f5fbf'/%3E%3Cpath d='M16 4l9 3.4v7.2c0 5.6-3.7 10.6-9 12.4-5.3-1.8-9-6.8-9-12.4V7.4z' fill='none' stroke='%23ffffff' stroke-width='2.2'/%3E%3Ccircle cx='16' cy='14.5' r='2.6' fill='%23ffffff'/%3E%3C/svg%3E" />
   <title>SOC 即時威脅情資｜CTI Early Warning</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
 </head>
 <body>
   <div class="bg-grid"></div>
@@ -55,6 +52,7 @@
     <div class="top-actions">
       <div class="clock" id="clock">--:--:--</div>
       <button type="button" class="btn lang-btn" id="langToggle">EN</button>
+      <button type="button" class="btn lang-btn" id="apiKeyBtn" hidden data-i18n="apiKeyBtn">金鑰</button>
       <button type="button" class="btn scan-btn" id="manualScanBtn">
         <span class="btn-ico">⚡</span>
         <span data-i18n="manualScan">立即巡檢</span>

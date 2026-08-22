@@ -15,7 +15,7 @@ from ..config import (
     USER_AGENT,
 )
 from ..database import now_iso, upsert_intel
-from ..priority import assign_priority, enrich_flags
+from ..priority import assign_priority, assign_verification, enrich_flags
 
 from ._base import _client, _id, _mark, _strip_html
 
@@ -152,11 +152,12 @@ async def collect_hibp_breaches(
                     "雙重勒索",
                 )
             )
-            # HIBP catalog is a trusted public authority for breach existence
-            if is_verified:
-                verification, admiralty = "confirmed", "A2"
-            else:
-                verification, admiralty = "credible", "B2"
+            verification, admiralty = assign_verification(
+                in_kev=False,
+                layer_id="L5",
+                source_count=1,
+                is_darkweb_indirect=False,
+            )
             priority = assign_priority(
                 in_kev=False,
                 known_ransomware_campaign=False,
@@ -254,8 +255,8 @@ async def collect_hibp_breaches(
                     "title_en": title_en,
                     "summary": summary,
                     "summary_en": summary,
-                    "priority": "P1",
-                    "verification": "confirmed",
+                    "priority": "P2",
+                    "verification": "unverified",
                     "layer_id": "L5",
                     "source_name": "Have I Been Pwned (domain)",
                     "sources_json": json.dumps(["Have I Been Pwned domain search"]),
@@ -276,7 +277,7 @@ async def collect_hibp_breaches(
                     "published_at": now_iso()[:10],
                     "fetched_at": now_iso(),
                     "url": "https://haveibeenpwned.com/DomainSearch",
-                    "admiralty": "A2",
+                    "admiralty": "C3",
                     "raw_json": json.dumps(
                         {"domain": domain, "alias_count": hit["aliases"]},
                         ensure_ascii=False,
@@ -297,9 +298,7 @@ async def collect_hibp_breaches(
         if HIBP_API_KEY:
             detail_parts.append("api_key=set")
             if HIBP_WATCH_DOMAINS:
-                detail_parts.append(
-                    f"domains={','.join(HIBP_WATCH_DOMAINS[:5])}"
-                )
+                detail_parts.append(f"domains=set({len(HIBP_WATCH_DOMAINS)})")
             else:
                 detail_parts.append("domains=none (set HIBP_WATCH_DOMAINS)")
         else:

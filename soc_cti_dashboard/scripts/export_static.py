@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -25,6 +26,7 @@ logging.basicConfig(
 
 from backend.collectors import run_full_harvest
 from backend.config import (
+    EPSS_P2_THRESHOLD,
     FINANCE_WATCHLIST,
     MANUAL_SCAN_COOLDOWN_SEC,
     OBSOLETE_SOURCE_IDS,
@@ -32,6 +34,7 @@ from backend.config import (
     SCHEDULE_HOURS,
     TW_ELECTRONICS_WATCHLIST,
 )
+from backend.textclean import redact_secrets
 from backend.ms_dashboard import build_microsoft_dashboard
 from backend.preemptive import build_preemptive_brief
 from backend.database import (
@@ -71,6 +74,43 @@ def slim(item: dict, *, keep_translation: bool = True) -> dict:
 
 def slim_all(items: list) -> list:
     return [slim(i) for i in items]
+
+
+_INTERNAL_LAYERS = frozenset({"L4"})
+_INTERNAL_SOURCE_NEEDLES = ("shodan", "censys", "easm", "internetdb")
+
+
+def _item_tags(item: dict) -> list:
+    raw = item.get("tags") or []
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            raw = []
+    return raw if isinstance(raw, list) else []
+
+
+def is_public_item(item: dict) -> bool:
+    """Pages is a public site — drop targeting / attack-surface rows."""
+    if item.get("layer_id") in _INTERNAL_LAYERS:
+        return False
+    if "domain-watch" in _item_tags(item):
+        return False
+    name = (item.get("source_name") or "").lower()
+    return not any(n in name for n in _INTERNAL_SOURCE_NEEDLES)
+
+
+def public_only(items: list) -> list:
+    return [i for i in items if is_public_item(i)]
+
+
+def _public_health(row: dict) -> dict:
+    out = dict(row)
+    out.pop("last_error", None)
+    detail = redact_secrets(str(out.get("detail") or ""))
+    detail = re.sub(r"domains=[^;]+", "domains=redacted", detail)
+    out["detail"] = detail
+    return out
 
 
 def _entity_counts(items: list, entities_key: str) -> dict[str, int]:
@@ -120,6 +160,7 @@ async def export() -> None:
     kpis["last_manual_scan"] = await get_meta("last_manual_scan")
     kpis["static_export"] = True
     kpis["exported_at"] = now_iso()
+    kpis["epss_p2_threshold"] = EPSS_P2_THRESHOLD
     # Surface last harvest observability on the KPI payload for operators
     kpis["last_harvest"] = {
         "failure_rate": metrics.get("failure_rate"),
@@ -130,7 +171,7 @@ async def export() -> None:
         "finished_at": metrics.get("finished_at"),
     }
 
-    items = slim_all(await query_intel(limit=400))
+    items = public_only(slim_all(await query_intel(limit=400)))
     by_priority = {
         "P0": [i for i in items if i.get("priority") == "P0"],
         "P1": [i for i in items if i.get("priority") == "P1"],
@@ -139,24 +180,32 @@ async def export() -> None:
     }
     high_risk = by_priority["P0"] + by_priority["P1"]
 
-    all_tw = slim_all(await query_intel(tw_only=True, limit=200))
+    all_tw = public_only(slim_all(await query_intel(tw_only=True, limit=200)))
     ransom, non_ransom = _split_ransom(all_tw)
-    global_ransom = slim_all(await query_intel(ransomware_only=True, limit=80))
+    global_ransom = public_only(
+        slim_all(await query_intel(ransomware_only=True, limit=80))
+    )
 
-    finance_items = slim_all(await query_intel(finance_only=True, limit=200))
+    finance_items = public_only(
+        slim_all(await query_intel(finance_only=True, limit=200))
+    )
     fin_ransom, fin_other = _split_ransom(finance_items)
     fin_kev = [i for i in finance_items if i.get("source_name") and "KEV" in i["source_name"]]
 
-    ms_items = slim_all(await query_intel(microsoft_only=True, limit=300))
+    ms_items = public_only(
+        slim_all(await query_intel(microsoft_only=True, limit=300))
+    )
     ms_payload = build_microsoft_dashboard(ms_items)
 
-    review_queue = slim_all(
-        await query_intel(
-            priority="P3",
-            verification="unverified",
-            status="open",
-            unreviewed_only=True,
-            limit=150,
+    review_queue = public_only(
+        slim_all(
+            await query_intel(
+                priority="P3",
+                verification="unverified",
+                status="open",
+                unreviewed_only=True,
+                limit=150,
+            )
         )
     )
     rule_accuracy = await get_rule_accuracy()
@@ -166,7 +215,9 @@ async def export() -> None:
     for h in health:
         if h.get("source_id") in OBSOLETE_SOURCE_IDS:
             continue
-        by_layer.setdefault(h["layer_id"], []).append(h)
+        if h.get("layer_id") in _INTERNAL_LAYERS:
+            continue
+        by_layer.setdefault(h["layer_id"], []).append(_public_health(h))
     layers_out = []
     for L in LAYERS:
         srcs = by_layer.get(L["id"], [])

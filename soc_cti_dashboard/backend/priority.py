@@ -251,8 +251,17 @@ def match_microsoft_entities(
 
 
 def is_ransomware_text(text: str) -> bool:
-    t = text.lower()
-    return any(k.lower() in t for k in RANSOMWARE_KEYWORDS)
+    """Whole-word / CJK-substring match — 'ransom' must not fire on 'RansomLook'."""
+    t = text or ""
+    low = t.lower()
+    for k in RANSOMWARE_KEYWORDS:
+        kl = k.lower()
+        if _CJK_RE.search(k):
+            if kl in low:
+                return True
+        elif re.search(rf"(?<![0-9a-z]){re.escape(kl)}(?![0-9a-z])", low):
+            return True
+    return False
 
 
 def assign_priority(
@@ -310,17 +319,16 @@ def assign_verification(
 ) -> tuple[str, str]:
     """Return (verification, admiralty) — reliability and credibility kept separate.
 
-    source_class is the Admiralty *source reliability* axis. L2/L7 mixes
-    authorities (CISA, PSIRT, Dragos) with trade press (Dark Reading, THN),
-    so the layer alone cannot justify single-source credibility: only
-    SINGLE_SOURCE_CREDIBLE_CLASSES may be credible on one source. Media/OSINT
-    need >= 2 independent sources, which keeps a lone news article that merely
-    mentions a watchlist name + "ransomware" out of the P0 gate.
+    source_class is the Admiralty *source reliability* axis. Layers mix
+    authorities with trade press, so the layer alone cannot justify
+    single-source credibility (L1 is not automatically confirmed unless
+    in_kev). Only SINGLE_SOURCE_CREDIBLE_CLASSES may be credible on one
+    source. Media/OSINT need >= 2 independent sources, which keeps a lone
+    news article that merely mentions a watchlist name + "ransomware" out
+    of the P0 gate.
     """
     if in_kev:
         return "confirmed", "A1"
-    if layer_id in ("L1", "T1") and source_count >= 1 and not is_darkweb_indirect:
-        return "confirmed", "A2"
 
     if is_darkweb_indirect:
         if source_count >= 2:
@@ -329,10 +337,11 @@ def assign_verification(
 
     if source_count >= 2:
         return "credible", "B2"
-    if (
-        layer_id in ("L2", "L7", "T2", "T7")
-        and source_class in SINGLE_SOURCE_CREDIBLE_CLASSES
-    ):
+    # Reliability is the source class, not the layer: L1 mixes KEV-grade
+    # catalogs with CISA News / NSA Google News, and research feeds also
+    # live on L6. Official / PSIRT / first-party research may be credible
+    # on one report; media / community / OSINT may not.
+    if source_class in SINGLE_SOURCE_CREDIBLE_CLASSES:
         return "credible", "B2"
     return "unverified", "C3"
 

@@ -42,19 +42,27 @@ function verClass(v) {
 
 function formatTs(iso) {
   if (!iso) return "—";
+  const s = String(iso);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   try {
-    const d = new Date(iso);
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return s;
     return d.toLocaleString(currentLang === "zh" ? "zh-TW" : "en-US", {
       timeZone: "Asia/Taipei",
       hour12: false,
     });
   } catch {
-    return iso;
+    return s;
   }
 }
 
+function allowedPriority(raw) {
+  const p = String(raw || "P3").toUpperCase();
+  return p === "P0" || p === "P1" || p === "P2" || p === "P3" ? p : "P3";
+}
+
 function cardHTML(item) {
-  const p = item.priority || "P3";
+  const p = allowedPriority(item.priority);
   const ransom = item.is_ransomware;
   const unverified = item.verification === "unverified";
   const classes = ["card", p.toLowerCase()];
@@ -63,7 +71,7 @@ function cardHTML(item) {
   if (item.is_live) classes.push("card-live");
 
   const tags = [];
-  tags.push(`<span class="pill ${p.toLowerCase()}">${p}</span>`);
+  tags.push(`<span class="pill ${p.toLowerCase()}">${escapeHtml(p)}</span>`);
   tags.push(
     `<span class="pill ${verClass(item.verification)}">${verLabel(item.verification)}</span>`
   );
@@ -86,10 +94,12 @@ function cardHTML(item) {
   const assets = Array.isArray(item.assets)
     ? item.assets
     : [];
-  const evidence =
+  const evidenceN = Number(
     item.evidence_count != null
       ? item.evidence_count
-      : (item.sources || []).length || 1;
+      : (item.sources || []).length || 1
+  );
+  const evidence = Number.isFinite(evidenceN) ? String(evidenceN) : "1";
   const owner = item.owner || "—";
   const sla = item.sla_hours != null ? `${item.sla_hours}h` : "—";
 
@@ -122,13 +132,10 @@ function cardHTML(item) {
   }
 
   // Time always top-right: prefer date_added, else fetched_at
-  const dateVal = item.date_added
-    ? String(item.date_added)
-    : item.fetched_at
-      ? formatTs(item.fetched_at)
-      : "";
-  const timeHtml = dateVal
-    ? `<time class="card-time" datetime="${escapeHtml(String(item.date_added || item.fetched_at || ""))}" title="${escapeHtml(t("metaDate"))}">${escapeHtml(dateVal)}</time>`
+  const rawDate = item.date_added || item.published_at || item.fetched_at || "";
+  const dateVal = rawDate ? formatTs(rawDate) : "";
+  const timeHtml = dateVal && dateVal !== "—"
+    ? `<time class="card-time" datetime="${escapeHtml(String(rawDate))}" title="${escapeHtml(t("metaDate"))}">${escapeHtml(dateVal)}</time>`
     : `<span class="card-time card-time-empty" aria-hidden="true"></span>`;
 
   // XSS-safe: only allow http/https; reject javascript:/data:/etc.
@@ -151,7 +158,7 @@ function cardHTML(item) {
           : ""
       }
       <div class="card-ops">
-        <span title="Evidence"><b>${t("evidence")}</b> ${evidence}</span>
+        <span title="Evidence"><b>${escapeHtml(t("evidence"))}</b> ${escapeHtml(evidence)}</span>
         <span title="Owner"><b>Owner</b> ${escapeHtml(owner)}</span>
         <span title="SLA"><b>SLA</b> ${escapeHtml(sla)}</span>
         ${sop ? `<span title="SOP"><b>SOP</b> ${escapeHtml(sop)}</span>` : ""}
@@ -292,7 +299,7 @@ async function ensureIntel() {
     if (!cache.intel) cache.intel = await loadStaticJson("intel.json");
     return cache.intel.items || [];
   }
-  const d = await api("/api/intel?limit=300");
+  const d = await api("/api/intel?limit=400");
   return d.items || [];
 }
 
@@ -327,7 +334,7 @@ function renderList(el, items, limit = 12) {
   if (!el) return;
   const slice = (items || []).slice(0, limit);
   if (!slice.length) {
-    el.innerHTML = `<div class="empty">${t("empty")}</div>`;
+    el.innerHTML = `<div class="empty">${escapeHtml(t("empty"))}</div>`;
     return;
   }
   el.innerHTML = slice.map(cardHTML).join("");
@@ -351,12 +358,53 @@ async function detectMode() {
   }
 }
 
+const API_KEY_STORAGE = "cti_api_key";
+
+function getApiKey() {
+  try {
+    return sessionStorage.getItem(API_KEY_STORAGE) || "";
+  } catch {
+    return "";
+  }
+}
+
+function setApiKey(value) {
+  try {
+    if (value) sessionStorage.setItem(API_KEY_STORAGE, value);
+    else sessionStorage.removeItem(API_KEY_STORAGE);
+  } catch {
+    /* private mode */
+  }
+}
+
+function promptApiKey() {
+  const next = window.prompt(t("apiKeyPrompt"), getApiKey());
+  if (next == null) return getApiKey();
+  setApiKey(next.trim());
+  return getApiKey();
+}
+
+function withApiKey(opts) {
+  const out = { ...(opts || {}) };
+  const headers = { ...(out.headers || {}) };
+  const key = getApiKey();
+  if (key) headers["X-API-Key"] = key;
+  out.headers = headers;
+  return out;
+}
+
 async function api(path, opts) {
   if (USE_STATIC) {
     return staticApi(path, opts);
   }
-  const res = await fetch(path, opts);
-  const data = await res.json().catch(() => ({}));
+  let res = await fetch(path, withApiKey(opts));
+  let data = await res.json().catch(() => ({}));
+  if (res.status === 401 && (opts && opts.method && opts.method !== "GET")) {
+    if (promptApiKey()) {
+      res = await fetch(path, withApiKey(opts));
+      data = await res.json().catch(() => ({}));
+    }
+  }
   if (!res.ok) {
     const err = new Error("api_error");
     err.status = res.status;
@@ -567,16 +615,30 @@ async function loadKpis() {
     (k.p1_count || 0) +
     (k.p2_count || 0) +
     (k.p3_count || 0);
-  // 核實度 = (已證實 + 可信) / 全部 ≈ 1 − 未核實 / 全部
   const unv = k.unverified_count ?? 0;
-  const denom = Math.max(totalItems, 1);
-  const vPct = Math.min(100, Math.max(0, Math.round(100 * (1 - unv / denom))));
+  const vPct = Number.isFinite(Number(k.verified_pct))
+    ? Math.round(Number(k.verified_pct))
+    : Math.min(100, Math.max(0, Math.round(100 * (1 - unv / Math.max(totalItems, 1)))));
   if ($("#opsVerify")) $("#opsVerify").textContent = Number.isFinite(vPct) ? vPct : 0;
   if ($("#opsVerifyHint")) {
+    const osint = k.osint_verified_pct;
     $("#opsVerifyHint").textContent =
       currentLang === "zh"
-        ? `已證實+可信／全部 · 未核實 ${unv}`
-        : `Confirmed+Credible / all · unverified ${unv}`;
+        ? `整體 ${vPct}% · OSINT ${osint == null ? "—" : Math.round(osint)}% · 未核實 ${unv}`
+        : `all ${vPct}% · OSINT ${osint == null ? "—" : Math.round(osint)}% · unverified ${unv}`;
+  }
+  const p0w = (k.priority_windows && k.priority_windows.P0) || {};
+  if ($("#opsP0Hint")) {
+    $("#opsP0Hint").textContent =
+      currentLang === "zh"
+        ? `未結 ${p0w.open ?? k.p0_count ?? 0} · 近7日 ${p0w.new_7d ?? "—"} · stale ${k.stale_count ?? 0}`
+        : `open ${p0w.open ?? k.p0_count ?? 0} · 7d ${p0w.new_7d ?? "—"} · stale ${k.stale_count ?? 0}`;
+  }
+  if ($("#opsP1Hint")) {
+    $("#opsP1Hint").textContent =
+      currentLang === "zh"
+        ? `KEV 近7日 ${k.kev_recent_7d ?? "—"}`
+        : `KEV last 7d ${k.kev_recent_7d ?? "—"}`;
   }
   const health = k.source_health_pct ?? 0;
   if ($("#opsComplete")) $("#opsComplete").textContent = health;
@@ -610,9 +672,11 @@ async function loadKpis() {
   if (USE_STATIC) {
     parts.push(
       currentLang === "zh"
-        ? "靜態站 · 可瀏覽器即時巡檢"
-        : "Static · browser live scan OK"
+        ? "靜態站 · 瀏覽器即時巡檢為 KEV／勒索站子集；完整更新請跑 Actions"
+        : "Static · browser live scan is KEV/ransom subset; full harvest via Actions"
     );
+  } else if (!scan.write_endpoints_enabled) {
+    parts.push(t("scanAuth"));
   } else if (!scan.manual_scan_allowed) {
     const m = Math.ceil((scan.cooldown_remaining_sec || 0) / 60);
     parts.push(`${t("nextCooldown")}: ${m}m`);
@@ -620,8 +684,12 @@ async function loadKpis() {
   $("#scanMeta").textContent = parts.join(" · ");
   const btn = $("#manualScanBtn");
   if (btn) {
-    btn.disabled = USE_STATIC ? false : !scan.manual_scan_allowed || scan.harvest_running;
+    btn.disabled = USE_STATIC
+      ? false
+      : !scan.write_endpoints_enabled || !scan.manual_scan_allowed || scan.harvest_running;
   }
+  const keyBtn = $("#apiKeyBtn");
+  if (keyBtn) keyBtn.hidden = USE_STATIC;
 }
 
 async function loadOverview() {
@@ -897,8 +965,8 @@ async function loadMicrosoft() {
 }
 
 function briefCardHTML(it) {
-  const p = it.priority || "P3";
-  const classes = ["card", "pre-card", String(p).toLowerCase()];
+  const p = allowedPriority(it.priority);
+  const classes = ["card", "pre-card", p.toLowerCase()];
   if (it.org_related) classes.push("pre-org");
   if (it.status_upgrade) classes.push("pre-up");
   const ev = it.evidence || "unverified";
@@ -920,7 +988,7 @@ function briefCardHTML(it) {
     ? `<a class="meta-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${t("openLink")} ↗</a>`
     : "";
   const tags = [
-    `<span class="pill ${String(p).toLowerCase()}">${escapeHtml(p)}</span>`,
+    `<span class="pill ${p.toLowerCase()}">${escapeHtml(p)}</span>`,
     `<span class="pill ${evClass}">${escapeHtml(evLabel)}</span>`,
   ];
   if (it.org_related)
@@ -982,7 +1050,7 @@ function renderBriefList(el, items, key, counts) {
   setSectionCount(key, rows.length, (counts || {})[key]?.total);
   if (!el) return;
   if (!rows.length) {
-    el.innerHTML = `<div class="empty">${t("empty")}</div>`;
+    el.innerHTML = `<div class="empty">${escapeHtml(t("empty"))}</div>`;
     return;
   }
   el.innerHTML = rows.map(briefCardHTML).join("");
@@ -1462,7 +1530,7 @@ async function browserLiveScan() {
   // 2) RansomLook — serves no CORS header, so a browser can never read it.
   // Reported as unavailable-in-static rather than as a failure: nothing is
   // broken, this source simply needs the Actions run.
-  let lookTitles = new Set();
+  let lookByVictim = new Map();
   let lookReachable = false;
   try {
     const r = await fetch("https://www.ransomlook.io/api/recent", { cache: "no-store" });
@@ -1472,7 +1540,10 @@ async function browserLiveScan() {
     results.push({ name: "RansomLook", state: "ok", detail: `${rows.length} posts` });
     rows.forEach((row) => {
       const victim = row.post_title || row.title || "";
-      lookTitles.add(String(victim).toLowerCase().replace(/[^a-z0-9]/g, ""));
+      const key = String(victim).toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (key) {
+        lookByVictim.set(key, String(row.group_name || row.group || "").toLowerCase());
+      }
       newItems.push({
         id: `live-rl-${victim}`,
         title: `[即時 LIVE][未核實] 🔐 ${victim} — ${row.group_name || "?"}`,
@@ -1509,7 +1580,15 @@ async function browserLiveScan() {
       rows.forEach((row) => {
         const victim = row.post_title || row.victim || "";
         const key = String(victim).toLowerCase().replace(/[^a-z0-9]/g, "");
-        const isDual = key && lookTitles.has(key);
+        const lookGroup = key ? lookByVictim.get(key) : undefined;
+        const liveGroup = String(row.group_name || "").toLowerCase();
+        const groupOk =
+          !lookGroup ||
+          !liveGroup ||
+          lookGroup === liveGroup ||
+          lookGroup.includes(liveGroup) ||
+          liveGroup.includes(lookGroup);
+        const isDual = Boolean(key && lookByVictim.has(key) && groupOk);
         if (isDual) dual++;
         newItems.push({
           id: `live-rsl-${victim}`,
@@ -1710,7 +1789,7 @@ function tickClock() {
     minute: "2-digit",
     second: "2-digit",
   });
-  $("#clock").textContent = s + " TST";
+  $("#clock").textContent = s + " UTC+8";
 }
 
 async function loadView(view) {
@@ -1729,11 +1808,12 @@ async function loadView(view) {
 
 async function refreshAll() {
   try {
-    if (USE_STATIC) Object.keys(cache).forEach((k) => (cache[k] = null));
+    Object.keys(cache).forEach((k) => (cache[k] = null));
     const active = $(".tab.active")?.dataset.view || "overview";
     await loadView(active);
   } catch (e) {
     console.error(e);
+    showToast(t("loadFailed"), true);
   }
 }
 
@@ -1818,6 +1898,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupPreemptiveActions();
   upgradeDutyAvatar();
   $("#langToggle")?.addEventListener("click", () => toggleLang());
+  $("#apiKeyBtn")?.addEventListener("click", () => promptApiKey());
   $("#manualScanBtn")?.addEventListener("click", () => manualScan());
   $("#scanModalClose")?.addEventListener("click", () => {
     $("#scanModal")?.classList.add("hidden");

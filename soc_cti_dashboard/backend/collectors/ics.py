@@ -12,10 +12,11 @@ from ..config import (
     CISA_ADVISORIES_RSS_CANDIDATES,
     CISA_ICS_GITHUB_API,
     CISA_ICS_MAX_ITEMS,
+    SOURCE_CLASS_OFFICIAL_GOV,
     USER_AGENT,
 )
 from ..database import now_iso, upsert_intel
-from ..priority import assign_priority, enrich_flags
+from ..priority import assign_priority, assign_verification, enrich_flags
 
 from ._base import _client, _id, _mark
 from .rss import collect_rss_layer
@@ -218,8 +219,14 @@ async def _collect_cisa_ics_from_github_csv(*, limit: int = 40) -> int:
 
         flags = enrich_flags(title, summary_en, vendor, product)
         is_ransom = flags["is_ransomware"]
-        # Official ICS advisory content (via trusted community mirror of CISA data)
-        verification, admiralty = "confirmed", "A2"
+        # Community CSV of CISA data: official-gov, but not KEV-grade "confirmed".
+        verification, admiralty = assign_verification(
+            in_kev=False,
+            layer_id="L7",
+            source_count=1,
+            is_darkweb_indirect=False,
+            source_class=SOURCE_CLASS_OFFICIAL_GOV,
+        )
         # OT critical manufacturing + high CVSS is elevated monitoring
         priority = assign_priority(
             in_kev=False,
@@ -251,9 +258,7 @@ async def _collect_cisa_ics_from_github_csv(*, limit: int = 40) -> int:
                 "verification": verification,
                 "layer_id": "L7",
                 "source_name": "CISA ICS Advisories",
-                "sources_json": json.dumps(
-                    ["CISA ICS", "ICS Advisory Project mirror"]
-                ),
+                "sources_json": json.dumps(["CISA ICS Advisories"]),
                 "cve_id": cve_id,
                 "product": product[:200],
                 "vendor": vendor[:200],

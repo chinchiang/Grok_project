@@ -302,7 +302,13 @@ async def collect_epss_top_scores(
                 f"Note: predictive exploit likelihood — not the same as KEV confirmation"
             )
             flags = enrich_flags(title_en, summary_en, "", "")
-            verification, admiralty = "confirmed", "A2"
+            # Predictive score, not confirmation of in-the-wild use.
+            verification, admiralty = assign_verification(
+                in_kev=False,
+                layer_id="L1",
+                source_count=1,
+                is_darkweb_indirect=False,
+            )
             priority = assign_priority(
                 in_kev=False,
                 known_ransomware_campaign=False,

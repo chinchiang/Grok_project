@@ -1,6 +1,6 @@
 """Unit tests for exclusive P0–P3 priority rules (R2-2 verification gate)."""
 
-from backend.priority import assign_priority
+from backend.priority import assign_priority, is_ransomware_text
 
 
 def test_dual_verified_tw_ransom_is_p0():
@@ -112,3 +112,10 @@ def test_dual_source_tw_ransom_mimics_collector_order():
         )
         == "P2"
     )
+
+
+def test_ransomware_keywords_are_word_bounded():
+    assert is_ransomware_text("lockbit claims another victim")
+    assert is_ransomware_text("double extortion against a hospital")
+    assert not is_ransomware_text("see ransomlook.io for listings")
+    assert not is_ransomware_text("investigators tracked a data leakage of logs")

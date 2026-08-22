@@ -95,6 +95,60 @@ def test_same_domain_is_not_corroboration():
     assert _independent(a, b) is False
 
 
+def _gnews_article(publisher_url: str) -> str:
+    import base64
+
+    token = base64.urlsafe_b64encode(publisher_url.encode()).decode().rstrip("=")
+    return f"https://news.google.com/rss/articles/{token}"
+
+
+def test_gnews_mirror_of_same_publisher_is_not_corroboration():
+    a = item(
+        "a",
+        "The Hacker News",
+        "SharePoint RCE exploited",
+        url="https://thehackernews.com/post",
+    )
+    b = item(
+        "b",
+        "The Hacker News ICS",
+        "SharePoint RCE exploited",
+        url=_gnews_article("https://www.thehackernews.com/2026/07/sharepoint"),
+    )
+    assert link_domain(b["url"]) == "thehackernews.com"
+    assert _independent(a, b) is False
+
+
+def test_two_gnews_publishers_can_still_corroborate():
+    a = item(
+        "a",
+        "Dark Reading ICS/OT",
+        "Critical SharePoint RCE flaw exploited to steal machine keys",
+        url=_gnews_article("https://www.darkreading.com/ics-ot/sharepoint-rce"),
+        cve_id="CVE-2026-50522",
+    )
+    b = item(
+        "b",
+        "The Hacker News ICS",
+        "SharePoint RCE under active exploitation",
+        url=_gnews_article("https://thehackernews.com/sharepoint-rce"),
+        cve_id="CVE-2026-50522",
+    )
+    assert link_domain(a["url"]) == "darkreading.com"
+    assert link_domain(b["url"]) == "thehackernews.com"
+    linked = find_corroborations([a, b])
+    assert linked.get("a") == {"b"}
+
+
+def test_opaque_gnews_items_share_a_sentinel_domain():
+    a = item("a", "Outlet A", "SharePoint RCE exploited",
+             url="https://news.google.com/rss/articles/not-valid-base64")
+    b = item("b", "Outlet B", "SharePoint RCE exploited",
+             url="https://news.google.com/rss/articles/also-opaque")
+    assert link_domain(a["url"]) == "news.google.com"
+    assert _independent(a, b) is False
+
+
 def test_mirrored_article_does_not_inflate_evidence():
     items = [
         item("a", "The Hacker News", "SharePoint RCE actively exploited now",

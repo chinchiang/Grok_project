@@ -18,11 +18,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.datastructures import MutableHeaders
 
 from .config import (
     ALLOW_UNAUTHENTICATED_WRITES,
     API_KEY,
     CORS_ORIGINS,
+    EPSS_P2_THRESHOLD,
     FINANCE_WATCHLIST,
     LAYERS,
     MANUAL_SCAN_COOLDOWN_SEC,
@@ -146,6 +148,44 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Same policy as frontend/index.html <meta> — GitHub Pages cannot set
+# headers, so the public site stays on the meta tag; local FastAPI can.
+DOCUMENT_CSP = (
+    "default-src 'none'; "
+    "script-src 'self'; "
+    "style-src 'self'; "
+    "font-src 'self'; "
+    "img-src 'self' data:; "
+    "connect-src 'self' https://raw.githubusercontent.com https://www.cisa.gov "
+    "https://www.ransomlook.io https://data.ransomware.live; "
+    "object-src 'none'; "
+    "base-uri 'none'; "
+    "form-action 'none'; "
+    "frame-ancestors 'none'"
+)
+
+
+class SecurityHeadersMiddleware:
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_wrapped(message: dict[str, Any]) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                headers.setdefault("X-Content-Type-Options", "nosniff")
+                headers.setdefault("X-Frame-Options", "DENY")
+                headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+                headers.setdefault("Content-Security-Policy", DOCUMENT_CSP)
+            await send(message)
+
+        await self.app(scope, receive, send_wrapped)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -153,6 +193,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
+# Outer so preflight responses from CORS also carry the headers.
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 def _key_bytes(value: str) -> bytes:
@@ -233,6 +275,7 @@ async def health() -> dict[str, Any]:
 @app.get("/api/kpis")
 async def api_kpis() -> dict[str, Any]:
     kpis = await get_kpis()
+    kpis["epss_p2_threshold"] = EPSS_P2_THRESHOLD
     kpis["last_scheduled_scan"] = await get_meta("last_scheduled_scan")
     kpis["last_manual_scan"] = await get_meta("last_manual_scan")
     last = await _last_harvest()

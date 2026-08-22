@@ -200,7 +200,10 @@ const I18N = {
     scanBusy: "已有巡檢進行中",
     // 寫入端點預設 fail closed（見 backend/main.py::require_api_key）。401 若不
     // 明說，畫面只會跳一個 api_error，看起來像壞掉而不是「未設定金鑰」。
-    scanAuth: "寫入端點需 API 金鑰：請設定 SOC_CTI_API_KEY 後重啟服務",
+    scanAuth: "寫入端點需 API 金鑰：請按「金鑰」貼上 SOC_CTI_API_KEY，或設環境變數後重啟",
+    apiKeyBtn: "金鑰",
+    apiKeyPrompt: "本機寫入用 API 金鑰（只存在此分頁的 sessionStorage）",
+    loadFailed: "資料載入失敗，請重新整理",
     lastManual: "上次手動",
     lastSched: "上次排程",
     nextCooldown: "下次可巡檢",
@@ -413,7 +416,10 @@ const I18N = {
     scanBlockedNote: "Entries marked as needing Actions are not errors: those sources disallow cross-origin reads from a browser. For a full harvest use repo → Actions → Deploy SOC CTI Dashboard → Run workflow.",
     scanCooldown: "Cooling down — try again later",
     scanBusy: "A scan is already running",
-    scanAuth: "Write endpoints need an API key: set SOC_CTI_API_KEY and restart the server",
+    scanAuth: "Write endpoints need an API key: click Key and paste SOC_CTI_API_KEY",
+    apiKeyBtn: "Key",
+    apiKeyPrompt: "API key for local writes (sessionStorage for this tab only)",
+    loadFailed: "Failed to load data — refresh the page",
     lastManual: "Last manual",
     lastSched: "Last scheduled",
     nextCooldown: "Next scan in",

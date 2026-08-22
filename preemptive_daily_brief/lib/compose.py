@@ -324,7 +324,7 @@ def compose_brief(
         "coverage": "前 24–48h",
         "generated_at": dt.isoformat(),
         "generated_at_utc": dt.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-        "generated_at_taipei": dt.strftime("%Y-%m-%d %H:%M TST"),
+        "generated_at_taipei": dt.strftime("%Y-%m-%d %H:%M UTC+8"),
         "stats": stats,
         "exec_summary": exec_lines,
         "must_do": must,
