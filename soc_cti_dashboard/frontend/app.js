@@ -516,6 +516,10 @@ async function staticApi(path, opts) {
     if (tw) items = items.filter((i) => i.is_tw_industry);
     if (finance) items = items.filter((i) => i.is_finance);
     if (microsoft) items = items.filter((i) => i.is_microsoft);
+    const status = u.searchParams.get("status") || "open";
+    if (status && status !== "all") {
+      items = items.filter((i) => (i.status || "open") === status);
+    }
     const layer = u.searchParams.get("layer");
     if (layer) items = items.filter((i) => i.layer_id === layer);
     if (q) {

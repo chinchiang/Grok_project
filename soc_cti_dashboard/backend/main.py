@@ -304,7 +304,7 @@ async def api_intel(
     layer: str | None = None,
     q: str | None = None,
     limit: int = Query(150, ge=1, le=500),
-    status: str | None = Query(None, pattern="^(open|stale)$"),
+    status: str | None = Query("open", pattern="^(open|stale|all)$"),
     verdict: str | None = Query(
         None, pattern="^(true_positive|false_positive|unknown)$"
     ),
@@ -320,7 +320,7 @@ async def api_intel(
         layer_id=layer,
         q=q,
         limit=limit,
-        status=status,
+        status=None if status in (None, "all") else status,
         verdict=verdict,
         unreviewed_only=unreviewed,
     )
@@ -377,9 +377,9 @@ def _split_ransom(items: list[dict[str, Any]]) -> tuple[list, list]:
 
 @app.get("/api/tw-dashboard")
 async def api_tw_dashboard() -> dict[str, Any]:
-    all_tw = await query_intel(tw_only=True, limit=200)
+    all_tw = await query_intel(tw_only=True, limit=200, status="open")
     ransom, non_ransom = _split_ransom(all_tw)
-    global_ransom = await query_intel(ransomware_only=True, limit=80)
+    global_ransom = await query_intel(ransomware_only=True, limit=80, status="open")
     by_entity = _entity_counts(all_tw, "tw_entities")
     return {
         "watchlist": TW_ELECTRONICS_WATCHLIST,
@@ -400,7 +400,7 @@ async def api_tw_dashboard() -> dict[str, Any]:
 
 @app.get("/api/finance-dashboard")
 async def api_finance_dashboard() -> dict[str, Any]:
-    items = await query_intel(finance_only=True, limit=200)
+    items = await query_intel(finance_only=True, limit=200, status="open")
     ransom, other = _split_ransom(items)
     kev_fin = [i for i in items if i.get("source_name") and "KEV" in i["source_name"]]
     return {
@@ -421,13 +421,13 @@ async def api_finance_dashboard() -> dict[str, Any]:
 
 @app.get("/api/microsoft-dashboard")
 async def api_microsoft_dashboard() -> dict[str, Any]:
-    items = await query_intel(microsoft_only=True, limit=300)
+    items = await query_intel(microsoft_only=True, limit=300, status="open")
     return build_microsoft_dashboard(items)
 
 
 @app.get("/api/preemptive-brief")
 async def api_preemptive_brief(limit: int = Query(300, ge=1, le=500)) -> dict[str, Any]:
-    items = await query_intel(limit=limit)
+    items = await query_intel(limit=limit, status="open")
     return build_preemptive_brief(items)
 
 

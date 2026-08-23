@@ -10,6 +10,8 @@ Single-source / X / media-indirect must stay unverified + P3.
 
 import pytest
 
+from test_lifecycle_and_review import store  # noqa: F401
+
 from backend.collectors import (
     _group_key,
     _ransom_match,
@@ -208,6 +210,17 @@ def test_cjk_stripping_does_not_eat_the_name(name):
     assert _victim_name_key(name) == name
 
 
+def test_dual_source_collector_ages_matching_singles():
+    """Wiring guard: a new dual card must call mark_superseded_ransom_rows,
+    otherwise the Live/Look singles stay on the board next to it."""
+    import inspect
+
+    from backend.collectors.ransom import dual_source_ransom_trackers
+
+    src = inspect.getsource(dual_source_ransom_trackers)
+    assert "mark_superseded_ransom_rows" in src
+
+
 def test_cjk_victims_dual_confirm_across_trackers():
     """The end-to-end case: one tracker lists the full legal name, the other the
     short form — previously they never matched."""
@@ -218,3 +231,159 @@ def test_cjk_victims_dual_confirm_across_trackers():
         )
         is not None
     )
+
+
+# --- dual-source single-row sync (age out Live/Look cards) --------------------
+
+@pytest.mark.asyncio
+async def test_dual_card_ages_live_and_look_singles(store):
+    """Once both trackers list the same victim, only the dual card stays open."""
+    from backend.collectors.ransom import _upsert_ransom_victim_item
+
+    await store.init_db()
+    await _upsert_ransom_victim_item(
+        source_id="ransomlive",
+        source_name="Ransomware.live",
+        victim="Acme Manufacturing",
+        group="lockbit3",
+        discovered="2026-07-01",
+        website="https://www.acme.com",
+    )
+    await _upsert_ransom_victim_item(
+        source_id="ransomlook",
+        source_name="RansomLook",
+        victim="Acme Manufacturing Ltd",
+        group="LockBit 3.0",
+        discovered="2026-07-03",
+        website="https://acme.com",
+    )
+    await _upsert_ransom_victim_item(
+        source_id="ransomlive",
+        source_name="Ransomware.live",
+        victim="Globex Industries",
+        group="play",
+        discovered="2026-07-01",
+    )
+    dual_id = await _upsert_ransom_victim_item(
+        source_id="ransom-dual",
+        source_name="Ransomware.live + RansomLook",
+        victim="Acme Manufacturing",
+        group="lockbit3",
+        discovered="2026-07-01",
+        website="https://www.acme.com",
+        extra_sources=["RansomLook (name=0.95+group=1.00+within7d)"],
+        dual_verified=True,
+    )
+    n = await store.mark_superseded_ransom_rows(
+        victim="Acme Manufacturing",
+        group="lockbit3",
+        dual_id=dual_id,
+        website="https://www.acme.com",
+    )
+    assert n == 2
+
+    items = {i["source_name"]: i for i in await store.query_intel(limit=20)}
+    assert items["Ransomware.live + RansomLook"]["id"] == dual_id
+    assert items["Ransomware.live + RansomLook"]["status"] == "open"
+    acme_live = [
+        i
+        for i in await store.query_intel(limit=20)
+        if i["source_name"] == "Ransomware.live" and "Acme" in (i["title"] or "")
+    ][0]
+    acme_look = [
+        i
+        for i in await store.query_intel(limit=20)
+        if i["source_name"] == "RansomLook"
+    ][0]
+    globex = [
+        i
+        for i in await store.query_intel(limit=20)
+        if "Globex" in (i["title"] or "")
+    ][0]
+    assert acme_live["status"] == "stale"
+    assert acme_live["superseded_by"] == dual_id
+    assert acme_look["status"] == "stale"
+    assert acme_look["superseded_by"] == dual_id
+    assert globex["status"] == "open"
+    open_ids = [i["id"] for i in await store.query_intel(status="open", limit=20)]
+    assert dual_id in open_ids
+    assert acme_live["id"] not in open_ids
+    assert globex["id"] in open_ids
+
+
+@pytest.mark.asyncio
+async def test_reharvest_keeps_superseded_singles_stale(store):
+    from backend.collectors.ransom import _upsert_ransom_victim_item
+
+    await store.init_db()
+    await _upsert_ransom_victim_item(
+        source_id="ransomlive",
+        source_name="Ransomware.live",
+        victim="Acme Manufacturing",
+        group="lockbit3",
+        discovered="2026-07-01",
+    )
+    dual_id = await _upsert_ransom_victim_item(
+        source_id="ransom-dual",
+        source_name="Ransomware.live + RansomLook",
+        victim="Acme Manufacturing",
+        group="lockbit3",
+        discovered="2026-07-01",
+        extra_sources=["RansomLook"],
+        dual_verified=True,
+    )
+    await store.mark_superseded_ransom_rows(
+        victim="Acme Manufacturing", group="lockbit3", dual_id=dual_id
+    )
+    await _upsert_ransom_victim_item(
+        source_id="ransomlive",
+        source_name="Ransomware.live",
+        victim="Acme Manufacturing",
+        group="lockbit3",
+        discovered="2026-07-01",
+        description="re-observed this harvest",
+    )
+    live = [
+        i
+        for i in await store.query_intel(limit=10)
+        if i["source_name"] == "Ransomware.live"
+    ][0]
+    assert live["status"] == "stale"
+    assert live["superseded_by"] == dual_id
+
+
+@pytest.mark.asyncio
+async def test_domain_path_ages_look_row_with_a_different_name(store):
+    """Domain dual-confirm can join unrelated post_titles; both singles still
+    have to leave the board."""
+    from backend.collectors.ransom import _upsert_ransom_victim_item
+
+    await store.init_db()
+    await _upsert_ransom_victim_item(
+        source_id="ransomlook",
+        source_name="RansomLook",
+        victim="Acme",
+        group="LockBit 3.0",
+        website="https://acme.com.tw",
+        discovered="2026-07-03",
+    )
+    dual_id = await _upsert_ransom_victim_item(
+        source_id="ransom-dual",
+        source_name="Ransomware.live + RansomLook",
+        victim="Totally Different Ltd",
+        group="lockbit3",
+        website="https://www.acme.com.tw/en",
+        discovered="2026-07-01",
+        extra_sources=["RansomLook (domain=acme.com.tw)"],
+        dual_verified=True,
+    )
+    n = await store.mark_superseded_ransom_rows(
+        victim="Totally Different Ltd",
+        group="lockbit3",
+        dual_id=dual_id,
+        website="https://www.acme.com.tw/en",
+    )
+    assert n == 1
+    look = (await store.query_intel(limit=5, status="stale"))[0]
+    assert look["source_name"] == "RansomLook"
+    assert look["superseded_by"] == dual_id

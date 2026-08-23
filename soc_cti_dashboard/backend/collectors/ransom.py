@@ -31,7 +31,7 @@ from ..config import (
     RANSOMLOOK_RSS_URL,
     USER_AGENT,
 )
-from ..database import now_iso, upsert_intel
+from ..database import mark_superseded_ransom_rows, now_iso, upsert_intel
 from ..dates import day_bucket
 from ..ops import explain_priority, guess_assets, pick_sop
 from ..priority import assign_priority, enrich_flags
@@ -256,7 +256,7 @@ async def _upsert_ransom_victim_item(
     url: str = "",
     extra_sources: list[str] | None = None,
     dual_verified: bool = False,
-) -> None:
+) -> str:
     """Shared L6 ransomware-victim card builder (leak-site indirect)."""
     victim = (victim or "").strip() or "unknown-victim"
     group = (group or "").strip() or "unknown-group"
@@ -359,9 +359,10 @@ async def _upsert_ransom_victim_item(
         else "https://www.ransomlook.io/"
     )
 
+    item_id = _id(source_id, victim, group, discovered or published or "")
     await upsert_intel(
         {
-            "id": _id(source_id, victim, group, discovered or published or ""),
+            "id": item_id,
             "title": title_zh,
             "title_en": title_en,
             "summary": summary_zh,
@@ -426,6 +427,7 @@ async def _upsert_ransom_victim_item(
             ),
         }
     )
+    return item_id
 
 
 async def collect_ransomware_live(max_items: int | None = None) -> int:
@@ -779,7 +781,7 @@ async def dual_source_ransom_trackers() -> int:
                 or partner.get("group_name")
                 or ""
             )
-            await _upsert_ransom_victim_item(
+            dual_id = await _upsert_ransom_victim_item(
                 source_id="ransom-dual",
                 source_name="Ransomware.live + RansomLook",
                 victim=victim,
@@ -793,6 +795,12 @@ async def dual_source_ransom_trackers() -> int:
                 url=str(row.get("post_url") or "https://www.ransomware.live/"),
                 extra_sources=[f"RansomLook ({evidence})"],
                 dual_verified=True,
+            )
+            await mark_superseded_ransom_rows(
+                victim=victim,
+                group=group,
+                dual_id=dual_id,
+                website=str(row.get("website") or ""),
             )
             elevated += 1
 

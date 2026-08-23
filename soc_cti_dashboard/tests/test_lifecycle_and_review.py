@@ -228,3 +228,99 @@ async def test_like_wildcards_in_search_are_escaped(store):
     assert [i["id"] for i in await store.query_intel(q="%")] == ["a"]
     # '_' likewise is a literal, so it must not match the single-char gap in "CVE-2026"
     assert [i["id"] for i in await store.query_intel(q="CVE_2026")] == ["c"]
+
+
+# --- 2.9 false-positive demotion (engine grade vs operational board) ----------
+
+@pytest.mark.asyncio
+async def test_false_positive_leaves_the_p0_board_but_keeps_engine_grade(store):
+    """An analyst FP must leave P0 operational counts without rewriting
+    precision: the scorer said P0, and that is what we measure."""
+    await store.init_db()
+    await store.upsert_intel(row(priority="P0", verification="confirmed"))
+    assert await store.set_analyst_verdict("i1", "false_positive", "媒體單篇", "kai")
+
+    got = (await store.query_intel(limit=5))[0]
+    assert got["priority"] == "P3"
+    assert got["engine_priority"] == "P0"
+    assert got["analyst_verdict"] == "false_positive"
+    assert got["demoted_by_verdict"] is True
+
+    kpis = await store.get_kpis()
+    assert kpis["p0_count"] == 0
+    acc = await store.get_rule_accuracy()
+    assert acc["dimensions"]["priority_P0"]["false_positive"] == 1
+    assert acc["dimensions"]["priority_P0"]["precision"] == 0.0
+    assert acc["dimensions"]["priority_P3"]["false_positive"] == 0
+
+
+@pytest.mark.asyncio
+async def test_reharvest_cannot_restore_a_false_positive_p0(store):
+    await store.init_db()
+    await store.upsert_intel(row(priority="P0"))
+    await store.set_analyst_verdict("i1", "false_positive")
+    await store.upsert_intel(row(priority="P0", title="Example advisory (updated)"))
+
+    got = (await store.query_intel(limit=5))[0]
+    assert got["priority"] == "P3"
+    assert got["engine_priority"] == "P0"
+    assert got["title"].endswith("(updated)")
+    assert got["analyst_verdict"] == "false_positive"
+    assert (await store.get_kpis())["p0_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_clearing_a_false_positive_restores_engine_priority(store):
+    await store.init_db()
+    await store.upsert_intel(row(priority="P0"))
+    await store.set_analyst_verdict("i1", "false_positive")
+    await store.set_analyst_verdict("i1", "true_positive")
+
+    got = (await store.query_intel(limit=5))[0]
+    assert got["priority"] == "P0"
+    assert got.get("demoted_by_verdict") in (None, False)
+    assert (await store.get_kpis())["p0_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_aggregation_does_not_upgrade_a_false_positive(store):
+    await store.init_db()
+    await store.upsert_intel(row(priority="P3", verification="unverified"))
+    await store.set_analyst_verdict("i1", "false_positive")
+    await store.apply_aggregation(
+        "i1",
+        sources=["The Hacker News", "BleepingComputer"],
+        priority="P2",
+        verification="credible",
+        admiralty="B2",
+        rationale_zh="雙源",
+        rationale_en="dual",
+        corroborated_by=["BleepingComputer"],
+    )
+    got = (await store.query_intel(limit=5))[0]
+    assert got["priority"] == "P3"
+    assert got["verification"] == "unverified"
+
+
+@pytest.mark.asyncio
+async def test_cached_false_positive_p0_is_demoted_on_init(store):
+    """Rows FPed before demotion existed still sit at P0 in the Actions cache."""
+    import aiosqlite
+
+    await store.init_db()
+    await store.upsert_intel(row(priority="P0"))
+    async with aiosqlite.connect(store.DB_PATH) as conn:
+        await conn.execute(
+            "UPDATE intel_items SET analyst_verdict='false_positive', "
+            "priority='P0' WHERE id='i1'"
+        )
+        await conn.commit()
+        n = await store._backfill_false_positive_demotion(conn)
+        await conn.commit()
+        assert n == 1
+        assert await store._backfill_false_positive_demotion(conn) == 0
+
+    got = (await store.query_intel(limit=5))[0]
+    assert got["priority"] == "P3"
+    assert got["engine_priority"] == "P0"
+    assert (await store.get_kpis())["p0_count"] == 0

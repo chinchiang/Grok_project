@@ -171,7 +171,7 @@ async def export() -> None:
         "finished_at": metrics.get("finished_at"),
     }
 
-    items = public_only(slim_all(await query_intel(limit=400)))
+    items = public_only(slim_all(await query_intel(limit=400, status="open")))
     by_priority = {
         "P0": [i for i in items if i.get("priority") == "P0"],
         "P1": [i for i in items if i.get("priority") == "P1"],
@@ -180,20 +180,22 @@ async def export() -> None:
     }
     high_risk = by_priority["P0"] + by_priority["P1"]
 
-    all_tw = public_only(slim_all(await query_intel(tw_only=True, limit=200)))
+    all_tw = public_only(
+        slim_all(await query_intel(tw_only=True, limit=200, status="open"))
+    )
     ransom, non_ransom = _split_ransom(all_tw)
     global_ransom = public_only(
-        slim_all(await query_intel(ransomware_only=True, limit=80))
+        slim_all(await query_intel(ransomware_only=True, limit=80, status="open"))
     )
 
     finance_items = public_only(
-        slim_all(await query_intel(finance_only=True, limit=200))
+        slim_all(await query_intel(finance_only=True, limit=200, status="open"))
     )
     fin_ransom, fin_other = _split_ransom(finance_items)
     fin_kev = [i for i in finance_items if i.get("source_name") and "KEV" in i["source_name"]]
 
     ms_items = public_only(
-        slim_all(await query_intel(microsoft_only=True, limit=300))
+        slim_all(await query_intel(microsoft_only=True, limit=300, status="open"))
     )
     ms_payload = build_microsoft_dashboard(ms_items)
 

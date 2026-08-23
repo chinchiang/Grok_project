@@ -135,6 +135,7 @@ async def test_backfill_is_idempotent_and_keeps_verdicts(store):
     item = (await store.query_intel(q="Installer"))[0]
     assert item["analyst_verdict"] == "false_positive"
     assert item["verdict_note"] == "安裝檔"
+    assert item["priority"] == "P3"
 
 
 async def _run(store) -> int:

@@ -150,6 +150,7 @@ async def init_db() -> None:
         await _backfill_fake_corroboration(db)
         await _backfill_feed_dates(db)
         await _backfill_watchlist_flags(db)
+        await _backfill_false_positive_demotion(db)
         await db.commit()
 
 
@@ -347,7 +348,8 @@ async def _backfill_watchlist_flags(db: aiosqlite.Connection) -> int:
         "is_ransomware, is_tw_industry, tw_entities_json, "
         "is_finance, finance_entities_json, is_microsoft, ms_entities_json, "
         "tags_json, sources_json, layer_id, verification, priority, "
-        "known_ransomware_campaign, epss, source_name, extras_json "
+        "known_ransomware_campaign, epss, source_name, extras_json, "
+        "analyst_verdict "
         "FROM intel_items"
     )
     rows = await cur.fetchall()
@@ -359,7 +361,7 @@ async def _backfill_watchlist_flags(db: aiosqlite.Connection) -> int:
             item_id, title, title_en, summary, vendor, product,
             is_ransom, is_tw, tw_json, is_fin, fin_json, is_ms, ms_json,
             tags_json, sources_json, layer_id, verification, priority,
-            known_ransom, epss, source_name, extras_json,
+            known_ransom, epss, source_name, extras_json, analyst_verdict,
         ) = r
         flags = enrich_flags(
             title or "",
@@ -415,29 +417,26 @@ async def _backfill_watchlist_flags(db: aiosqlite.Connection) -> int:
             force_p3_review=force_p3,
             verification=verification or "unverified",
         )
+        extras = _parse_extras(extras_json)
+        extras["engine_priority"] = new_priority
+        if analyst_verdict == "false_positive":
+            new_priority = "P3"
+            extras["demoted_by_verdict"] = True
 
-        extras_out = extras_json
-        if new_priority != (priority or ""):
-            try:
-                extras = json.loads(extras_json or "{}")
-            except json.JSONDecodeError:
-                extras = {}
-            if not isinstance(extras, dict):
-                extras = {}
-            rz, re_ = explain_priority(
-                priority=new_priority,
-                in_kev=in_kev,
-                known_ransomware_campaign=bool(known_ransom),
-                is_ransomware=bool(new_ransom),
-                is_tw_industry=bool(new_is_tw),
-                epss=epss,
-                source_count=source_count,
-                forced_p3_review=force_p3,
-                verification=verification or "unverified",
-            )
-            extras["priority_rationale"] = rz
-            extras["priority_rationale_en"] = re_
-            extras_out = json.dumps(extras, ensure_ascii=False, default=str)
+        rz, re_ = explain_priority(
+            priority=new_priority,
+            in_kev=in_kev,
+            known_ransomware_campaign=bool(known_ransom),
+            is_ransomware=bool(new_ransom),
+            is_tw_industry=bool(new_is_tw),
+            epss=epss,
+            source_count=source_count,
+            forced_p3_review=force_p3,
+            verification=verification or "unverified",
+        )
+        extras["priority_rationale"] = rz
+        extras["priority_rationale_en"] = re_
+        extras_out = json.dumps(extras, ensure_ascii=False, default=str)
 
         await db.execute(
             "UPDATE intel_items SET "
@@ -464,6 +463,34 @@ async def _backfill_watchlist_flags(db: aiosqlite.Connection) -> int:
     return fixed
 
 
+async def _backfill_false_positive_demotion(db: aiosqlite.Connection) -> int:
+    """Keep analyst FPs off the operational P0/P1 board after a cache restore.
+
+    Verdicts already survived harvest, but older set_analyst_verdict left
+    priority untouched. The high-risk lists filter by priority, so a P0
+    marked false_positive stayed on the board. Store the engine grade in
+    extras.engine_priority so rule precision still sees what the scorer said.
+    Idempotent: already-P3 FPs no longer match.
+    """
+    cur = await db.execute(
+        "SELECT id, priority, extras_json FROM intel_items "
+        "WHERE analyst_verdict='false_positive' AND priority<>'P3'"
+    )
+    rows = await cur.fetchall()
+    await cur.close()
+    fixed = 0
+    for item_id, priority, extras_json in rows:
+        extras = _parse_extras(extras_json)
+        extras.setdefault("engine_priority", priority)
+        extras["demoted_by_verdict"] = True
+        await db.execute(
+            "UPDATE intel_items SET priority='P3', extras_json=? WHERE id=?",
+            (json.dumps(extras, ensure_ascii=False, default=str), item_id),
+        )
+        fixed += 1
+    return fixed
+
+
 def _pack_extras(item: dict[str, Any]) -> str:
     """Serialize ops/display extras into extras_json."""
     if item.get("extras_json"):
@@ -473,6 +500,7 @@ def _pack_extras(item: dict[str, Any]) -> str:
     extras = {
         "priority_rationale": item.get("priority_rationale"),
         "priority_rationale_en": item.get("priority_rationale_en"),
+        "engine_priority": item.get("engine_priority") or item.get("priority"),
         "evidence_count": item.get("evidence_count"),
         "assets": item.get("assets")
         or (
@@ -490,6 +518,14 @@ def _pack_extras(item: dict[str, Any]) -> str:
     return json.dumps(extras, ensure_ascii=False, default=str)
 
 
+def _parse_extras(raw: Any) -> dict[str, Any]:
+    try:
+        extras = json.loads(raw or "{}") if not isinstance(raw, dict) else raw
+    except json.JSONDecodeError:
+        extras = {}
+    return extras if isinstance(extras, dict) else {}
+
+
 async def upsert_intel(item: dict[str, Any]) -> None:
     # Defaults for optional category fields (older callers)
     item.setdefault("is_finance", 0)
@@ -504,8 +540,26 @@ async def upsert_intel(item: dict[str, Any]) -> None:
     item["date_added"] = normalize_feed_date(item.get("date_added"))
     item.setdefault("first_seen", item.get("fetched_at") or now_iso())
     item.setdefault("last_seen", item.get("fetched_at") or now_iso())
+    item.setdefault("status", "open")
 
     async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT analyst_verdict, extras_json FROM intel_items WHERE id=?",
+            (item.get("id"),),
+        ) as cur:
+            existing = await cur.fetchone()
+        if existing:
+            old_extras = _parse_extras(existing["extras_json"])
+            extras = _parse_extras(item["extras_json"])
+            extras["engine_priority"] = item.get("priority")
+            if old_extras.get("superseded_by"):
+                extras["superseded_by"] = old_extras["superseded_by"]
+                item["status"] = "stale"
+            if existing["analyst_verdict"] == "false_positive":
+                item["priority"] = "P3"
+                extras["demoted_by_verdict"] = True
+            item["extras_json"] = json.dumps(extras, ensure_ascii=False, default=str)
         await db.execute(
             """
             INSERT INTO intel_items (
@@ -523,7 +577,7 @@ async def upsert_intel(item: dict[str, Any]) -> None:
                 :is_finance, :finance_entities_json, :is_microsoft, :ms_entities_json,
                 :known_ransomware_campaign, :epss, :cvss, :date_added, :published_at,
                 :fetched_at, :url, :admiralty, :raw_json, :tags_json, :extras_json,
-                :first_seen, :last_seen, 'open'
+                :first_seen, :last_seen, :status
             )
             ON CONFLICT(id) DO UPDATE SET
                 title=excluded.title,
@@ -556,10 +610,11 @@ async def upsert_intel(item: dict[str, Any]) -> None:
                 raw_json=excluded.raw_json,
                 tags_json=excluded.tags_json,
                 extras_json=excluded.extras_json,
-                -- Lifecycle: first sighting is immutable, re-observation reopens
+                -- Lifecycle: first sighting is immutable; superseded singles
+                -- and false-positives stay out of the open operational counts.
                 first_seen=COALESCE(intel_items.first_seen, excluded.first_seen),
                 last_seen=excluded.last_seen,
-                status='open'
+                status=excluded.status
                 -- analyst_verdict / verdict_* are deliberately absent: a harvest
                 -- must never overwrite an analyst's review of an item.
             """,
@@ -608,11 +663,13 @@ async def apply_aggregation(
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         async with db.execute(
-            "SELECT extras_json, title, title_en FROM intel_items WHERE id=?",
+            "SELECT extras_json, title, title_en, analyst_verdict FROM intel_items WHERE id=?",
             (item_id,),
         ) as cur:
             row = await cur.fetchone()
         if row is None:
+            return
+        if row["analyst_verdict"] == "false_positive":
             return
         if verification != "unverified":
             title = _UNVERIFIED_PREFIX.sub("", row["title"] or "")
@@ -630,6 +687,7 @@ async def apply_aggregation(
         extras.update(
             {
                 "evidence_count": len(sources),
+                "engine_priority": priority,
                 "priority_rationale": rationale_zh,
                 "priority_rationale_en": rationale_en,
                 "corroborated_by": corroborated_by,
@@ -648,6 +706,65 @@ async def apply_aggregation(
             ),
         )
         await db.commit()
+
+
+async def mark_superseded_ransom_rows(
+    *, victim: str, group: str, dual_id: str, website: str = ""
+) -> int:
+    """Age out single-source leak-site cards once dual-source exists.
+
+    dual_source_ransom_trackers used to insert a new ransom-dual id and leave
+    the Live/Look rows as unverified P3, so the same victim appeared twice.
+    Match by victim substring / name-key, group alias, or shared website
+    domain (the same three join keys the dual-source rule uses).
+    """
+    from .collectors.ransom import _group_key, _victim_domain, _victim_name_key
+
+    victim_l = (victim or "").strip().lower()
+    group_l = (group or "").strip().lower()
+    victim_key = _victim_name_key(victim)
+    group_key = _group_key(group)
+    dual_domain = _victim_domain(website)
+    if (not victim_l and not dual_domain) or not dual_id:
+        return 0
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, title, vendor, product, extras_json FROM intel_items "
+            "WHERE id<>? AND status='open' AND layer_id='L6' AND is_ransomware=1 "
+            "AND source_name IN ('Ransomware.live','RansomLook')",
+            (dual_id,),
+        ) as cur:
+            rows = await cur.fetchall()
+        fixed = 0
+        for row in rows:
+            title = (row["title"] or "").lower()
+            vendor = (row["vendor"] or "").lower()
+            title_key = _victim_name_key(row["title"] or "")
+            row_group = _group_key(row["vendor"] or "")
+            row_domain = _victim_domain(row["product"] or "")
+            domain_hit = bool(dual_domain and row_domain and dual_domain == row_domain)
+            victim_hit = bool(victim_l) and (
+                victim_l in title
+                or (len(victim_key) >= 5 and victim_key in title_key)
+            )
+            if not victim_hit and not domain_hit:
+                continue
+            if group_key and not domain_hit:
+                if row_group:
+                    if row_group != group_key:
+                        continue
+                elif group_l not in title and group_l not in vendor:
+                    continue
+            extras = _parse_extras(row["extras_json"])
+            extras["superseded_by"] = dual_id
+            await db.execute(
+                "UPDATE intel_items SET status='stale', extras_json=? WHERE id=?",
+                (json.dumps(extras, ensure_ascii=False, default=str), row["id"]),
+            )
+            fixed += 1
+        await db.commit()
+        return fixed
 
 
 async def mark_stale_items(days: int = STALE_AFTER_DAYS) -> int:
@@ -671,14 +788,46 @@ async def mark_stale_items(days: int = STALE_AFTER_DAYS) -> int:
 async def set_analyst_verdict(
     item_id: str, verdict: str, note: str = "", by: str = "analyst"
 ) -> bool:
-    """Record a human review outcome (2.9). Returns False if the item is unknown."""
+    """Record a human review outcome (2.9). Returns False if the item is unknown.
+
+    A false_positive demotes the *operational* priority to P3 so it leaves the
+    P0 board and open KPI. The engine's original grade is kept in
+    extras.engine_priority so rule precision still measures what the scorer
+    said, not the demoted display value. Clearing the FP (unknown / TP)
+    restores that grade.
+    """
     if verdict not in VALID_VERDICTS:
         raise ValueError(f"verdict must be one of {VALID_VERDICTS}")
     async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT priority, extras_json FROM intel_items WHERE id=?",
+            (item_id,),
+        ) as cur:
+            row = await cur.fetchone()
+        if row is None:
+            return False
+        extras = _parse_extras(row["extras_json"])
+        engine = extras.get("engine_priority") or row["priority"]
+        extras["engine_priority"] = engine
+        if verdict == "false_positive":
+            new_priority = "P3"
+            extras["demoted_by_verdict"] = True
+        else:
+            new_priority = engine if engine in ("P0", "P1", "P2", "P3") else row["priority"]
+            extras.pop("demoted_by_verdict", None)
         cur = await db.execute(
             "UPDATE intel_items SET analyst_verdict=?, verdict_note=?, "
-            "verdict_at=?, verdict_by=? WHERE id=?",
-            (verdict, note[:1000], now_iso(), by[:80], item_id),
+            "verdict_at=?, verdict_by=?, priority=?, extras_json=? WHERE id=?",
+            (
+                verdict,
+                note[:1000],
+                now_iso(),
+                by[:80],
+                new_priority,
+                json.dumps(extras, ensure_ascii=False, default=str),
+                item_id,
+            ),
         )
         await db.commit()
         return (cur.rowcount or 0) > 0
@@ -691,11 +840,12 @@ async def get_rule_accuracy() -> dict[str, Any]:
     nothing recorded whether a P0 was real. Dimensions are the levers that
     actually decide priority, so each one gets its own precision figure.
     """
+    scored = "COALESCE(json_extract(extras_json,'$.engine_priority'), priority)"
     dimensions = {
-        "priority_P0": "priority='P0'",
-        "priority_P1": "priority='P1'",
-        "priority_P2": "priority='P2'",
-        "priority_P3": "priority='P3'",
+        "priority_P0": f"{scored}='P0'",
+        "priority_P1": f"{scored}='P1'",
+        "priority_P2": f"{scored}='P2'",
+        "priority_P3": f"{scored}='P3'",
         "verification_confirmed": "verification='confirmed'",
         "verification_credible": "verification='credible'",
         "verification_unverified": "verification='unverified'",
@@ -990,7 +1140,10 @@ async def get_kpis() -> dict[str, Any]:
     d7 = days_ago_taipei(7)
     d30 = days_ago_taipei(30)
     d60 = days_ago_taipei(60)
-    open_ = "status='open'"
+    open_ = (
+        "status='open' AND (analyst_verdict IS NULL OR analyst_verdict='' "
+        "OR analyst_verdict<>'false_positive')"
+    )
 
     big5_sql, big5_p = _entity_clause(
         "tw_entities_json",
