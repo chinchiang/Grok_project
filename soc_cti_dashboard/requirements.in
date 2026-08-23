@@ -1,0 +1,14 @@
+# Direct dependencies. Compile the hashed lockfile with:
+#   pip-compile --generate-hashes --no-strip-extras -o requirements.txt requirements.in
+#   pip-compile --generate-hashes --no-strip-extras -o requirements-dev.txt requirements-dev.in
+#
+# Upper bounds keep a twice-daily harvest from resolving to an unexpected
+# major. Bump the range here, recompile, and let the sanity job prove it.
+fastapi>=0.115.0,<1.0
+uvicorn[standard]>=0.32.0,<1.0
+httpx>=0.27.0,<0.29
+apscheduler>=3.10.4,<4.0
+pydantic>=2.9.0,<3.0
+feedparser>=6.0.11,<7.0
+python-dateutil>=2.9.0,<3.0
+aiosqlite>=0.20.0,<1.0

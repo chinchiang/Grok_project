@@ -1,0 +1,5 @@
+# Test extras on top of the runtime set. Compile with:
+#   pip-compile --generate-hashes --no-strip-extras -o requirements-dev.txt requirements-dev.in
+-r requirements.in
+pytest>=8.3,<10
+pytest-asyncio>=0.24,<2

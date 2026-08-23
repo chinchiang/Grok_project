@@ -249,7 +249,7 @@ backend/
 
 ```powershell
 cd soc_cti_dashboard
-pip install -r requirements.txt pytest pytest-asyncio
+pip install --require-hashes -r requirements-dev.txt
 $env:PYTHONPATH = "."
 python -m pytest tests/ -q
 ```
