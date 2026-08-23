@@ -83,9 +83,14 @@ jobs:
 
   build-and-deploy:
     needs: sanity
-    # Never publish from a pull request: it would push a branch's output to the
-    # live Pages site and needs the github-pages environment.
-    if: github.event_name != 'pull_request'
+    # Never publish from a pull request, and never from a feature branch:
+    # workflow_dispatch can target any ref, and that used to ship that
+    # branch's harvest to the live Pages site. Required reviewers on
+    # github-pages would also pause the twice-daily cron, so the gate is
+    # the ref instead.
+    if: >
+      github.event_name != 'pull_request'
+      && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
     permissions:
       contents: read
       pages: write

@@ -122,6 +122,28 @@ def test_cors_default_targets_the_served_port():
     assert any("8787" in o for o in CORS_ORIGINS)
 
 
+def test_run_py_defaults_to_loopback():
+    """0.0.0.0 would publish unauthenticated GET /api/intel on the LAN."""
+    from pathlib import Path
+
+    src = (Path(__file__).resolve().parent.parent / "run.py").read_text(encoding="utf-8")
+    assert 'or "127.0.0.1"' in src
+    assert "SOC_CTI_BIND" in src
+
+
+def test_pages_deploy_is_limited_to_default_branches():
+    """workflow_dispatch on a feature branch must not publish Pages."""
+    from pathlib import Path
+
+    wf = (
+        Path(__file__).resolve().parents[2]
+        / ".github/workflows/deploy-cti-dashboard.yml"
+    ).read_text(encoding="utf-8")
+    assert "refs/heads/master" in wf
+    assert "refs/heads/main" in wf
+    assert "github.event_name != 'pull_request'" in wf
+
+
 def test_cors_allowlist_has_no_wildcard():
     """'*' with allow_credentials is rejected by browsers and widens the surface."""
     assert "*" not in CORS_ORIGINS

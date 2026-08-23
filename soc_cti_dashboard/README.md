@@ -173,6 +173,7 @@ python scripts/export_static.py
 |------|------|------|
 | `SOC_CTI_API_KEY`（或 `API_KEY`） | 未設＝**寫入端點停用（401）** | 設定後 `POST /api/scan/manual` 與判定端點需帶 `X-API-Key: <key>` 或 `Authorization: Bearer <key>`（常數時間比對）。**必設** |
 | `SOC_CTI_ALLOW_UNAUTHENTICATED` | `0` | 設 `1` 才恢復「未設金鑰即免驗證」的舊行為，僅供拋棄式本機測試；啟動時會記錄警告 |
+| `SOC_CTI_BIND` | `127.0.0.1` | `run.py` 監聽位址。GET `/api/intel` 無認證且含 `raw_json`，預設不綁區網。需要時才設 `0.0.0.0` |
 | `CORS_ORIGINS` | `http://127.0.0.1:8787,http://localhost:8787` | 逗號分隔允許來源。內建前端與 API **同源**，僅前端分離部署時需調整 |
 | `EPSS_P2_THRESHOLD` | 沿用 `EPSS_TOP_MIN`（`0.5`） | **P2 判級**門檻，與抓取門檻 `EPSS_TOP_MIN` 獨立；調整會直接改變評鑑結果 |
 
