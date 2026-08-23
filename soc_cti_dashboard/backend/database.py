@@ -149,6 +149,7 @@ async def init_db() -> None:
         await _backfill_html_entities(db)
         await _backfill_fake_corroboration(db)
         await _backfill_feed_dates(db)
+        await _backfill_watchlist_flags(db)
         await db.commit()
 
 
@@ -292,6 +293,172 @@ async def _backfill_feed_dates(db: aiosqlite.Connection) -> int:
         await db.execute(
             "UPDATE intel_items SET date_added=?, published_at=? WHERE id=?",
             (new_added, new_published, item_id),
+        )
+        fixed += 1
+    return fixed
+
+
+def _load_json_list(raw: Any) -> list:
+    if isinstance(raw, list):
+        return raw
+    if not raw:
+        return []
+    try:
+        out = json.loads(raw)
+        return out if isinstance(out, list) else []
+    except json.JSONDecodeError:
+        return []
+
+
+def _ents_key(ents: list) -> list[tuple]:
+    return sorted(
+        (
+            str(e.get("key") or ""),
+            str(e.get("matched") or ""),
+            str(e.get("tier") or ""),
+        )
+        for e in ents
+        if isinstance(e, dict)
+    )
+
+
+def _sync_flag_tag(tags: list, name: str, on: bool) -> list:
+    out = [t for t in tags if t != name]
+    if on:
+        out.append(name)
+    return out
+
+
+async def _backfill_watchlist_flags(db: aiosqlite.Connection) -> int:
+    """Re-run enrich_flags on cached rows after matcher changes.
+
+    Watchlist aliases (msi installer, ASX, gigabytes boilerplate) and
+    ransomware word-boundaries ship in priority.py, but the Actions cache
+    restores rows scored under the old rules. A feed only rewrites a row
+    while it still carries that item, so MSI-sample posts stay on the
+    Taiwan dashboard until they age out — unless startup re-derives the
+    flags. Idempotent: a second pass sees the same enrich_flags output.
+    """
+    from .ops import explain_priority
+    from .priority import assign_priority, enrich_flags
+
+    cur = await db.execute(
+        "SELECT id, title, title_en, summary, vendor, product, "
+        "is_ransomware, is_tw_industry, tw_entities_json, "
+        "is_finance, finance_entities_json, is_microsoft, ms_entities_json, "
+        "tags_json, sources_json, layer_id, verification, priority, "
+        "known_ransomware_campaign, epss, source_name, extras_json "
+        "FROM intel_items"
+    )
+    rows = await cur.fetchall()
+    await cur.close()
+
+    fixed = 0
+    for r in rows:
+        (
+            item_id, title, title_en, summary, vendor, product,
+            is_ransom, is_tw, tw_json, is_fin, fin_json, is_ms, ms_json,
+            tags_json, sources_json, layer_id, verification, priority,
+            known_ransom, epss, source_name, extras_json,
+        ) = r
+        flags = enrich_flags(
+            title or "",
+            " ".join(p for p in (summary, title_en) if p),
+            vendor or "",
+            product or "",
+        )
+        new_tw = flags["tw_entities"]
+        new_fin = flags["finance_entities"]
+        new_ms = flags["ms_entities"]
+        new_ransom = 1 if flags["is_ransomware"] else 0
+        new_is_tw = 1 if flags["is_tw_industry"] else 0
+        new_is_fin = 1 if flags["is_finance"] else 0
+        new_is_ms = 1 if flags["is_microsoft"] else 0
+
+        old_tw = _load_json_list(tw_json)
+        old_fin = _load_json_list(fin_json)
+        old_ms = _load_json_list(ms_json)
+        flags_changed = (
+            int(is_ransom or 0) != new_ransom
+            or int(is_tw or 0) != new_is_tw
+            or int(is_fin or 0) != new_is_fin
+            or int(is_ms or 0) != new_is_ms
+            or _ents_key(old_tw) != _ents_key(new_tw)
+            or _ents_key(old_fin) != _ents_key(new_fin)
+            or _ents_key(old_ms) != _ents_key(new_ms)
+        )
+        if not flags_changed:
+            continue
+
+        tags = _load_json_list(tags_json)
+        tags = _sync_flag_tag(tags, "ransomware", bool(new_ransom))
+        tags = _sync_flag_tag(tags, "tw-industry", bool(new_is_tw))
+        tags = _sync_flag_tag(tags, "finance", bool(new_is_fin))
+        tags = _sync_flag_tag(tags, "microsoft", bool(new_is_ms))
+
+        sources = _load_json_list(sources_json)
+        source_count = max(len(sources), 1)
+        in_kev = "kev" in (source_name or "").lower()
+        force_p3 = (verification or "unverified") == "unverified" and (
+            "darkweb-indirect" in tags
+            or "x-twitter" in tags
+            or "[X @" in (title or "")
+        )
+        new_priority = assign_priority(
+            in_kev=in_kev,
+            known_ransomware_campaign=bool(known_ransom),
+            is_ransomware=bool(new_ransom),
+            is_tw_industry=bool(new_is_tw),
+            epss=epss,
+            source_count=source_count,
+            layer_id=layer_id or "L6",
+            force_p3_review=force_p3,
+            verification=verification or "unverified",
+        )
+
+        extras_out = extras_json
+        if new_priority != (priority or ""):
+            try:
+                extras = json.loads(extras_json or "{}")
+            except json.JSONDecodeError:
+                extras = {}
+            if not isinstance(extras, dict):
+                extras = {}
+            rz, re_ = explain_priority(
+                priority=new_priority,
+                in_kev=in_kev,
+                known_ransomware_campaign=bool(known_ransom),
+                is_ransomware=bool(new_ransom),
+                is_tw_industry=bool(new_is_tw),
+                epss=epss,
+                source_count=source_count,
+                forced_p3_review=force_p3,
+                verification=verification or "unverified",
+            )
+            extras["priority_rationale"] = rz
+            extras["priority_rationale_en"] = re_
+            extras_out = json.dumps(extras, ensure_ascii=False, default=str)
+
+        await db.execute(
+            "UPDATE intel_items SET "
+            "is_ransomware=?, is_tw_industry=?, tw_entities_json=?, "
+            "is_finance=?, finance_entities_json=?, "
+            "is_microsoft=?, ms_entities_json=?, "
+            "tags_json=?, priority=?, extras_json=? "
+            "WHERE id=?",
+            (
+                new_ransom,
+                new_is_tw,
+                json.dumps(new_tw, ensure_ascii=False),
+                new_is_fin,
+                json.dumps(new_fin, ensure_ascii=False),
+                new_is_ms,
+                json.dumps(new_ms, ensure_ascii=False),
+                json.dumps(tags, ensure_ascii=False),
+                new_priority,
+                extras_out,
+                item_id,
+            ),
         )
         fixed += 1
     return fixed
