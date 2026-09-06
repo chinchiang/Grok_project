@@ -138,6 +138,9 @@ jobs:
         run: python scripts/export_static.py
         env:
           PYTHONUNBUFFERED: "1"
+          # Built-in token: raises the GitHub API budget for the CISA ICS CSV
+          # fallback from 60 (anonymous, shared per runner IP) to 1000 req/hr.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Optional secrets (repo Settings → Secrets and variables → Actions)
           SHODAN_API_KEY: ${{ secrets.SHODAN_API_KEY }}
           CENSYS_API_ID: ${{ secrets.CENSYS_API_ID }}

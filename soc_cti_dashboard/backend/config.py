@@ -805,9 +805,10 @@ RANSOMLOOK_MAX_ITEMS = int(os.environ.get("RANSOMLOOK_MAX_ITEMS") or "60")
 #   @DarkReading        → Dark Reading RSS
 #   @TheDFIRReport      → The DFIR Report RSS
 #   @sans_isc           → SANS ISC RSS
+# nitter.net answers 410 Gone and nitter.privacyredirect.com redirects to a site
+# without RSS (both permanent as of 2026-09); keep only the mirror that still
+# resolves so each account does not burn 4-5 dead requests before the fallback.
 X_NITTER_MIRRORS = (
-    "https://nitter.net",
-    "https://nitter.privacyredirect.com",
     "https://xcancel.com",
 )
 X_OSINT_ACCOUNTS = [
@@ -976,7 +977,10 @@ X_DARKWEB_ACCOUNTS = X_OSINT_ACCOUNTS
 X_DARKWEB_MAX_ITEMS = int(os.environ.get("X_DARKWEB_MAX_ITEMS") or "20")
 X_OSINT_MAX_ITEMS = X_DARKWEB_MAX_ITEMS
 # Obsolete source_health rows to strip from layer dashboard
-OBSOLETE_SOURCE_IDS = frozenset({"x_darkweb_accounts"})
+# Retired sources whose source_health rows linger in the cached DB (they were
+# never removed after the collector stopped fetching them) and inflate the
+# "healthy sources" KPI; purged on every harvest.
+OBSOLETE_SOURCE_IDS = frozenset({"x_darkweb_accounts", "krebs_rss", "bleeping_rss", "thn_rss"})
 # TWCERT/CC public RSS (official channels; old /tw/rss/rss.xml is 404)
 # See https://www.twcert.org.tw/tw/cp-40-2835-507dc-1.html
 TWCERT_NEWS_RSS = "https://www.twcert.org.tw/tw/rss-104-1.xml"  # 資安新聞
