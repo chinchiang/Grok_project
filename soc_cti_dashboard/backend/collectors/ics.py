@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import os
 import io
 import json
 import re
@@ -33,16 +34,7 @@ async def collect_cisa_ics(max_items: int | None = None) -> int:
     t0 = time.perf_counter()
     errors: list[str] = []
 
-    # 1) Official RSS candidates (browser-like headers help on some networks)
-    browser_headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
-        ),
-        "Accept": "application/rss+xml, application/xml, text/xml, */*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.cisa.gov/news-events/cybersecurity-advisories",
-    }
+    # 1) Official RSS candidates (collect_rss_layer already sends browser-like headers)
     for url in CISA_ADVISORIES_RSS_CANDIDATES:
         try:
             n = await collect_rss_layer(
@@ -99,13 +91,16 @@ async def _collect_cisa_ics_from_github_csv(*, limit: int = 40) -> int:
     """Ingest recent CISA ICS advisories from icsadvprj/ICS-Advisory-Project CSV."""
     year = datetime.utcnow().year
     async with await _client() as client:
-        api = await client.get(
-            CISA_ICS_GITHUB_API,
-            headers={
-                "User-Agent": USER_AGENT,
-                "Accept": "application/vnd.github+json",
-            },
-        )
+        # Anonymous GitHub API calls share a 60 req/hr budget per runner IP and
+        # get rate-limited on Actions; use the workflow's GITHUB_TOKEN when set.
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "application/vnd.github+json",
+        }
+        github_token = (os.environ.get("GITHUB_TOKEN") or "").strip()
+        if github_token:
+            headers["Authorization"] = f"Bearer {github_token}"
+        api = await client.get(CISA_ICS_GITHUB_API, headers=headers)
         api.raise_for_status()
         listing = api.json()
         if not isinstance(listing, list):
