@@ -198,7 +198,34 @@ curl -X POST http://127.0.0.1:8787/api/intel/<id>/verdict \
 > 本機 UI 以 `X-API-Key` 送出右上角「金鑰」的值（只存在該分頁 sessionStorage）。
 > 公開 GitHub Pages 匯出**不含** L4 EASM 與 HIBP 網域監控——那些是攻擊面資料，只留本機 API。
 
+## Uvicorn 升級與反向代理驗證
+
+`python run.py` 預設仍監聽 `127.0.0.1:8787`，使用 HTTP/1.1；不啟用實驗性 HTTP/2。
+`FORWARDED_ALLOW_IPS` 未設定時明確維持 `127.0.0.1`，避免 Uvicorn 0.53.0
+新增的 `::1` 預設信任擴大既有邊界。設為空字串表示不信任任何代理；
+只有實際使用 IPv6 loopback 代理時，才明確設為 `127.0.0.1,::1`。
+此設定只控制 forwarded headers，不能取代 API key、存取控制或 TLS。
+
+對外部署前，需記錄實際啟動命令、Python/OS 版本、`SOC_CTI_BIND`、
+`FORWARDED_ALLOW_IPS`、代理到後端的來源位址，以及代理清理／重建
+`X-Forwarded-For`、`X-Forwarded-Proto` 的設定；不可使用 `*` 信任所有來源。
+若自行改用 Uvicorn CLI，必須明確傳入相同的 proxy trust 設定，因為它不經過 `run.py`。
+Repository 的 Pages workflow 只發布靜態檔，不能證明外部主機的反向代理設定。
+
+`tests/test_uvicorn_transport.py` 隨現有 sanity gate 執行：啟動真實 Uvicorn，
+驗證首頁、health、未授權寫入 401、同連線重用、混合大小寫 Connection close
+token、trusted/untrusted proxy headers 與正常關閉。測試使用暫存資料庫、
+停用排程與 bootstrap 並阻擋 outbound socket；診斷端點僅存在測試子程序。
+IPv6 信任邊界另以 ASGI peer 測試，不宣稱已驗證實際 IPv6 listener 或代理部署。
+
+```bash
+cd soc_cti_dashboard
+python -m pip install --require-hashes -r requirements-dev.txt
+PYTHONPATH=..:. python -m pytest tests/test_uvicorn_transport.py -q
+```
+
 ## 前端安全（CSP）
+
 
 `index.html` 開頭以 `<meta http-equiv="Content-Security-Policy">` 交付政策——GitHub Pages 無法設回應標頭，
 所以只能走文件內宣告，且必須排在任何資源之前。目前政策：`default-src 'none'`，`script-src 'self'`，

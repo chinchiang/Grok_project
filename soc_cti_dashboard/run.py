@@ -19,4 +19,9 @@ if __name__ == "__main__":
         port=8787,
         reload=False,
         log_level="info",
+        # Keep the pre-0.53 trust boundary; IPv6 proxies require explicit opt-in.
+        # An empty value trusts no proxies. Never use '*' for an exposed API.
+        proxy_headers=True,
+        forwarded_allow_ips=os.environ.get("FORWARDED_ALLOW_IPS", "127.0.0.1"),
+        http2=False,
     )
