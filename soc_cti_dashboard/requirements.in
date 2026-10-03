@@ -4,7 +4,7 @@
 #
 # Upper bounds keep a twice-daily harvest from resolving to an unexpected
 # major. Bump the range here, recompile, and let the sanity job prove it.
-fastapi>=0.115.0,<1.0
+fastapi>=0.142.2,<1.0
 uvicorn[standard]>=0.32.0,<1.0
 httpx>=0.27.0,<0.29
 apscheduler>=3.10.4,<4.0
